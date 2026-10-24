@@ -21,7 +21,7 @@ internal object SpeakerEvidence {
             if (!comparable) return@mapIndexed current
             val leftMatch = SpeakerClusterer.dot(a!!, b!!)
             val rightMatch = SpeakerClusterer.dot(b, c!!)
-            val mixed = SpeakerClusterer.dot(a, c) < 0.60f && leftMatch >= 0.55f && rightMatch >= 0.55f &&
+            val mixed = SpeakerClusterer.dot(a, c) < 0.45f && leftMatch >= 0.55f && rightMatch >= 0.55f &&
                 abs(leftMatch - rightMatch) < 0.10f
             if (mixed) current.copy(canSeed = false) else current
         }

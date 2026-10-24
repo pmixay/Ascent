@@ -18,6 +18,11 @@ class SpeakerEvidenceTest {
         assertTrue(SpeakerEvidence.stableSeeds(observations, listOf(0, 0, 0))[1].canSeed)
     }
 
+    @Test fun realisticSameVoiceVariationIsNotMistakenForTwoDistinctNeighbors() {
+        val observations = windows(floatArrayOf(1f, 0f), floatArrayOf(.88f, .48f), floatArrayOf(.55f, .835f))
+        assertTrue(SpeakerEvidence.stableSeeds(observations, listOf(0, 0, 0))[1].canSeed)
+    }
+
     @Test fun mixedWindowCanVoteButCannotTeachEitherVoice() {
         val observations = windows(floatArrayOf(1f, 0f), floatArrayOf(1f, 1f), floatArrayOf(0f, 1f))
         val result = SpeakerEvidence.stableSeeds(observations, listOf(0, 0, 0))

@@ -15,6 +15,29 @@ class SpeakerClustererTest {
         assertEquals(listOf("speaker_1", "speaker_2", "speaker_1", "speaker_2"), result.assignments.map { it.speakerId })
     }
 
+    @Test fun defaultOperatingPointSeparatesVoicesDespiteRealisticWithinVoiceVariation() {
+        // Same-voice cosine 0.64, different-voice cosine 0.28: representative of the broad
+        // separation measured by CI with this exact ERes2NetV2 checkpoint, not ideal orthogonality.
+        val observations = (0 until 8).map { index ->
+            val vector = FloatArray(192)
+            if (index % 2 == 0) vector[0] = 0.8f else {
+                vector[0] = 0.35f
+                vector[1] = sqrt(0.64f - 0.35f * 0.35f)
+            }
+            vector[index + 2] = 0.6f
+            SpeakerObservation(index * 3000L, index * 3000L + 1800, vector)
+        }
+        val result = SpeakerClusterer().cluster(observations)
+        assertEquals((0 until 8).map { if (it % 2 == 0) "speaker_1" else "speaker_2" },
+            result.assignments.map { it.speakerId })
+    }
+
+    @Test fun aWeakAcousticMatchNeedsMoreThanPassingTheDiscoveryCutoff() {
+        val weak = voice(5000, 0.57f, sqrt(1f - 0.57f * 0.57f), canSeed = false)
+        val result = SpeakerClusterer().cluster(listOf(voice(0, 1f, 0f), weak))
+        assertEquals(SpeakerClusterer.UNKNOWN, result.assignments.last().speakerId)
+    }
+
     @Test fun clusteringDoesNotDependOnTheOrderOfEmbeddingExtraction() {
         val samples = listOf(voice(0, 1f, 0f), voice(4000, 0f, 1f), voice(8000, 0.98f, 0.02f))
         val clusterer = SpeakerClusterer()
@@ -24,14 +47,26 @@ class SpeakerClustererTest {
     }
 
     @Test fun shortMixedBoundaryDoesNotInventAThirdSpeakerOrPoisonBothVoices() {
-        val samples = listOf(voice(0, 1f, 0f), voice(2000, 1f, 1f), voice(4000, 0f, 1f))
+        val samples = listOf(voice(0, 1f, 0f), voice(900, 1f, 1f), voice(1800, 0f, 1f))
         val result = SpeakerClusterer().cluster(samples)
         assertEquals(listOf("speaker_1", SpeakerClusterer.UNKNOWN, "speaker_2"), result.assignments.map { it.speakerId })
         assertEquals(2, result.signatures.size)
     }
 
+    @Test fun separateShortUtteranceBetweenTwoOthersIsNotAssumedToBeTheirMixture() {
+        val observations = listOf(
+            voice(0, 1f, 0f).copy(vector = floatArrayOf(1f, 0f, 0f)),
+            voice(2000, 0.5f, 0.5f).copy(vector = floatArrayOf(0.5f, 0.5f, sqrt(0.5f))),
+            voice(4000, 0f, 1f).copy(vector = floatArrayOf(0f, 1f, 0f)),
+        )
+        assertEquals(listOf("speaker_1", "speaker_2", "speaker_3"),
+            SpeakerClusterer().cluster(observations).assignments.map { it.speakerId })
+    }
+
     @Test fun aThirdVoiceIsNotDiscardedForResemblingTwoDistantEarlierSpeakers() {
-        val result = SpeakerClusterer().cluster(listOf(
+        // This synthetic geometry intentionally tests the temporal rejection rule with a
+        // stricter discovery cutoff; 0.707 is same-voice-compatible for real ERes2NetV2.
+        val result = SpeakerClusterer(threshold = 0.72f).cluster(listOf(
             voice(0, 1f, 0f), voice(4000, 0f, 1f), voice(10000, 1f, 1f),
         ))
         assertEquals(listOf("speaker_1", "speaker_2", "speaker_3"), result.assignments.map { it.speakerId })
@@ -93,7 +128,7 @@ class SpeakerClustererTest {
             SpeakerObservation(index * 2000L, index * 2000L + 1800, vector)
         }
         val unrelated = FloatArray(192).also { it[100] = 1f }
-        val result = SpeakerClusterer().cluster(samples + listOf(
+        val result = SpeakerClusterer(threshold = 0.72f).cluster(samples + listOf(
             SpeakerObservation(18000, 19800, unrelated), SpeakerObservation(21000, 22800, unrelated),
         ))
         assertEquals(List(8) { "speaker_1" }, result.assignments.take(8).map { it.speakerId })
@@ -102,7 +137,7 @@ class SpeakerClustererTest {
     }
 
     @Test fun isolatedVoiceExcursionDoesNotCreateAnotherPersonOrTeachItsVoiceprint() {
-        val result = SpeakerClusterer().cluster(listOf(
+        val result = SpeakerClusterer(threshold = 0.72f).cluster(listOf(
             voice(0, 1f, 0f), voice(1800, 1f, 0f),
             voice(3600, 0.65f, sqrt(1f - 0.65f * 0.65f)).copy(quality = 0.6f),
             voice(5400, 1f, 0f), voice(7200, 1f, 0f),
@@ -122,7 +157,9 @@ class SpeakerClustererTest {
     }
 
     @Test fun aClearBriefVoiceIsNotAbsorbedEvenWhenItResemblesTheSurroundingVoice() {
-        val result = SpeakerClusterer().cluster(listOf(
+        // Exercise fragment cleanup independently of the checkpoint's discovery operating
+        // point: this close synthetic pair is declared separate by the explicit cutoff.
+        val result = SpeakerClusterer(threshold = 0.72f).cluster(listOf(
             voice(0, 1f, 0f), voice(1800, 1f, 0f),
             voice(3600, 0.65f, sqrt(1f - 0.65f * 0.65f)),
             voice(5400, 1f, 0f), voice(7200, 1f, 0f),
@@ -131,7 +168,7 @@ class SpeakerClustererTest {
     }
 
     @Test fun aOneSidedVoiceChangeIsNotAbsorbedAsAnIsolatedFragment() {
-        val result = SpeakerClusterer().cluster(listOf(
+        val result = SpeakerClusterer(threshold = 0.72f).cluster(listOf(
             voice(0, 1f, 0f), voice(1800, 1f, 0f), voice(3600, 1f, 0f),
             voice(5400, 0.65f, sqrt(1f - 0.65f * 0.65f)),
         ))
@@ -156,8 +193,8 @@ class SpeakerClustererTest {
 
     @Test fun weakNonSeedEvidenceCanRecoverOnlyBetweenMatchingNeighbors() {
         val first = voice(0, 1f, 0f).copy(vector = floatArrayOf(1f, 0f, 0f))
-        val weak = voice(1800, 0.65f, 0.65f, canSeed = false)
-            .copy(vector = floatArrayOf(0.65f, 0.65f, sqrt(1f - 2f * 0.65f * 0.65f)))
+        val weak = voice(1800, 0.53f, 0.53f, canSeed = false)
+            .copy(vector = floatArrayOf(0.53f, 0.53f, sqrt(1f - 2f * 0.53f * 0.53f)))
         val returning = voice(3600, 1f, 0f).copy(vector = floatArrayOf(1f, 0f, 0f))
         val supported = SpeakerClusterer().cluster(listOf(first, weak, returning))
         assertEquals("speaker_1", supported.assignments[1].speakerId)
@@ -169,7 +206,7 @@ class SpeakerClustererTest {
     }
 
     @Test fun continuityRecoveryNeverJumpsAcrossASilentGap() {
-        val weak = voice(5000, 0.65f, sqrt(1f - 0.65f * 0.65f), canSeed = false)
+        val weak = voice(5000, 0.53f, sqrt(1f - 0.53f * 0.53f), canSeed = false)
         val result = SpeakerClusterer().cluster(listOf(voice(0, 1f, 0f), weak, voice(10000, 1f, 0f)))
         assertEquals(SpeakerClusterer.UNKNOWN, result.assignments[1].speakerId)
     }

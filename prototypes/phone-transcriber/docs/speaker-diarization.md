@@ -113,18 +113,24 @@ matching, not authentication or proof of a person's real identity.
 
 ## Calibration and limits
 
-The initial cluster cosine threshold remains 0.72 and assignment margin 0.08;
-centroid consolidation requires 0.80. A low-occupancy short reply requires
-similarity 0.80 and margin 0.12. A bounded, two-sided recovery can use similarity
-0.62 with a margin of 0.08 when an established voice is independently supported
-on both sides. Recovered contexts cannot recursively recover more contexts or
-teach remembered profiles. Word-run recovery is limited to 800 ms with gaps no
+Cluster discovery now uses cosine 0.55, while ordinary assignment requires
+0.60 with a runner-up margin of 0.08. Centroid consolidation requires 0.75.
+These decisions have separate thresholds because individual short-window
+embeddings and aggregate voice centroids have different variability. A
+low-occupancy short reply still requires similarity 0.80 and margin 0.12.
+A bounded, two-sided recovery can use similarity 0.48 with a margin of 0.08
+when an established voice is independently supported on both sides. An
+isolated degraded fragment requires similarity 0.50 and margin 0.12 before
+being removed as a separate voice. Recovered contexts cannot recursively recover
+more contexts or teach remembered profiles. Word-run recovery is limited to 800 ms with gaps no
 larger than 500 ms and clear same-voice neighbors.
 
 Signature windows still require similarity of at least 0.80 and margin of at
 least 0.12, in addition to quality and boundary checks. These values are
-engineering starting points, not measured confidence probabilities or a
-calibration on held-out Russian phone conversations.
+development operating points, not measured confidence probabilities or a
+calibration on held-out Russian phone conversations. Lowering the discovery
+cutoff is intended to reduce fragmentation but can merge similar
+voices not represented by those readers; that tradeoff needs broader evaluation.
 
 Current CTC word timestamps are estimates, and ASR errors can affect the regions
 used for embeddings. Short replies, similar voices, background speech, distant
@@ -146,6 +152,38 @@ This checks a fixed set of real-speaker regressions. It is development data,
 not a held-out benchmark, and does not measure natural-dialogue DER or ASR word
 timing errors. A passing build alone does not establish improvement on the
 user's recordings.
+
+### Observed development regression
+
+[CI run 40125534342](https://github.com/pmixay/Ascent/actions/runs/40125534342)
+at commit `5c4fa7b` reproduced the reported fragmentation and failed both real
+speaker checks. This revision already included the first continuity changes;
+it retained the old 0.72 clustering cutoff. It is not a measurement of the
+earlier shipped APK.
+
+| Development case | Speaker labels observed | Unknown windows |
+| --- | --- | --- |
+| Reader 2671 alone | 5 | 26.32% |
+| Reader 3056 alone | 12 | 5.88% |
+| Reader 4471 alone | 2 | 7.14% |
+| Alternating three readers | 12 | 16.00% |
+
+The alternating sequence had **53.33% window assignment error**, including
+unknowns, after the best one-to-one mapping of predicted labels to reference
+readers. Clean cross-utterance cosine similarities had 10th/50th/90th
+percentiles of **0.587/0.680/0.760 for the same reader** and
+**0.198/0.281/0.371 for different readers**. This exposed the mismatch between
+the old cutoff and this model's actual short-window output; idealized
+orthogonal-vector tests had not exposed it.
+
+There are only six source utterances, totaling 47.88 seconds, from three
+readers. The 150 evaluated windows include overlapping contexts and three
+variants of each utterance; they are not 150 independent examples. Cosine
+percentiles weight window pairs rather than giving each reader equal weight.
+The alternating sequence uses 1.2-second gaps and embeddings computed inside
+each source clip, so it does not evaluate mixed boundaries or the ASR pass.
+These measurements guide development and must not be presented as held-out
+accuracy or diarization error rate.
 
 Voice-memory tests cover explicit enrollment, encrypted restart, short/invalid
 evidence rejection, runner-up and conflicting-speaker ambiguity, absence of

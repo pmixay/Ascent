@@ -21,6 +21,9 @@ class RealSpeakerRegressionTest {
             val unknownRate = 1.0 - identified.size.toDouble() / examples.size
             val diagnostic = "Russian reader $reader: windows=${examples.size}, speakers=${ids.size}, unknown=$unknownRate"
             println(diagnostic)
+            println("Russian reader $reader: signatureEvidence=" + result.signatures.map {
+                "speechMs=${it.speechMs}, windows=${it.windowCount}, cohesion=${it.cohesion}"
+            })
             if (ids.size != 1 || unknownRate > 0.15) failures += diagnostic
         }
         assertTrue(failures.joinToString("\n"), failures.isEmpty())

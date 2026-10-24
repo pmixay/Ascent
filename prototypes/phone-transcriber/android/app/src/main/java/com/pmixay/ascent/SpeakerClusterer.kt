@@ -25,25 +25,45 @@ data class SpeakerClustering(val assignments: List<SpeakerAssignment>, val signa
  * These cosine thresholds are initial operating points, not calibrated Russian accuracy claims.
  */
 class SpeakerClusterer(
-    private val threshold: Float = 0.72f,
+    private val threshold: Float = 0.55f,
     private val margin: Float = 0.08f,
     private val maxSpeakers: Int = 12,
     private val maxAnchors: Int = 256,
+    private val assignmentThreshold: Float = maxOf(threshold, 0.60f),
+    private val centroidThreshold: Float = 0.75f,
 ) {
     init {
-        require(threshold in 0f..1f && margin in 0f..1f)
+        require(threshold in 0f..1f && margin in 0f..1f &&
+            assignmentThreshold in 0f..1f && centroidThreshold in 0f..1f)
         require(maxSpeakers > 0 && maxAnchors in 1..512)
     }
 
     fun cluster(observations: List<SpeakerObservation>): SpeakerClustering {
         val vectors = observations.map { normalized(it.vector) }
         val dimension = vectors.firstOrNull { it != null }?.size
-        val candidates = observations.indices.filter {
+        val usable = observations.indices.filter {
             val item = observations[it]
             vectors[it]?.size == dimension && vectors[it] != null && item.canSeed &&
                 item.endMs - item.startMs >= 640 && item.quality.isFinite() && item.quality >= 0.55f &&
                 support(observations, listOf(it)) >= 640
         }.sortedWith(compareBy({ observations[it].startMs }, { observations[it].endMs }, { it }))
+        // Reject a genuinely mixed temporal boundary before agglomeration: after merging it
+        // into a voice, no centroid-only pass can remove its contamination. The neighboring
+        // voices must be substantially more separated than ordinary same-voice variation.
+        val candidates = usable.filterIndexed { position, index ->
+            val before = usable.getOrNull(position - 1)
+            val after = usable.getOrNull(position + 1)
+            if (before == null || after == null ||
+                observations[before].endMs <= observations[index].startMs ||
+                observations[after].startMs >= observations[index].endMs) true
+            else {
+                val left = dot(vectors[index]!!, vectors[before]!!)
+                val right = dot(vectors[index]!!, vectors[after]!!)
+                !(dot(vectors[before]!!, vectors[after]!!) < 0.45f &&
+                    left >= 0.55f && right >= 0.55f && abs(left - right) < 0.10f)
+            }
+        }
+        val mixedBoundaries = usable.toSet() - candidates.toSet()
         if (candidates.isEmpty()) return unknown(observations.size)
 
         // Cover the full session rather than only its beginning. At most 256 squared scores.
@@ -121,7 +141,7 @@ class SpeakerClusterer(
             checkCancelled()
             var first = -1
             var second = -1
-            var best = maxOf(threshold, 0.80f)
+            var best = maxOf(threshold, centroidThreshold)
             for (a in consolidated.indices) for (b in a + 1 until consolidated.size) {
                 if (consolidated[a].indices.size == 1 && consolidated[b].indices.size == 1) continue
                 val score = dot(consolidated[a].center, consolidated[b].center)
@@ -157,7 +177,7 @@ class SpeakerClusterer(
                 observations[after].startMs - sample.endMs > 500) continue
             val ranked = consolidated.indices.filter { it != index }
                 .map { it to dot(item.center, consolidated[it].center) }.sortedByDescending { it.second }
-            if (ranked.first().first != parent || ranked.first().second < (threshold - 0.10f).coerceAtLeast(0.60f)) continue
+            if (ranked.first().first != parent || ranked.first().second < (assignmentThreshold - 0.10f).coerceAtLeast(0.45f)) continue
             if (ranked.first().second - (ranked.getOrNull(1)?.second ?: -1f) < maxOf(margin, 0.12f)) continue
             fragmentParents[index] = parent
         }
@@ -187,7 +207,7 @@ class SpeakerClusterer(
                 bestScores[index] = best.second
                 // Low speech occupancy is acceptable for an acoustically clear short reply, but
                 // it needs stronger evidence and still cannot become a training observation.
-                val minimum = if (observations[index].quality < 0.35f) maxOf(threshold, 0.80f) else threshold
+                val minimum = if (observations[index].quality < 0.35f) maxOf(assignmentThreshold, 0.80f) else assignmentThreshold
                 val separation = if (observations[index].quality < 0.35f) maxOf(margin, 0.12f) else margin
                 if (best.second < minimum || difference < separation) SpeakerAssignment(UNKNOWN, best.second)
                 else SpeakerAssignment("speaker_${best.first + 1}", best.second)
@@ -205,14 +225,15 @@ class SpeakerClusterer(
             val item = observations[index]
             if (item.startMs - observations[before].endMs > 500 ||
                 observations[after].startMs - item.endMs > 500) continue
-            if (bestScores[index] < (threshold - 0.10f).coerceAtLeast(0.60f) || margins[index] < margin) continue
+            if (bestScores[index] < (assignmentThreshold - 0.12f).coerceAtLeast(0.45f) || margins[index] < margin) continue
             if (cleanGroups[groupIndex].indices.size < 2 || cleanGroups[groupIndex].supportMs < 2400) continue
             assignments[index] = SpeakerAssignment(id, bestScores[index])
         }
         val signatures = cleanGroups.indices.mapNotNull { groupIndex ->
             val id = "speaker_${groupIndex + 1}"
             val trusted = observations.indices.filter {
-                it !in recoveredFragments && observations[it].canSeed && observations[it].quality >= 0.6f &&
+                it !in recoveredFragments && it !in mixedBoundaries &&
+                    observations[it].canSeed && observations[it].quality >= 0.6f &&
                     strictAssignments[it].speakerId == id &&
                     assignments[it].speakerId == id && assignments[it].similarity >= 0.80f && margins[it] >= 0.12f
             }
