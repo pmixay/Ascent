@@ -4,13 +4,21 @@ import ai.onnxruntime.OrtEnvironment
 import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.work.Configuration
+import androidx.work.NetworkType
+import androidx.work.WorkManager
+import androidx.work.testing.SynchronousExecutor
+import androidx.work.testing.TestListenableWorkerBuilder
+import androidx.work.testing.WorkManagerTestInitHelper
 import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractor
 import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import org.junit.BeforeClass
 import org.junit.runner.RunWith
 import java.io.File
 import java.util.UUID
@@ -18,6 +26,16 @@ import java.util.UUID
 /** Exercises the optimized app; actual speech/model parity runs in the model workflow. */
 @RunWith(AndroidJUnit4::class)
 class NativeRuntimeTest {
+    companion object {
+        @BeforeClass @JvmStatic fun initializeBackgroundWorkForTests() {
+            // Network constraints are controlled by TestDriver, so opening the activity
+            // does not download production weights as a side effect of this smoke test.
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            WorkManagerTestInitHelper.initializeTestWorkManager(context,
+                Configuration.Builder().setExecutor(SynchronousExecutor()).build())
+        }
+    }
+
     @Test fun bothInferenceLibrariesLoadInOneAndroidProcess() {
         val environment = OrtEnvironment.getEnvironment()
         environment.setTelemetry(false)
@@ -57,4 +75,19 @@ class NativeRuntimeTest {
             instrumentation.runOnMainSync { activity.finish() }
         }
     }
+
+    @Test fun automaticModelWorkIsUniqueAndWaitsForNetwork() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        ModelDownloads.schedule(context)
+        ModelDownloads.schedule(context)
+        val manager = WorkManager.getInstance(context)
+        val transfers = manager.getWorkInfosForUniqueWork("ascent-model-download").get().filter { !it.state.isFinished }
+        assertEquals(1, transfers.size)
+        assertEquals(NetworkType.CONNECTED, transfers.single().constraints.requiredNetworkType)
+        assertEquals(1, manager.getWorkInfosForUniqueWork("ascent-model-updates").get().size)
+        // WorkerFactory must still resolve these constructors in the R8-optimized APK.
+        assertNotNull(TestListenableWorkerBuilder<ModelDownloadWorker>(context).build())
+        assertNotNull(TestListenableWorkerBuilder<ModelUpdateWorker>(context).build())
+    }
+
 }

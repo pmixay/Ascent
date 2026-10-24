@@ -14,12 +14,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
@@ -30,7 +33,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
@@ -51,6 +53,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.Placeholder
@@ -59,6 +64,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -81,18 +87,14 @@ internal fun AscentTheme(content: @Composable () -> Unit) {
 internal fun ConversationScreen(
     state: ConversationState,
     onRecord: () -> Unit,
-    onOpenAudio: () -> Unit,
-    onDownloadModels: () -> Unit,
-    onCancelModelDownload: () -> Unit,
-    onTranscribe: () -> Unit,
-    onRename: (String, String) -> Unit,
-    onDelete: () -> Unit,
-    onExport: (Boolean) -> Unit,
+    onToggleConversation: (String) -> Unit,
+    onRename: (String, String, String) -> Unit,
+    onExport: (String, Boolean) -> Unit,
 ) {
-    var renameId by rememberSaveable { mutableStateOf<String?>(null) }
+    var renameConversation by rememberSaveable { mutableStateOf<String?>(null) }
+    var renameSpeaker by rememberSaveable { mutableStateOf<String?>(null) }
     var renameText by rememberSaveable { mutableStateOf("") }
-    var deleteDialog by rememberSaveable { mutableStateOf(false) }
-    var exportDialog by rememberSaveable { mutableStateOf(false) }
+    var exportConversation by rememberSaveable { mutableStateOf<String?>(null) }
     val editable = !state.busy && !state.recording
 
     Box(Modifier.fillMaxSize()) {
@@ -100,132 +102,189 @@ internal fun ConversationScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize().safeDrawingPadding(),
             contentPadding = PaddingValues(horizontal = 22.dp, vertical = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            item {
-                AscentWordmark(Modifier.widthIn(max = 620.dp).fillMaxWidth())
-            }
-            item {
-                Column(Modifier.widthIn(max = 620.dp).fillMaxWidth()) {
-                    Text("Разговор становится\nяснее.", fontSize = 35.sp, lineHeight = 38.sp,
-                        fontWeight = FontWeight.Medium, letterSpacing = (-1.4).sp, color = Ink)
-                    Spacer(Modifier.height(9.dp))
-                    Text("Каждый голос. Каждая реплика.", fontSize = 15.sp, color = Secondary)
-                }
-            }
-            if (state.modelDirectory == null || state.downloadingModels) {
-                item { ModelDownloadCard(state, editable, onDownloadModels, onCancelModelDownload) }
-            }
+            item { AscentWordmark(Modifier.widthIn(max = 620.dp).fillMaxWidth()) }
             item {
                 GlassCard {
-                    Text("ВАШ РАЗГОВОР", modifier = Modifier.fillMaxWidth(), fontSize = 10.sp,
-                        letterSpacing = 1.8.sp, textAlign = TextAlign.Center, color = Secondary)
+                    Text(if (state.recording) "СЛУШАЮ" else "НОВЫЙ РАЗГОВОР", modifier = Modifier.fillMaxWidth(),
+                        fontSize = 11.sp, letterSpacing = 1.8.sp, textAlign = TextAlign.Center, color = Secondary)
                     Spacer(Modifier.height(10.dp))
                     Text(formatTime(state.elapsedMs), modifier = Modifier.fillMaxWidth(), fontSize = 42.sp,
                         fontWeight = FontWeight.Light, letterSpacing = (-1.2).sp, textAlign = TextAlign.Center,
                         color = Ink, style = TextStyle(fontFeatureSettings = "tnum"))
                     AudioWaveform(state.waveform, Modifier.fillMaxWidth().height(65.dp))
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        RecordOrb(recording = state.recording, level = state.level, enabled = !state.busy, onClick = onRecord)
+                        RecordOrb(recording = state.recording, level = state.level,
+                            enabled = state.recording || (!state.busy && state.historyReady && state.modelDirectory != null), onClick = onRecord)
                     }
-                    Text(if (state.recording) "Коснитесь, чтобы завершить" else if (state.downloadingModels) "Загружаю модели…"
-                        else if (state.busy) "Обрабатываю на устройстве…" else "Коснитесь, чтобы начать",
-                        modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 14.sp, color = Ink)
-                    Spacer(Modifier.height(7.dp))
-                    Text("Аудио остаётся на вашем телефоне", modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center, fontSize = 11.sp, color = Secondary)
+                    Text(if (state.recording) "Завершить разговор" else "Начать разговор",
+                        modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 15.sp, color = Ink)
                 }
             }
-            item {
-                Column(Modifier.widthIn(max = 620.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    GlassAction("＋  Открыть аудиозапись", enabled = editable, onClick = onOpenAudio)
-                    Spacer(Modifier.height(7.dp))
-                    Text("WAV — 16 кГц — моно — до 30 минут", fontSize = 11.sp, color = Secondary)
-                }
-            }
-            item {
-                Row(Modifier.widthIn(max = 620.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (state.busy) CircularProgressIndicator(Modifier.size(22.dp), color = Amber, strokeWidth = 2.dp)
-                    Text(state.status, fontSize = 13.sp, color = Secondary)
-                }
-            }
-            item {
-                GlassCard {
-                    Text("ТЕКУЩАЯ ЗАПИСЬ", fontSize = 10.sp, letterSpacing = 1.5.sp, color = Secondary)
-                    Spacer(Modifier.height(8.dp))
-                    Text(if (state.audioFile == null) "Начните запись или откройте WAV" else "Разговор — ${formatTime(state.elapsedMs)}",
-                        color = Ink, fontSize = 14.sp)
-                    Spacer(Modifier.height(15.dp))
-                    GlassAction("Расшифровать разговор", emphasis = true,
-                        enabled = editable && state.audioFile != null && state.modelDirectory != null, onClick = onTranscribe)
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        GlassAction("Экспорт", modifier = Modifier.weight(1f), enabled = editable && state.segments.isNotEmpty()) { exportDialog = true }
-                        GlassAction("Удалить", modifier = Modifier.weight(1f), enabled = editable && state.audioFile != null) { deleteDialog = true }
-                    }
-                }
-            }
-            if (state.segments.isEmpty()) {
+            item { ConversationStatus(state) }
+            item { ModelsStatus(state) }
+            if (state.conversations.isEmpty()) {
                 item {
-                    GlassCard {
-                        Text("Слова, в которых легко\nориентироваться.", fontSize = 22.sp, lineHeight = 27.sp,
-                            fontWeight = FontWeight.Medium, letterSpacing = (-0.5).sp, color = Ink)
-                        Spacer(Modifier.height(9.dp))
-                        Text("После расшифровки здесь появятся участники, реплики и время разговора.", fontSize = 13.sp, color = Secondary)
+                    Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().padding(vertical = 16.dp)) {
+                        Text("Ваши разговоры", fontSize = 24.sp, fontWeight = FontWeight.Medium, color = Ink)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Завершите разговор — здесь появятся участники, реплики и время.",
+                            fontSize = 15.sp, lineHeight = 22.sp, color = Secondary)
                     }
                 }
             } else {
                 item {
-                    Column(Modifier.widthIn(max = 620.dp).fillMaxWidth()) {
-                        Text("Расшифровка", fontSize = 25.sp, fontWeight = FontWeight.Medium, color = Ink)
-                        Text("Коснитесь участника, чтобы указать имя или роль.", fontSize = 12.sp, color = Secondary)
+                    Row(Modifier.widthIn(max = 620.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Разговоры", modifier = Modifier.weight(1f), fontSize = 24.sp,
+                            fontWeight = FontWeight.Medium, color = Ink)
+                        Text("7 дней", fontSize = 13.sp, color = Secondary)
                     }
                 }
-                itemsIndexed(state.segments, key = { index, segment -> "$index-${segment.startMs}" }) { _, segment ->
-                    GlassCard {
-                        if (segment.speakerId == UNKNOWN_SPEAKER) {
-                            Text(UNKNOWN_SPEAKER_NAME, color = Secondary, fontSize = 14.sp)
-                        } else {
-                            GlassAction(state.speakerName(segment.speakerId), enabled = editable) {
-                                renameId = segment.speakerId
-                                renameText = state.speakerName(segment.speakerId)
-                            }
+                items(state.conversations, key = { it.id }) { conversation ->
+                    ConversationTimeline(
+                        conversation = conversation,
+                        expanded = conversation.id in state.expandedConversationIds,
+                        editable = editable,
+                        onToggle = { onToggleConversation(conversation.id) },
+                        onExport = { exportConversation = conversation.id },
+                        onRename = { speakerId ->
+                            renameConversation = conversation.id
+                            renameSpeaker = speakerId
+                            renameText = conversation.speakerName(speakerId)
+                        },
+                    )
+                }
+            }
+        }
+    }
+    if (renameConversation != null && renameSpeaker != null) AlertDialog(
+        onDismissRequest = { renameConversation = null; renameSpeaker = null },
+        title = { Text("Имя или роль") },
+        text = { OutlinedTextField(value = renameText, onValueChange = { renameText = it.take(80) },
+            singleLine = true, label = { Text("Участник") }) },
+        confirmButton = { TextButton(enabled = renameText.isNotBlank() && editable, onClick = {
+            onRename(renameConversation!!, renameSpeaker!!, renameText)
+            renameConversation = null
+            renameSpeaker = null
+        }) { Text("Сохранить") } },
+        dismissButton = { TextButton(onClick = { renameConversation = null; renameSpeaker = null }) { Text("Отмена") } },
+    )
+    exportConversation?.let { id ->
+        AlertDialog(onDismissRequest = { exportConversation = null }, title = { Text("Экспорт расшифровки") },
+            text = { Column {
+                TextButton(onClick = { exportConversation = null; onExport(id, false) }) { Text("Текст — TXT") }
+                TextButton(onClick = { exportConversation = null; onExport(id, true) }) { Text("Участники и время — JSON") }
+            } }, confirmButton = {},
+            dismissButton = { TextButton(onClick = { exportConversation = null }) { Text("Отмена") } })
+    }
+}
+
+@Composable
+private fun ConversationStatus(state: ConversationState) {
+    Row(Modifier.widthIn(max = 620.dp).fillMaxWidth().glass(20).padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), color = Amber, strokeWidth = 2.dp)
+        else Box(Modifier.size(8.dp).background(if (state.recording) Amber else Secondary, CircleShape))
+        Text(state.status, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            fontSize = 14.sp, lineHeight = 20.sp, color = Ink)
+    }
+}
+
+@Composable
+private fun ModelsStatus(state: ConversationState) {
+    Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().padding(horizontal = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Модели", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Ink)
+            Text(state.modelStatus, fontSize = 13.sp, color = Secondary)
+        }
+        if (state.downloadingModels) {
+            Spacer(Modifier.height(8.dp))
+            if (state.modelDownloadTotal > 0) {
+                LinearProgressIndicator(progress = {
+                    (state.modelDownloadBytes.toDouble() / state.modelDownloadTotal).toFloat().coerceIn(0f, 1f)
+                }, modifier = Modifier.fillMaxWidth(), color = Amber)
+                Spacer(Modifier.height(6.dp))
+                Text("${state.modelDownloadBytes / 1_000_000} из ${(state.modelDownloadTotal + 999_999) / 1_000_000} МБ",
+                    fontSize = 12.sp, color = Secondary)
+            } else LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Amber)
+        }
+    }
+}
+
+@Composable
+private fun ConversationTimeline(
+    conversation: SavedConversation,
+    expanded: Boolean,
+    editable: Boolean,
+    onToggle: () -> Unit,
+    onExport: () -> Unit,
+    onRename: (String) -> Unit,
+) {
+    Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().glass(emphasis = true).padding(20.dp)) {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+            .clickable(role = Role.Button, onClick = onToggle)
+            .semantics { stateDescription = if (expanded) "Развёрнут" else "Свёрнут" }
+            .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(conversationDate(conversation.startedAtMs), fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium, color = Ink)
+                Spacer(Modifier.height(5.dp))
+                Text("${formatTime(conversation.durationMs)} — участников: ${conversation.participantCount}",
+                    fontSize = 13.sp, color = Ink.copy(alpha = 0.78f))
+            }
+            Text(if (expanded) "−" else "+", modifier = Modifier.padding(start = 16.dp), fontSize = 28.sp, color = Ink)
+        }
+        if (expanded) {
+            Spacer(Modifier.height(16.dp))
+            if (conversation.segments.isEmpty()) Text("Речь не обнаружена", color = Ink, fontSize = 15.sp)
+            conversation.segments.forEachIndexed { index, segment ->
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                    Canvas(Modifier.width(22.dp).fillMaxHeight()) {
+                        val x = 5.dp.toPx()
+                        val y = 13.dp.toPx()
+                        if (index > 0) drawLine(Ink.copy(alpha = 0.26f), Offset(x, 0f), Offset(x, y), 1.5.dp.toPx())
+                        if (index < conversation.segments.lastIndex)
+                            drawLine(Ink.copy(alpha = 0.26f), Offset(x, y), Offset(x, size.height), 1.5.dp.toPx())
+                        drawCircle(Ink, 4.dp.toPx(), Offset(x, y))
+                    }
+                    Column(Modifier.weight(1f).padding(bottom = if (index < conversation.segments.lastIndex) 20.dp else 0.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(conversation.speakerName(segment.speakerId), fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                                color = Ink, modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                                    .clickable(enabled = editable && segment.speakerId != UNKNOWN_SPEAKER,
+                                        role = Role.Button, onClick = { onRename(segment.speakerId) })
+                                    .padding(vertical = 4.dp))
+                            Text(formatTimelineTime(segment.startMs), fontSize = 12.sp, color = Ink.copy(alpha = 0.72f),
+                                modifier = Modifier.padding(start = 10.dp))
                         }
-                        Spacer(Modifier.height(9.dp))
-                        Text("${formatTime(segment.startMs)} — ${formatTime(segment.endMs)}", fontSize = 11.sp, color = Secondary)
-                        Spacer(Modifier.height(9.dp))
+                        Spacer(Modifier.height(3.dp))
                         SelectionContainer { Text(segment.text, color = Ink, fontSize = 17.sp, lineHeight = 25.sp) }
                     }
                 }
             }
-            if (state.modelDirectory != null && !state.downloadingModels) {
-                item { ModelDownloadCard(state, editable, onDownloadModels, onCancelModelDownload) }
+            if (conversation.segments.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                TextButton(onClick = onExport, enabled = editable, modifier = Modifier.align(Alignment.End)) {
+                    Text("Экспорт текста", color = Ink)
+                }
             }
-            item {
-                Text("При сворачивании запись сохраняется. В приложении хранится одна текущая запись: следующая заменит её. Экспортируйте нужную расшифровку заранее.",
-                    modifier = Modifier.widthIn(max = 620.dp).fillMaxWidth(), fontSize = 11.sp, color = Secondary)
+        } else {
+            conversation.segments.firstOrNull()?.let {
+                Text(it.text, modifier = Modifier.padding(top = 8.dp), maxLines = 2,
+                    overflow = TextOverflow.Ellipsis, color = Ink.copy(alpha = 0.8f), fontSize = 15.sp, lineHeight = 22.sp)
             }
         }
     }
+}
 
-    if (renameId != null) AlertDialog(onDismissRequest = { renameId = null }, title = { Text("Имя или роль") },
-        text = { OutlinedTextField(value = renameText, onValueChange = { renameText = it.take(80) }, singleLine = true, label = { Text("Участник") }) },
-        confirmButton = { TextButton(enabled = renameText.isNotBlank() && editable, onClick = {
-            renameId?.let { onRename(it, renameText) }; renameId = null
-        }) { Text("Сохранить") } }, dismissButton = { TextButton(onClick = { renameId = null }) { Text("Отмена") } })
+private fun conversationDate(timestamp: Long): String = java.text.SimpleDateFormat(
+    "d MMMM, HH:mm", java.util.Locale.forLanguageTag("ru"),
+).format(java.util.Date(timestamp))
 
-    if (deleteDialog) AlertDialog(onDismissRequest = { deleteDialog = false }, title = { Text("Удалить запись?") },
-        text = { Text("Текущая аудиозапись и её расшифровка будут удалены с устройства.") },
-        confirmButton = { TextButton(enabled = editable, onClick = { deleteDialog = false; onDelete() }) { Text("Удалить") } },
-        dismissButton = { TextButton(onClick = { deleteDialog = false }) { Text("Отмена") } })
-
-    if (exportDialog) AlertDialog(onDismissRequest = { exportDialog = false }, title = { Text("Экспорт расшифровки") },
-        text = { Column {
-            TextButton(onClick = { exportDialog = false; onExport(false) }) { Text("Текст — TXT") }
-            TextButton(onClick = { exportDialog = false; onExport(true) }) { Text("Участники и временные метки — JSON") }
-        } }, confirmButton = {}, dismissButton = { TextButton(onClick = { exportDialog = false }) { Text("Отмена") } })
+private fun formatTimelineTime(milliseconds: Long): String = formatTime(milliseconds).let {
+    if (milliseconds < 3_600_000) it.removePrefix("00:") else it
 }
 
 @Composable
@@ -251,33 +310,6 @@ private fun AscentWordmark(modifier: Modifier = Modifier) {
     )
 }
 
-@Composable
-private fun ModelDownloadCard(state: ConversationState, editable: Boolean, onDownload: () -> Unit, onCancel: () -> Unit) {
-    GlassCard {
-        Text("Локальное распознавание", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Ink)
-        Spacer(Modifier.height(7.dp))
-        Text(if (state.modelDirectory != null && !state.downloadingModels) "Модели готовы. Интернет для обработки не нужен."
-            else "Скачайте модели один раз — около 1 ГБ. Аудио и расшифровки не отправляются на сервер.", fontSize = 12.sp, color = Secondary)
-        Spacer(Modifier.height(14.dp))
-        if (state.downloadingModels) {
-            if (state.modelDownloadTotal > 0) {
-                LinearProgressIndicator(progress = {
-                    (state.modelDownloadBytes.toDouble() / state.modelDownloadTotal).toFloat().coerceIn(0f, 1f)
-                }, modifier = Modifier.fillMaxWidth(), color = Amber)
-                Spacer(Modifier.height(8.dp))
-                Text("${state.modelDownloadBytes / 1_000_000} из ${(state.modelDownloadTotal + 999_999) / 1_000_000} МБ",
-                    color = Ink, fontSize = 13.sp)
-            } else LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Amber)
-            Spacer(Modifier.height(8.dp))
-            Text("Оставьте приложение открытым до завершения загрузки.", fontSize = 12.sp, color = Secondary)
-            Spacer(Modifier.height(12.dp))
-            GlassAction(if (state.cancellingModelDownload) "Останавливаю…" else "Отменить загрузку",
-                enabled = !state.cancellingModelDownload, onClick = onCancel)
-        } else GlassAction(if (state.modelDirectory == null) "Скачать модели" else "Переустановить модели",
-            emphasis = state.modelDirectory == null, enabled = editable, onClick = onDownload)
-    }
-}
-
 /** Translucent gradients and reflective borders, without claiming optical background blur. */
 private fun Modifier.glass(radius: Int = 28, emphasis: Boolean = false): Modifier {
     val shape = RoundedCornerShape(radius.dp)
@@ -290,16 +322,6 @@ private fun Modifier.glass(radius: Int = 28, emphasis: Boolean = false): Modifie
 @Composable
 private fun GlassCard(content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().glass().padding(23.dp), content = content)
-}
-
-@Composable
-private fun GlassAction(text: String, modifier: Modifier = Modifier, emphasis: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
-    Surface(onClick = onClick, enabled = enabled, color = Color.Transparent, shape = RoundedCornerShape(28.dp),
-        modifier = modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.43f)) {
-        Box(Modifier.glass(28, emphasis).padding(horizontal = 16.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
-            Text(text, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
-        }
-    }
 }
 
 @Composable
@@ -331,7 +353,7 @@ private fun AudioWaveform(levels: List<Float>, modifier: Modifier) {
 private fun RecordOrb(recording: Boolean, level: Float, enabled: Boolean, onClick: () -> Unit) {
     Canvas(Modifier.size(124.dp).alpha(if (enabled) 1f else 0.43f).clip(CircleShape)
         .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-        .semantics { contentDescription = if (recording) "Остановить запись и расшифровать" else "Начать запись разговора" }) {
+        .semantics { contentDescription = if (recording) "Завершить разговор и расшифровать" else "Начать разговор" }) {
         val radius = size.minDimension / 2 - 6.dp.toPx()
         val orbCenter = center
         drawCircle(Brush.radialGradient(listOf(Color.Transparent, Color(0xFFFFD95F).copy(alpha = 0.5f), Color.Transparent),
@@ -351,5 +373,5 @@ private fun RecordOrb(recording: Boolean, level: Float, enabled: Boolean, onClic
 @Preview(name = "Ascent — yellow glass", widthDp = 393, heightDp = 852, showBackground = true)
 @Composable
 private fun ConversationPreview() {
-    AscentTheme { ConversationScreen(ConversationState(), {}, {}, {}, {}, {}, { _, _ -> }, {}, {}) }
+    AscentTheme { ConversationScreen(ConversationState(), {}, {}, { _, _, _ -> }, { _, _ -> }) }
 }

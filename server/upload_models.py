@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import gzip
 import json
 import os
 from pathlib import Path
@@ -11,9 +12,32 @@ import sys
 import tempfile
 import zipfile
 
-from model_pack import MODEL_ID, validate_directory, validate_zip
+from model_pack import MODEL_ID, sha256_file, validate_directory, validate_zip
 
 MAX_ARCHIVE_BYTES = 2_001_048_576
+CHUNK_BYTES = 4 * 1024 * 1024
+
+
+def prepare_downloads(payload: Path, destination: Path, manifest: dict, manifest_digest: str) -> tuple[bytes, str]:
+    """Independent gzip members allow bounded retries without replaying an entire model."""
+    destination.mkdir()
+    files = {}
+    for name in sorted(manifest["files"]):
+        records = []
+        with (payload / name).open("rb") as source:
+            while raw := source.read(CHUNK_BYTES):
+                compressed = gzip.compress(raw, compresslevel=6, mtime=0)
+                (destination / f"{name}.{len(records)}.gz").write_bytes(compressed)
+                records.append({"bytes": len(compressed), "sha256": hashlib.sha256(compressed).hexdigest(),
+                                "raw_bytes": len(raw), "raw_sha256": hashlib.sha256(raw).hexdigest()})
+        files[name] = records
+    index = json.dumps({"schema_version": 1, "manifest_sha256": manifest_digest,
+                        "chunk_bytes": CHUNK_BYTES, "files": files}, sort_keys=True, separators=(",", ":")).encode()
+    (destination / "download.json").write_bytes(index)
+    for path in destination.iterdir():
+        path.chmod(0o644)
+    destination.chmod(0o755)
+    return index, hashlib.sha256(index).hexdigest()
 
 
 def publish(source, root: Path) -> dict:
@@ -32,7 +56,7 @@ def publish(source, root: Path) -> dict:
                 destination.write(block)
         manifest = validate_zip(archive_path)
         expanded_bytes = sum(record["bytes"] for record in manifest["files"].values())
-        if shutil.disk_usage(root).free < expanded_bytes + 64 * 1024 * 1024:
+        if shutil.disk_usage(root).free < 2 * expanded_bytes + 64 * 1024 * 1024:
             raise ValueError("Insufficient model server storage")
         payload = staging / "payload"
         payload.mkdir()
@@ -51,6 +75,18 @@ def publish(source, root: Path) -> dict:
         digest = hashlib.sha256(manifest_bytes).hexdigest()
         model_root = root / MODEL_ID
         model_root.mkdir(mode=0o755, exist_ok=True)
+        index, download_digest = prepare_downloads(payload, staging / "downloads", manifest, digest)
+        download_root = model_root / "downloads"
+        download_root.mkdir(mode=0o755, exist_ok=True)
+        download_destination = download_root / download_digest
+        if download_destination.exists():
+            for file in (staging / "downloads").iterdir():
+                existing = download_destination / file.name
+                if (not existing.is_file() or existing.is_symlink()
+                        or sha256_file(existing) != sha256_file(file)):
+                    raise ValueError("An immutable compressed download has different contents")
+        else:
+            (staging / "downloads").rename(download_destination)
         published = model_root / digest
         payload.chmod(0o755)
         if published.exists():
@@ -60,7 +96,8 @@ def publish(source, root: Path) -> dict:
         else:
             payload.rename(published)
         catalog = {"schema_version": 1, "model_id": MODEL_ID,
-                   "manifest_sha256": digest, "manifest_bytes": len(manifest_bytes)}
+                   "manifest_sha256": digest, "manifest_bytes": len(manifest_bytes),
+                   "download_sha256": download_digest, "download_bytes": len(index)}
         descriptor, filename = tempfile.mkstemp(prefix=".catalog-", dir=root)
         temporary_catalog = Path(filename)
         try:

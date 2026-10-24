@@ -4,7 +4,7 @@ Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for del
 
 ## Review prototype scope
 
-The current user request publishes the prepared phone transcription prototype for review under `prototypes/phone-transcriber/`, with the corrected Ascent name. Its WAV files, plaintext transcript storage, missing expiry, and absent watch app are documented in its README. These are prototype limitations, not completed production protections. Preserve the production requirements below and do not mark their acceptance work complete or extend the prototype exception into production.
+The current user request publishes the phone transcription prototype for review under `prototypes/phone-transcriber/`, with the corrected Ascent name. Stopping listening automatically transcribes a temporary WAV and deletes it after processing or failure; abandoned audio is removed on the next launch after process death. Multiple conversations and confirmed voice templates use encrypted local storage and source-based seven-day retention filtering. There is no Wear OS app. Temporary audio still reaches disk, and expiry cleanup cannot run while the app process is stopped, so this does not establish the production no-persistence or full retention guarantees. Preserve the production requirements below and do not mark their acceptance work complete or extend the prototype exception into production.
 
 ## 1. Build only through GitHub CI
 
@@ -17,7 +17,7 @@ The current user request publishes the prepared phone transcription prototype fo
 - Ascent Android CI publishes only `debug-<8-character commit>.zip`, containing the compact ARM64 `ascent.apk`. Use R8 code/resource optimization and keep model weights outside the APK. The separately optimized x86_64 emulator variant must pass its checks but is not a download artifact. Keep test and lint diagnostics in the workflow console; do not upload report artifacts. Build dependency caches may reduce repeated work but must preserve verification and required checks.
 - Report CI as not run or unverified unless an actual run and its result have been inspected. When available, identify the run and commit. Static review does not establish a successful build or passing tests.
 
-- The app downloads models from `https://ascent.arbuz.lol/models/catalog.json` and verifies the immutable manifest and every payload before activation. No manual external model archive or server-selection UI is required. Internet permission for weights does not authorize audio uploads. Model CI may use a private archive solely as authenticated deployment transport.
+- The app automatically downloads models from `https://ascent.arbuz.lol/models/catalog.json` through WorkManager. Independent gzip chunks represent up to 4 MiB each of expanded data; verify compressed and expanded hashes, resume only verified prefixes, and verify complete files before activation. Check for compatible updates on open and through approximate daily background work. Keep the current revision usable until verification succeeds and protect revisions held by active inference leases. Show model status without install, reinstall, cancel, archive-import or server-selection controls. Internet permission for weights does not authorize audio uploads. Model CI may use a private archive solely as authenticated deployment transport.
 
 ## 2. Preserve the product architecture
 
@@ -62,5 +62,5 @@ Check current official [ZDR](https://openrouter.ai/docs/guides/features/zdr), [r
 
 - Link people facts and summaries to retained transcript evidence. Preserve uncertainty and attribution. A mentioned name is not speaker identity; do not invent facts.
 - Show contextual locations only with sufficient evidence. Otherwise omit the location field. Conversation topics alone do not prove physical location.
-- Use warm yellow accents and translucent glass surfaces inspired by Apple Intelligence, readable high-contrast text, and accessible controls. No small gray text or U+00B7 separators. Keep watch views concise and Rewind free of speaker division.
+- Use warm yellow accents and translucent glass surfaces inspired by Apple Intelligence, readable high-contrast text, and accessible controls. Render the in-app wordmark as `Ascent.` with a square period. The phone prototype has a separate status element and collapsible conversation timelines with connected dots, names and timestamps; stopping listening triggers processing without a separate transcribe or audio-delete action. No small gray text or U+00B7 separators. Keep watch views concise and Rewind free of speaker division.
 - Keep implementation and acceptance tasks unchecked until supported by actual evidence. In change reports, separate edits and static review from verified CI and device results. Never claim a local build, CI run, or audio/privacy guarantee that was not established.

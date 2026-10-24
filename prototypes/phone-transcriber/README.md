@@ -1,45 +1,64 @@
 # Ascent v0.1 phone transcription prototype
 
-An Android review prototype for on-device conversation transcription. Record a
-conversation, stop recording, and read a dialogue with speaker labels and time
-ranges. The interface uses warm yellow, translucent surfaces and a luminous
-record control inspired by Apple Intelligence.
+An Android review prototype for local conversation transcription. Start
+listening, press stop, and the app automatically produces a dialogue with speaker
+labels and time ranges, then deletes its temporary audio. Multiple conversations
+appear as collapsible timelines with linked dots, names and timestamps inside
+warm amber glass surfaces. The header reads `Ascent.` with a square period;
+listening and model status have separate elements.
 
 The native UI uses Jetpack Compose / Material 3, a ViewModel with StateFlow,
-lifecycle-aware collection, Activity Result contracts and Kotlin coroutines.
+lifecycle-aware collection, Activity Result contracts, Kotlin coroutines and
+WorkManager for persistent model downloads.
 Stable dependency versions are centralized in the
 [version catalog](android/gradle/libs.versions.toml); the
 [dependency baseline](docs/dependencies.md) records sources and compatibility.
 
 ## Scope and current limitations
 
-This prototype explores phone capture, local GigaAM inference, anonymous speaker
-labels and the requested yellow interface. It stores WAV audio in the app's
-private directory and transcripts as plaintext JSON. Storage is not encrypted
-by the app and has no automatic seven-day expiry. There is no Wear OS app,
+This prototype explores phone capture, local GigaAM inference, speaker separation
+and the requested yellow interface. Capture uses a temporary mono WAV in app
+cache. Stop starts transcription automatically; success, processing failure or
+cancellation reaches audio cleanup. Process death can prevent that cleanup, so
+the next launch removes abandoned temporary and legacy recordings. A failed
+processing attempt has no audio retry or playback flow.
+
+Text conversations and confirmed voice templates use AES-GCM encryption with an
+Android Keystore key. Their retention filter uses the original capture timestamp
+and removes content older than seven days on load/save, foreground entry and
+periodic checks while the process is active. Pruning also removes voice-template
+contributions from expired conversations. A stopped process cannot run cleanup;
+this is not proof of deletion at an exact wall-clock deadline. Explicit text
+exports are user-managed files outside app retention. There is no Wear OS app,
 watch transport, continuous background listening, Rewind or remote AI.
 
-Those differences do not satisfy the production architecture and protections in
+Temporary audio still reaches disk. These differences do not satisfy the production architecture and protections in
 the [project plan](../../README.md) and [engineering contract](../../AGENTS.md).
 The prototype is retained as separate review work; none of the production
 milestones is complete merely because this source or an APK exists.
 
 ## What is implemented
 
-- Recording to app-private, mono 16 kHz PCM16 WAV; up to 30 minutes.
-- Import of WAV files in the same format.
+- A start/stop listening control with a 30-minute limit. Stopping, reaching the
+  limit or leaving the foreground stops capture and starts local processing.
+  Listening requires installed models. There are no audio-import, manual
+  transcribe, playback or audio-delete controls.
 - Local GigaAM Multilingual 220M CTC inference, the June 2026 GigaAM line.
-- Speaker embeddings from ERes2NetV2, session-local speaker clustering, and
-  timestamped dialogue segments. Participant labels can be renamed.
-- Plaintext local transcript storage and explicit TXT/JSON export.
-- In-app model downloads from the fixed Ascent HTTPS catalog, with progress,
-  cancellation, and file size/hash validation. No manual model archive is needed.
+- ERes2NetV2 embeddings, speech-constrained contexts, quality gates, bounded batch
+  clustering and uncertain-speaker labels. Naming a sufficiently clear current
+  speaker enrolls an encrypted voice template for later strong matches. Automatic
+  predictions never teach their own templates. See [speaker research](docs/speaker-diarization.md).
+- Multiple encrypted text conversations, collapsible connected timelines,
+  participant renaming and explicit per-conversation TXT/JSON export.
+- Automatic compressed model downloads from the fixed Ascent HTTPS catalog,
+  resumed from verified chunks after interruption. The interface shows status
+  and progress without model installation or reinstall controls.
 - Internet permission is used for model downloads. Speech recognition and speaker
   processing remain on device; conversation audio is never uploaded.
 
-This is an initial implementation. Android compilation, native co-loading, model
-export and real-phone accuracy/performance must pass the included CI and device
-checks before treating an APK as verified. Speaker attribution is experimental:
+Inspect the exact Android CI and model-export runs before treating an artifact as
+verified. Real-phone accuracy/performance remains a separate device check.
+Speaker attribution is experimental:
 short replies, similar voices, background speech and simultaneous speakers can
 be mislabelled. It does not separate overlapping voices or infer people's names.
 Time ranges are estimates from CTC frames, not guaranteed forced alignments.
@@ -102,10 +121,11 @@ triggers. The base repository had no workflow to reuse.
    transport, not a GitHub artifact or an app import requirement. Deployment uses
    dedicated repository secrets and does not create a release tag.
 3. Download the APK ZIP from a successful Android run and install `ascent.apk`.
-   In the app, download the models from
+   Opening the app schedules the model download from
    `https://ascent.arbuz.lol/models/catalog.json`. The app verifies the catalog's
-   immutable manifest and every model file before activation. Once installed,
-   those models work without Internet access.
+   immutable manifest, download index, compressed and expanded chunks, then
+   every completed model file before activation. Once installed, the models work
+   without Internet access.
 
 Ascent Android CI reuses a checksum-verified native dependency download, Gradle
 dependency/build caches, and a clean emulator snapshot with its system image.
@@ -115,9 +135,18 @@ repeated work, but no fixed warm-cache duration is promised. The artifact uses a
 uncompressed outer ZIP around the already compressed APK.
 
 The initial ASR export uses FP32, so model storage is substantial (approximately
-1 GB before any transport compression). Those files are downloaded separately;
-none are bundled in the APK. Actual peak RAM and processing speed need device
-measurements. Failed or cancelled downloads keep the previously selected models.
+1 GB when expanded). Lossless gzip compresses each transport chunk independently;
+this changes network transfer size, not model precision or installed model size.
+The download index records the actual compressed byte total. No weights are
+bundled in the APK. Peak RAM and processing speed need device measurements.
+
+WorkManager downloads in approximately four-minute resumable batches and checks
+the catalog on app open and through a 24-hour periodic job. Android may delay
+background work; force-stopping the app prevents it from continuing until the
+app is opened again. Verified chunks survive network loss and process restarts;
+an interrupted current chunk is downloaded again. A failed update leaves the
+previous models selected, and an active inference lease protects its revision
+until processing finishes. There is no model choice, install or cancel button.
 
 ## Validation in CI
 
@@ -125,8 +154,9 @@ Ascent Android CI runs the Python packaging/build-tool tests and the Android che
 Executable validation must run in CI, not on the local machine.
 
 JVM tests cover CTC repetition/blank rules, chunk ownership, WAV parsing, speaker
-identity reuse, model-download validation and invalid model inputs. Server tests
-check immutable publication, smoke-report requirements and failure cleanup. The
+clustering, conservative voice enrollment, encrypted history/expiry, resumable
+model-download validation and invalid inputs. Server tests check immutable
+publication, compressed chunk integrity, smoke-report requirements and failure cleanup. The
 emulator tests cover optimized app startup and native library loading. The separate model workflow checks actual speech inference; these tests
 do not substitute for a Russian conversation accuracy benchmark.
 

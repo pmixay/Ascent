@@ -17,9 +17,12 @@ hashes detect corruption and do not establish who published a pack.
 
 ## Download in the app
 
-The APK contains no model weights. The app downloads its catalog from the fixed
-Ascent host at `https://ascent.arbuz.lol/models/catalog.json` when the user chooses
-to install the models. No external archive or server selection is required.
+The APK contains no model weights. Opening the app schedules its catalog check
+and model download from the fixed Ascent host at
+`https://ascent.arbuz.lol/models/catalog.json`. WorkManager also schedules a
+24-hour periodic catalog check. The interface displays model status and progress;
+it has no install, reinstall, cancel or model-selection controls. No external
+archive or server selection is required.
 Recognition and speaker processing run locally after installation; conversation
 audio is not part of model download requests.
 
@@ -30,20 +33,44 @@ The catalog is a small JSON object:
   "schema_version": 1,
   "model_id": "gigaam-multilingual-ctc-220m-2026-06",
   "manifest_sha256": "<64 lowercase hexadecimal characters>",
-  "manifest_bytes": 12345
+  "manifest_bytes": 12345,
+  "download_sha256": "<64 lowercase hexadecimal characters>",
+  "download_bytes": 45678
 }
 ```
 
 The digest and size above are illustrative. The publisher computes them from the
 validated manifest. The app derives the immutable manifest URL as
 `/models/<model_id>/<manifest_sha256>/manifest.json` on that same host and
-checks its exact byte length and SHA-256 before parsing it. The six payload files
-are siblings of the manifest. No URL supplied by an arbitrary model file can
-redirect the app to another model server.
+checks its exact byte length and SHA-256 before parsing it. The expanded payload
+files remain siblings of the manifest. Compressed transport uses a separate
+immutable directory, `/models/<model_id>/downloads/<download_sha256>/`. Its
+`download.json` must match the catalog's download length/hash and reference the
+same model-manifest digest. No URL supplied by a model file can redirect the app
+to another model server.
 
-The app shows download progress and supports cancellation and retry. It validates
-every payload before replacing the selected model directory; an incomplete or
-corrupt download leaves the previously installed models selected. HTTPS
+The publisher divides each payload into up to 4 MiB of expanded bytes per chunk,
+then compresses each chunk as an independent gzip member. Files are named
+`<payload-name>.<zero-based-index>.gz`. The index includes each compressed byte
+length and SHA-256, expanded length and SHA-256, the fixed `chunk_bytes` value
+`4194304`, and the six payload entries. Final chunks may be smaller.
+
+Android verifies the compressed bytes before bounded decompression, checks each
+expanded chunk, and appends it to the staged file. On retry, it rehashes existing
+expanded chunks and resumes from the first missing or invalid chunk, rather than
+restarting the entire model. An interrupted current chunk is fetched again.
+Completed files still must match the original model manifest; transport hashing
+does not replace whole-file verification. Gzip is lossless and does not quantize
+the models or reduce their installed size. The index supplies actual compressed
+transfer totals; no fixed compression ratio is assumed.
+
+WorkManager runs resumable batches of approximately four minutes and retries
+after network or scheduling interruptions. Android can defer background work,
+and force-stop prevents further work until the app is opened again. Catalog
+checks on open and approximately daily can select new compatible immutable
+revisions without an APK rebuild. An incomplete or corrupt download leaves the
+previous models selected. Active inference holds a lease on its model directory
+so a concurrent successful update cannot delete it mid-session. HTTPS
 protects the connection to the configured publisher. Hashes detect corruption;
 they are not an independent signature of publisher identity.
 
@@ -61,8 +88,9 @@ verifies the speaker model and public speech fixture, and exports the model.
 Only after the numerical, decoding, speaker-inference and file-integrity checks
 pass does it stream the verified deployment ZIP over SSH to
 `ascent-models@ascent.arbuz.lol`. The server's forced `publish-models` command
-revalidates the archive, installs an immutable model directory, and atomically
-replaces `catalog.json` after all files are ready. Previously published immutable
+revalidates the archive, generates the independent gzip chunks and download
+index, installs immutable model and transport directories, and atomically
+replaces `catalog.json` after both are ready. Previously published immutable
 paths remain available to downloads that already fetched an older catalog.
 
 The repository secrets `ASCENT_MODEL_DEPLOY_KEY` and `ASCENT_MODEL_HOST_KEY`
@@ -153,8 +181,10 @@ are recorded by the build; no model binaries belong in Git.
 
 ## Android contract
 
-Each installed or published immutable model directory contains exactly these seven files.
-The internal SSH deployment ZIP uses the same flat file set:
+Each installed or published expanded model directory contains exactly these seven
+files. The internal SSH deployment ZIP uses the same flat file set. Gzip chunks
+and `download.json` live in the separate transport directory and do not become
+extra model files:
 
 | File | Purpose |
 | --- | --- |

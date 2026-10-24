@@ -2,12 +2,14 @@
 
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
-for review: it uses the phone microphone, saves WAV files and plaintext
-transcripts, has no seven-day expiry, and has no Wear OS app. It does not satisfy
-the production capture or privacy requirements below. Its CI and model-export
+for review: listening stops into automatic local transcription, then the temporary
+WAV is deleted. It keeps multiple encrypted text conversations with a seven-day
+retention filter and has no Wear OS app. Temporary audio still reaches disk, so
+this does not satisfy the production no-audio-persistence requirement. Its CI and model-export
 results must be inspected before treating an artifact as verified. The compact
-phone APK uses R8 optimization and downloads models in the app from the fixed
-Ascent host; no model weights or manual model archive belong in the APK flow.
+phone APK uses R8 optimization and automatically downloads compressed model
+chunks from the fixed Ascent host, resuming interrupted transfers. The interface
+shows model status; no weights or manual model archive belong in the APK flow.
 
 Russian speech memory for Android and Wear OS.
 
@@ -47,7 +49,7 @@ See [roadmap.md](roadmap.md) for task checkboxes and acceptance criteria. Contri
 | Rewind AI context | The complete, unabridged transcript of that fragment, the current question, and necessary application instructions. |
 | Rewind complexity | Plain speech recognition and questions, without speaker labels, profiles, locations, or sound enrichment. |
 | Security baseline | Encryption during listening and transport, encrypted local text storage, on-device speech processing, and restricted remote AI are initial requirements. |
-| Visual design | Warm yellow accents, translucent glass surfaces and a luminous control inspired by Apple Intelligence; readable text, no small gray text, and no middle-dot separators. |
+| Visual design | Warm yellow accents, translucent glass surfaces and a luminous control inspired by Apple Intelligence; the in-app wordmark is `Ascent.` with a square period. Readable text, no small gray text, and no middle-dot separators. |
 | Builds | Use the existing GitHub CI. Do not build the application on a local machine. |
 
 This version supersedes the earlier saved-clip feature, audio rewind buffer, disconnected audio spool, phone-only AI requirement, and deferral of baseline encryption.
@@ -100,7 +102,7 @@ Cloud STT is prohibited, including fallback after a local model failure. Downloa
 
 Android's generic `SpeechRecognizer` may use remote services and is documented as unsuitable for continuous recognition; it is not the default continuous engine. See [SpeechRecognizer](https://developer.android.com/reference/android/speech/SpeechRecognizer).
 
-The review prototype uses GigaAM Multilingual 220M CTC through ONNX Runtime and ERes2NetV2 speaker embeddings through sherpa-onnx. Models are downloaded in the app from the fixed Ascent host, then processed locally. Production watch-stream processing still requires measured Russian accuracy, memory behavior, speaker attribution and latency on supported devices.
+The review prototype uses GigaAM Multilingual 220M CTC through ONNX Runtime and ERes2NetV2 speaker embeddings through sherpa-onnx. Models download automatically in verified, compressed chunks from the fixed Ascent host. WorkManager resumes interrupted transfers and checks for compatible model revisions on app open and approximately daily; Android scheduling can delay background work. Processing remains local once models are installed. Production watch-stream processing still requires measured Russian accuracy, memory behavior, speaker attribution and latency on supported devices.
 
 ### 3.3 Speaker separation for conversations
 
@@ -117,6 +119,8 @@ Keep these concepts separate:
 - Identity: the person the user confirms for a voice.
 
 Speaker embeddings are sensitive derived data, not anonymous data. If used, keep them encrypted on device, link them to source text intervals, expire them with those sources, and never send them to OpenRouter. Do not keep audio examples for a profile.
+
+The separate prototype implements speech-constrained clustering and local voice-template enrollment when the user names a sufficiently clear speaker in the current session. Strong matches can reuse that name in later conversations; automatic guesses never train their own templates. Unconfirmed templates stay in memory. See the [speaker research and limitations](prototypes/phone-transcriber/docs/speaker-diarization.md). This does not complete the production streaming or accuracy acceptance work.
 
 Diarization must not block rewind.
 

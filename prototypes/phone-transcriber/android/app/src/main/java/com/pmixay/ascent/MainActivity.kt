@@ -12,6 +12,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -27,20 +30,22 @@ class MainActivity : ComponentActivity() {
         conversation = ViewModelProvider(this)[ConversationViewModel::class.java]
         setContent {
             val state by conversation.state.collectAsStateWithLifecycle()
+            var exportConversationId by rememberSaveable { mutableStateOf<String?>(null) }
             val microphone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 if (granted) conversation.startRecording() else conversation.microphoneDenied()
             }
-            val openAudio = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-                uri?.let(conversation::importAudio)
-            }
             val exportText = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-                uri?.let { conversation.exportTranscript(it, json = false) }
+                val id = exportConversationId
+                exportConversationId = null
+                if (uri != null && id != null) conversation.exportTranscript(id, uri, json = false)
             }
             val exportJson = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-                uri?.let { conversation.exportTranscript(it, json = true) }
+                val id = exportConversationId
+                exportConversationId = null
+                if (uri != null && id != null) conversation.exportTranscript(id, uri, json = true)
             }
-            DisposableEffect(state.recording, state.downloadingModels) {
-                if (state.recording || state.downloadingModels) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            DisposableEffect(state.recording, state.busy) {
+                if (state.recording || state.busy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
             }
@@ -52,13 +57,10 @@ class MainActivity : ComponentActivity() {
                         else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) conversation.startRecording()
                         else microphone.launch(Manifest.permission.RECORD_AUDIO)
                     },
-                    onOpenAudio = { openAudio.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream")) },
-                    onDownloadModels = conversation::downloadModels,
-                    onCancelModelDownload = conversation::cancelModelDownload,
-                    onTranscribe = conversation::transcribe,
+                    onToggleConversation = conversation::toggleConversation,
                     onRename = conversation::renameSpeaker,
-                    onDelete = conversation::deleteRecording,
-                    onExport = { json ->
+                    onExport = { id, json ->
+                        exportConversationId = id
                         val filename = "ascent-${System.currentTimeMillis()}"
                         if (json) exportJson.launch("$filename.json") else exportText.launch("$filename.txt")
                     },

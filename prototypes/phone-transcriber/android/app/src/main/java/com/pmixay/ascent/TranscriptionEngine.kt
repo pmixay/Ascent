@@ -8,17 +8,21 @@ import com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig
 import java.io.File
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
-import kotlin.math.abs
+
+data class TranscriptionResult(val segments: List<TranscriptSegment>, val signatures: List<VoiceSignature>)
 
 /** Both inference passes run locally, sequentially, to limit simultaneous model memory. */
 class TranscriptionEngine(private val modelDirectory: File) {
-    fun transcribe(audio: File, onProgress: (String) -> Unit): List<TranscriptSegment> {
+    fun transcribe(audio: File, onProgress: (String) -> Unit): List<TranscriptSegment> =
+        transcribeWithSpeakers(audio, onProgress).segments
+
+    fun transcribeWithSpeakers(audio: File, onProgress: (String) -> Unit): TranscriptionResult {
         checkCancelled()
         val model = ModelSpec.load(modelDirectory)
         return PcmWave(audio).use { wave ->
             val words = recognize(model, wave, onProgress)
             checkCancelled()
-            if (words.isEmpty()) emptyList() else attribute(model, wave, words, onProgress)
+            if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList()) else attribute(model, wave, words, onProgress)
         }
     }
 
@@ -76,54 +80,70 @@ class TranscriptionEngine(private val modelDirectory: File) {
         return allWords.sortedBy { it.startMs }
     }
 
-    private data class SpeakerWindow(val centerMs: Long, val vector: FloatArray)
-
-    private fun attribute(model: ModelSpec, wave: PcmWave, words: List<TimedWord>, progress: (String) -> Unit): List<TranscriptSegment> {
+    private fun attribute(model: ModelSpec, wave: PcmWave, words: List<TimedWord>, progress: (String) -> Unit): TranscriptionResult {
         progress("Определяю говорящих…")
         val extractor = SpeakerEmbeddingExtractor(config = SpeakerEmbeddingExtractorConfig(
             model = model.speakerFile.absolutePath, numThreads = 2, debug = false, provider = "cpu",
         ))
-        val windows = mutableListOf<SpeakerWindow>()
-        val clusters = SpeakerClusterer()
+        val windows = mutableListOf<SpeakerObservation>()
+        val regions = mutableListOf<Int>()
         try {
-            // Each word selects a 750 ms cell; 1.5 s context captures voice identity.
-            // Speaker labels are session-local and overlapping voices are not separated.
-            val centers = words.map { ((it.startMs + it.endMs) / 2 / 750) * 750 + 375 }.distinct()
-            for ((index, center) in centers.withIndex()) {
+            val contexts = SpeakerSpeechSupport.contexts(words, wave.durationMs)
+            for ((index, context) in contexts.withIndex()) {
                 checkCancelled()
-                progress("Определяю говорящих: ${index * 100 / centers.size}%")
-                val start = ((center - 750).coerceAtLeast(0) * RATE / 1000)
-                val end = ((center + 750) * RATE / 1000).coerceAtMost(wave.sampleCount)
-                if (end - start < RATE / 2) continue
+                progress("Определяю говорящих: ${index * 100 / contexts.size}%")
+                val start = context.startMs * RATE / 1000
+                val end = (context.endMs * RATE / 1000).coerceAtMost(wave.sampleCount)
                 val samples = wave.read(start, (end - start).toInt())
-                val stream = extractor.createStream()
                 try {
-                    stream.acceptWaveform(samples, RATE)
-                    stream.inputFinished()
-                    if (extractor.isReady(stream)) {
-                        val embedding = extractor.compute(stream)
-                        if (embedding.isNotEmpty() && embedding.all { it.isFinite() }) {
-                            clusters.add(embedding)
-                            windows += SpeakerWindow(center, embedding)
+                    val activity = SpeakerSpeechSupport.activity(samples, context.startMs)
+                    val speechMs = activity.spans.sumOf { it.endMs - it.startMs }
+                    if (speechMs < 640 || activity.quality < 0.35f) continue
+                    val stream = extractor.createStream()
+                    try {
+                        stream.acceptWaveform(samples, RATE)
+                        stream.inputFinished()
+                        if (extractor.isReady(stream)) {
+                            val embedding = extractor.compute(stream)
+                            if (embedding.size == 192 && embedding.all { it.isFinite() }) {
+                                windows += SpeakerObservation(context.startMs, context.endMs, embedding,
+                                    activity.quality, speechMs >= 800, activity.spans)
+                                regions += context.region
+                            }
                         }
-                    }
-                } finally { stream.release() }
+                    } finally { stream.release() }
+                } finally { samples.fill(0f) }
             }
         } finally { extractor.release() }
         checkCancelled()
-        val labels = windows.map { clusters.classify(it.vector) }
-        val result = mutableListOf<TranscriptSegment>()
-        for (word in words) {
-            val center = (word.startMs + word.endMs) / 2
-            val nearest = windows.indices.minByOrNull { abs(windows[it].centerMs - center) }
-            val label = if (nearest != null && abs(windows[nearest].centerMs - center) <= 1500) labels[nearest] else SpeakerClusterer.UNKNOWN
-            val previous = result.lastOrNull()
-            if (previous != null && previous.speakerId == label && word.startMs - previous.endMs <= 1500 && word.endMs - previous.startMs <= 20000) {
-                result[result.lastIndex] = previous.copy(endMs = word.endMs.coerceAtLeast(previous.endMs), text = previous.text + " " + word.text)
-            } else result += TranscriptSegment(label, word.startMs, word.endMs, word.text)
-        }
-        progress("Расшифровка готова")
-        return result
+        try {
+            // A changing left/right voice context cannot teach a speaker centroid.
+            val normalized = windows.map { SpeakerClusterer.normalized(it.vector) }
+            val stable = windows.mapIndexed { index, window ->
+                val left = index - 1
+                val right = index + 1
+                val straddlesChange = left >= 0 && right < windows.size &&
+                    regions[left] == regions[index] && regions[right] == regions[index] &&
+                    normalized[left] != null && normalized[right] != null &&
+                    SpeakerClusterer.dot(normalized[left]!!, normalized[right]!!) < 0.72f
+                window.copy(canSeed = window.canSeed && !straddlesChange)
+            }
+            val clustered = SpeakerClusterer().cluster(stable)
+            val result = mutableListOf<TranscriptSegment>()
+            for (word in words) {
+                checkCancelled()
+                val label = SpeakerSpeechSupport.speakerForWord(word, stable, clustered.assignments)
+                val previous = result.lastOrNull()
+                if (previous != null && previous.speakerId == label && word.startMs - previous.endMs <= 700 &&
+                    word.endMs - previous.startMs <= 20000) {
+                    result[result.lastIndex] = previous.copy(endMs = word.endMs.coerceAtLeast(previous.endMs),
+                        text = previous.text + " " + word.text)
+                } else result += TranscriptSegment(label, word.startMs, word.endMs, word.text)
+            }
+            val used = result.map { it.speakerId }.toSet()
+            progress("Расшифровка готова")
+            return TranscriptionResult(result, clustered.signatures.filter { it.speakerId in used })
+        } finally { windows.forEach { it.vector.fill(0f) } }
     }
 
     private fun checkCancelled() {
