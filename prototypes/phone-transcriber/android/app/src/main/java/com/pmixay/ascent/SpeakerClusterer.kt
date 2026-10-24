@@ -118,13 +118,13 @@ class SpeakerClusterer(
                 val lastPosition = anchorOrder.indexOfLast { it in group.indices }
                 val before = anchorOrder.getOrNull(firstPosition - 1)
                 val after = anchorOrder.getOrNull(lastPosition + 1)
+                val groupStart = group.indices.minOf { observations[it].startMs }
+                val groupEnd = group.indices.maxOf { observations[it].endMs }
                 val betweenNeighbors = before != null && after != null &&
                     ((before in neighbors[0].first.indices && after in neighbors[1].first.indices) ||
                         (before in neighbors[1].first.indices && after in neighbors[0].first.indices)) &&
-                    group.indices.minOf { observations[it].startMs } - observations[before].endMs <= 500 &&
-                    observations[after].startMs - group.indices.maxOf { observations[it].endMs } <= 500 &&
-                    group.indices.maxOf { observations[it].endMs } -
-                        group.indices.minOf { observations[it].startMs } <= 3000
+                    observations[before].endMs > groupStart && observations[after].startMs < groupEnd &&
+                    groupEnd - groupStart <= 3000
                 // Similarity to two voices alone does not make a third voice a mixed boundary.
                 // It must actually lie between those voices in time; distant replies are kept.
                 !(betweenNeighbors && neighbors[0].second >= 0.60f && neighbors[1].second >= 0.60f &&

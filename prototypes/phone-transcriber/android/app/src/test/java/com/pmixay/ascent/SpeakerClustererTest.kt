@@ -72,6 +72,13 @@ class SpeakerClustererTest {
         assertEquals(listOf("speaker_1", "speaker_2", "speaker_3"), result.assignments.map { it.speakerId })
     }
 
+    @Test fun separateTurnsCannotBeRejectedAsAnOverlappingVoiceMixture() {
+        val result = SpeakerClusterer(threshold = 0.72f).cluster(listOf(
+            voice(0, 1f, 0f), voice(2000, 1f, 1f), voice(4000, 0f, 1f),
+        ))
+        assertEquals(listOf("speaker_1", "speaker_2", "speaker_3"), result.assignments.map { it.speakerId })
+    }
+
     @Test fun ambiguousBoundaryCannotEnrollOrModifyACentroid() {
         val samples = listOf(voice(0, 1f, 0f), voice(2000, 1f, 1f, canSeed = false), voice(4000, 0f, 1f))
         val result = SpeakerClusterer().cluster(samples)
