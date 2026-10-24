@@ -1,12 +1,20 @@
 # Ascent
 
+The product plan below remains the production target. The separate
+[Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
+for review: it uses the phone microphone, saves WAV files and plaintext
+transcripts, has no seven-day expiry, and has no Wear OS app. It does not satisfy
+the production capture or privacy requirements below. Its CI and model-export
+results must be inspected before treating an artifact as verified.
+
 Russian speech memory for Android and Wear OS.
 
-**The watch is the primary continuous microphone. The phone converts speech to text locally. Ascent never saves audio. Optional AI features send selected text through OpenRouter under a verified no-retention policy.**
+**Planned product: the watch is the primary continuous microphone. The phone converts speech to text locally. Ascent never saves audio. Optional AI features send selected text through OpenRouter under a verified no-retention policy.**
 
 Ascent turns everyday speech and relevant sounds into a searchable seven-day history. It provides a text view of the last 30 seconds, conversation summaries, a day timeline, and editable information about people and familiar places.
 
-Specification version: 0.4  
+Specification version: 0.5
+
 Updated: 24 October 2026  
 Status: product and implementation plan. These are requirements, not claims that the software or its protections are already implemented.
 
@@ -33,7 +41,7 @@ See [roadmap.md](roadmap.md) for task checkboxes and acceptance criteria. Contri
 | Rewind AI context | The complete, unabridged transcript of that fragment, the current question, and necessary application instructions. |
 | Rewind complexity | Plain speech recognition and questions, without speaker labels, profiles, locations, or sound enrichment. |
 | Security baseline | Encryption during listening and transport, encrypted local text storage, on-device speech processing, and restricted remote AI are initial requirements. |
-| Visual design | Blue colors, readable text, no small gray text, and no middle-dot separators. |
+| Visual design | Warm yellow accents, translucent glass surfaces and a luminous control inspired by Apple Intelligence; readable text, no small gray text, and no middle-dot separators. |
 | Builds | Use the existing GitHub CI. Do not build the application on a local machine. |
 
 This version supersedes the earlier saved-clip feature, audio rewind buffer, disconnected audio spool, phone-only AI requirement, and deferral of baseline encryption.
@@ -357,11 +365,11 @@ Use platform key protection; see [Android Keystore](https://developer.android.co
 
 App locking, advanced key recovery, separately designed encrypted backup, stronger device-integrity controls, and independent security review may follow. They cannot defer the baseline requirements above.
 
-Apple inspires the short rewind, concise recaps, clear control, and data minimization. Ascent must describe its own verified guarantees. Reference: [Apple Audio Intelligence](https://support.apple.com/en-us/148354).
+Apple Intelligence inspires the visual treatment. Ascent must describe its own verified guarantees and use original assets.
 
 ## 9. Design system
 
-Use blue as the main color family, with deep navy text and dark blue supporting text in light mode. Use dark blue surfaces with white or pale-blue text on the watch and in dark mode.
+Use warm yellow as the main accent, cream surfaces and dark readable text. Translucent layers and luminous controls draw on Apple Intelligence. On the watch and in dark mode, use dark surfaces with high-contrast light text and restrained yellow accents. Preserve legibility over every glass surface.
 
 - No small gray text.
 - No middle-dot separators.
@@ -377,9 +385,9 @@ Phone destinations: `Сегодня`, `История`, `Люди`, and `Пои�
 
 ## 10. Delivery and development workflow
 
-The first working slice already uses the watch as the live microphone and the phone for processing. [roadmap.md](roadmap.md) defines the sequence and acceptance gates.
+The first production slice must use the watch as the live microphone and the phone for processing. The phone-only review prototype does not complete that slice. [roadmap.md](roadmap.md) defines the sequence and acceptance gates.
 
-**Do not build locally. Existing GitHub CI is the build and executable-validation environment.** Read the actual repository workflows when available, use their established checks, and report the observed run and commit. Do not invent workflow names, replace CI with a local build, or claim an unobserved green result. Local document edits and static inspection are allowed. See [AGENTS.md](AGENTS.md).
+**Do not build locally. GitHub CI is the build and executable-validation environment.** This branch adds the requested [Android CI](.github/workflows/android.yml) and manual [Export offline model pack](.github/workflows/model-pack.yml) workflows for the review prototype; the fetched base repository had no workflows. Inspect each actual run and its commit before reporting success. Use these checks, do not weaken them or replace them with local builds, and do not claim an unobserved green result. Local document edits and static inspection are allowed. See [AGENTS.md](AGENTS.md).
 
 Later ideas include personal vocabulary, source-linked commitment tracking, conversation preparation, comparing decisions, local custom-sound enrollment, and deliberately configured longer-term text memory. Audio recording or storage is not a later extension of this plan.
 

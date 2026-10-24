@@ -1,0 +1,120 @@
+name: Export offline model pack
+
+# Exporting the models is a separate, explicitly started CPU job. Normal app
+# builds do not download weights. The public speech fixture is used only during
+# validation; it is not included in the uploaded artifact.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-pack-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  export:
+    name: Export GigaAM Multilingual 220M and speaker model
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      ASCENT_SPEAKER_SOURCE: https://huggingface.co/csukuangfj/speaker-embedding-models/resolve/8be2a75c9ed7a590538b268e46fbb65e1aa9d208/3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx
+      ASCENT_SPEAKER_FILENAME: 3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx
+      ASCENT_SPEAKER_SHA256: bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239
+      # GigaAM's public example, mirrored by the sherpa-onnx maintainer.
+      ASCENT_SMOKE_SOURCE: https://huggingface.co/csukuangfj/sherpa-onnx-nemo-ctc-giga-am-v3-russian-2025-12-16/resolve/f376a99ee8be93b61f9e969d2ac827c4d228dac3/test_wavs/example.wav
+      ASCENT_SMOKE_SHA256: d8aaaa18a5098d7c6de0595ae7ac1e64cacd0d4022af3595213bdaf23be77e69
+    defaults:
+      run:
+        shell: bash
+        working-directory: prototypes/phone-transcriber
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            prototypes/phone-transcriber/tools/requirements-export.txt
+            prototypes/phone-transcriber/tools/requirements-gigaam.txt
+
+      - name: Install CPU export dependencies
+        run: python3 -m pip install -r tools/requirements-export.txt
+
+      # Upstream pins older export libraries. Install the exact source separately;
+      # numerical parity checks below validate our explicit dependency versions.
+      - name: Install pinned GigaAM source
+        run: python3 -m pip install --no-deps -r tools/requirements-gigaam.txt
+
+      - name: Download and verify speaker weights and public speech fixture
+        run: |
+          mkdir -p build/models
+          curl --fail --location --retry 3 \
+            "$ASCENT_SPEAKER_SOURCE" \
+            --output "build/models/$ASCENT_SPEAKER_FILENAME"
+          curl --fail --location --retry 3 \
+            "$ASCENT_SMOKE_SOURCE" \
+            --output build/models/example.wav
+          curl --fail --location --retry 3 \
+            https://raw.githubusercontent.com/modelscope/3D-Speaker/main/LICENSE \
+            --output build/models/LICENSE-3D-Speaker
+          python3 - <<'PY'
+          import hashlib
+          import os
+          import pathlib
+
+          directory = pathlib.Path('build/models')
+          expected = {
+              os.environ['ASCENT_SPEAKER_FILENAME']: os.environ['ASCENT_SPEAKER_SHA256'],
+              'example.wav': os.environ['ASCENT_SMOKE_SHA256'],
+          }
+          for name, digest in expected.items():
+              with (directory / name).open('rb') as source:
+                  actual = hashlib.file_digest(source, 'sha256').hexdigest()
+              if actual != digest:
+                  raise SystemExit(f'SHA-256 verification failed: {name}')
+          PY
+
+      - name: Normalize public speech fixture for inference
+        run: |
+          python3 - <<'PY'
+          import soundfile
+          import torch
+          import torchaudio
+
+          samples, sample_rate = soundfile.read('build/models/example.wav', dtype='float32', always_2d=True)
+          mono = torch.from_numpy(samples.mean(axis=1))
+          if sample_rate != 16000:
+              mono = torchaudio.functional.resample(mono, sample_rate, 16000)
+          if not 4000 <= mono.numel() <= 400000:
+              raise SystemExit('Public smoke fixture must fit the 0.25–25 second model input.')
+          soundfile.write('build/models/smoke-16k.wav', mono.numpy(), 16000, subtype='PCM_16')
+          PY
+
+      - name: Export and validate model pack
+        run: |
+          python3 tools/export_model_pack.py \
+            --output build/ascent-model-pack.zip \
+            --cache-dir build/gigaam-cache \
+            --speaker-model "build/models/$ASCENT_SPEAKER_FILENAME" \
+            --speaker-sha256 "$ASCENT_SPEAKER_SHA256" \
+            --speaker-license build/models/LICENSE-3D-Speaker \
+            --speaker-source "$ASCENT_SPEAKER_SOURCE" \
+            --smoke-wav build/models/smoke-16k.wav
+
+      - name: Upload offline model pack
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ascent-model-pack-${{ github.sha }}
+          path: |
+            prototypes/phone-transcriber/build/ascent-model-pack.zip
+            prototypes/phone-transcriber/build/ascent-model-pack.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

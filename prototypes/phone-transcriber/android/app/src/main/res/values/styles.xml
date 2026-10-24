@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Ascent" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#D5A118</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#FFF9DD</item>
+        <item name="android:navigationBarColor">#FFF9DD</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

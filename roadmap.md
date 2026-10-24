@@ -4,8 +4,11 @@ Checked boxes indicate **confirmed product decisions only**, not completed softw
 
 See [README.md](README.md) and [AGENTS.md](AGENTS.md). Use existing GitHub CI exclusively for Gradle, builds, tests, lint, and build artifacts. **Never build locally.** Verify existing workflow names.
 
-Specification version: 0.4  
+Specification version: 0.5
+
 Updated: 24 October 2026
+
+The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. It saves WAV audio and plaintext transcripts without automatic expiry and has no watch app. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Android CI](.github/workflows/android.yml) and [model export](.github/workflows/model-pack.yml) workflows; their actual run results must be checked.
 
 ## Confirmed scope
 
@@ -19,7 +22,7 @@ Updated: 24 October 2026
 - [x] Freeze the preceding 30 seconds for Rewind and send its entire, unabridged transcript to AI, without speakers, profiles, locations, sounds, or full-history context.
 - [x] Prioritize speaker separation for stored day conversations independently of the simpler Rewind flow.
 - [x] Infer contextual place labels only when evidence is sufficient; otherwise, show no location.
-- [x] Use blue accents and readable hierarchy, without small gray text or centered-dot separators.
+- [x] Use warm yellow accents, translucent glass surfaces inspired by Apple Intelligence, and readable hierarchy, without small gray text or centered-dot separators.
 - [x] Start with encrypted audio buffers, authenticated encrypted transfer, encrypted text storage, listening controls, and content-free diagnostics. Microphone, DSP, and inference operations briefly require plaintext.
 - [x] Permit optional OpenRouter text AI through approved zero-data-retention providers with visible scope, consent, and no downgrade. Prohibit audio uploads and content in operational logs or caches.
 - [x] Use `https://ascent.arbuz.lol` as the fixed production application backend. Provide no server selector or custom server URL in the phone or watch app; manage OpenRouter configuration server-side.
@@ -135,7 +138,7 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 - [ ] Users can open morning conversations, read summaries and evidence, and return to the timeline.
 - [ ] Both devices identify matching fragments and results without duplicate history entries.
 - [ ] Disconnection, stale status, and expired content have explicit states. A disconnected Rewind never later returns an unrelated newer fragment.
-- [ ] Design review confirms blue accents, readable contrast, no small gray text, and no centered-dot separators.
+- [ ] Design review confirms yellow accents and legible translucent surfaces, readable contrast, no small gray text, and no centered-dot separators.
 
 ## Milestone 5: Sounds and speech enhancement
 

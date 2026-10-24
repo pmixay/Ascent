@@ -2,9 +2,13 @@
 
 Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation.
 
-## 1. Build only through the existing GitHub CI
+## Review prototype scope
 
-- **Do not build on the local machine.** Existing GitHub CI performs builds.
+The current user request publishes the prepared phone transcription prototype for review under `prototypes/phone-transcriber/`, with the corrected Ascent name. Its WAV files, plaintext transcript storage, missing expiry, and absent watch app are documented in its README. These are prototype limitations, not completed production protections. Preserve the production requirements below and do not mark their acceptance work complete or extend the prototype exception into production.
+
+## 1. Build only through GitHub CI
+
+- **Do not build on the local machine.** GitHub CI performs builds. The requested initial workflows are `.github/workflows/android.yml` and `.github/workflows/model-pack.yml`; the fetched base repository had no workflows.
 - Do not run local Gradle, compilation, assemble, build, test, or lint tasks. Do not generate APK/AAB files or download Android SDKs or build toolchains. Do not invoke a wrapper, script, IDE action, or alternate tool that performs these operations indirectly.
 - Local work may include editing, reading configuration, reviewing diffs, and strictly non-building static checks. Check what a command does before running it.
 - Inspect the repository's actual GitHub workflow files, triggers, commands, and required checks before using CI. Do not invent workflow names or assume a pipeline exists in a supplied document-only workspace.
@@ -54,5 +58,5 @@ Check current official [ZDR](https://openrouter.ai/docs/guides/features/zdr), [r
 
 - Link people facts and summaries to retained transcript evidence. Preserve uncertainty and attribution. A mentioned name is not speaker identity; do not invent facts.
 - Show contextual locations only with sufficient evidence. Otherwise omit the location field. Conversation topics alone do not prove physical location.
-- Use a blue palette, readable high-contrast text, and accessible controls. No small gray text or U+00B7 separators. Keep watch views concise and Rewind free of speaker division.
+- Use warm yellow accents and translucent glass surfaces inspired by Apple Intelligence, readable high-contrast text, and accessible controls. No small gray text or U+00B7 separators. Keep watch views concise and Rewind free of speaker division.
 - Keep implementation and acceptance tasks unchecked until supported by actual evidence. In change reports, separate edits and static review from verified CI and device results. Never claim a local build, CI run, or audio/privacy guarantee that was not established.
