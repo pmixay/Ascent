@@ -17,7 +17,7 @@ used. Preview, alpha, beta and release-candidate artifacts are excluded.
 | Gradle | 9.8.2 | [Release notes](https://docs.gradle.org/9.8.2/release-notes.html) |
 
 The Android build uses AGP's built-in Kotlin support and explicitly aligns the
-Kotlin compiler with the Compose compiler plugin. It compiles/targets API 37,
+Kotlin compiler with the Compose compiler plugin. It compiles against API 37.2 and targets API 37,
 requires Android 12 or later (`minSdk 31`), and uses the documented JDK 17 baseline.
 Gradle 9.8.2 is newer than the upper end of Kotlin's fully tested Gradle matrix;
 Kotlin permits newer Gradle versions, but the actual build remains a required CI

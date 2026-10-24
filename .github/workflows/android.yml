@@ -62,7 +62,7 @@ jobs:
           log-accepted-android-sdk-licenses: false
 
       - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+        run: sdkmanager "platforms;android-37.2" "build-tools;37.0.0"
 
       # Inference weights are imported on the phone, not bundled into the APK.
       # A normal pull request build does not download or export large models.
