@@ -17,10 +17,12 @@ hashes detect corruption and do not establish who published a pack.
 
 ## Download in the app
 
-The APK contains no model weights. Opening the app schedules its catalog check
-and model download from the fixed Ascent host at
-`https://ascent.arbuz.lol/models/catalog.json`. WorkManager also schedules a
-24-hour periodic catalog check. The interface displays model status and progress;
+The APK contains no model weights. Opening the visible app starts its catalog
+check and model download in a `dataSync` foreground service from the fixed host at
+`https://ascent.arbuz.lol/models/catalog.json`. An ongoing notification reports
+progress while the service continues after ordinary activity closure. WorkManager
+provides recovery fallback and a 24-hour periodic catalog check. The interface
+displays model status and progress;
 it has no install, reinstall, cancel or model-selection controls. No external
 archive or server selection is required.
 Recognition and speaker processing run locally after installation; conversation
@@ -56,23 +58,46 @@ length and SHA-256, expanded length and SHA-256, the fixed `chunk_bytes` value
 `4194304`, and the six payload entries. Final chunks may be smaller.
 
 Android verifies the compressed bytes before bounded decompression, checks each
-expanded chunk, and appends it to the staged file. On retry, it rehashes existing
-expanded chunks and resumes from the first missing or invalid chunk, rather than
-restarting the entire model. An interrupted current chunk is fetched again.
+expanded chunk, and appends it to the staged file. After a process restart, it
+rehashes existing expanded chunks and resumes from the first missing or invalid
+chunk. A transient request failure retries the current chunk within the same
+operation, preserving the current verified file cursor without rereading all
+preceding chunks. An interrupted current chunk is fetched again. Within-chunk
+stream progress is sampled approximately every 150 ms; app status and notifications
+coalesce updates to about once per second. Uncommitted bytes are
+rolled back in progress reporting when an attempt fails.
 Completed files still must match the original model manifest; transport hashing
 does not replace whole-file verification. Gzip is lossless and does not quantize
 the models or reduce their installed size. The index supplies actual compressed
 transfer totals; no fixed compression ratio is assumed.
 
-WorkManager runs resumable batches of approximately four minutes and retries
-after network or scheduling interruptions. Android can defer background work,
-and force-stop prevents further work until the app is opened again. Catalog
-checks on open and approximately daily can select new compatible immutable
-revisions without an APK rebuild. An incomplete or corrupt download leaves the
-previous models selected. Active inference holds a lease on its model directory
-so a concurrent successful update cannot delete it mid-session. HTTPS
-protects the connection to the configured publisher. Hashes detect corruption;
-they are not an independent signature of publisher identity.
+The foreground service starts while the activity is visible and owns the
+continuous transfer independently of that activity. A validated default-network
+callback wakes recovery waits and cancels an obsolete request when the network
+changes. OkHttp 5.5.1 provides cancellable requests with eight-second connect and
+read timeouts. Transient I/O failures and retryable HTTP responses use per-request
+1/2/4-second retries capped at ten seconds, respecting server `Retry-After`.
+Integrity, TLS and incompatible-response failures are not treated as transient
+network errors. These delays describe the app's retry policy, not guaranteed
+network recovery latency.
+
+WorkManager is the fallback after process or service interruption and the owner
+of approximate 24-hour update checks. Its resumable batches last approximately
+four minutes and use minimum ten-second linear backoff for failures. Background
+workers do not try to start the direct foreground service; Android can defer
+these jobs. Force-stop prevents work until reopening. Android 15+ also applies a
+six-hour daily background time budget to `dataSync` foreground services, and
+device power policies can constrain execution. See the official
+[foreground-service timeout rules](https://developer.android.com/develop/background-work/services/fgs/timeout).
+
+Catalog checks on open and approximately daily select compatible immutable
+revisions without an APK rebuild. A matching installed revision checks metadata
+and file sizes without rereading all weights on each catalog check; initial and
+resumed downloads still verify their data before activation. An incomplete or
+corrupt download leaves the previous models selected. Active inference holds a
+lease on its model directory so a concurrent successful update cannot delete it
+mid-session. HTTPS protects the connection to the configured publisher. Hashes
+detect corruption; they are not an independent signature of publisher identity.
 
 ## Build and publish in GitHub Actions
 

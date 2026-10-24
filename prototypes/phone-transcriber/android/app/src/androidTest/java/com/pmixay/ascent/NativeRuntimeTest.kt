@@ -1,7 +1,11 @@
 package com.pmixay.ascent
 
 import ai.onnxruntime.OrtEnvironment
+import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.Configuration
@@ -61,18 +65,31 @@ class NativeRuntimeTest {
 
     @Test fun optimizedActivityAndViewModelStart() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val activity = instrumentation.startActivitySync(
-            Intent(instrumentation.targetContext, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
+        val context = instrumentation.targetContext
+        if (Build.VERSION.SDK_INT >= 33) {
+            instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
+        }
+        val component = ComponentName(context, ModelDownloadService::class.java)
+        val previous = context.packageManager.getComponentEnabledSetting(component)
+        // This smoke test exercises UI startup only. Service lifecycle tests supply
+        // an isolated fake transfer; no instrumentation test downloads real weights.
+        context.packageManager.setComponentEnabledSetting(component,
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
+        var activity: android.app.Activity? = null
         try {
+            val started = instrumentation.startActivitySync(
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            activity = started
             instrumentation.waitForIdleSync()
             instrumentation.runOnMainSync {
-                assertFalse(activity.isFinishing)
-                assertNotNull(activity.window.decorView.findViewById<android.view.View>(android.R.id.content))
+                assertFalse(started.isFinishing)
+                assertNotNull(started.window.decorView.findViewById<android.view.View>(android.R.id.content))
             }
         } finally {
-            instrumentation.runOnMainSync { activity.finish() }
+            instrumentation.runOnMainSync { activity?.finish() }
+            instrumentation.waitForIdleSync()
+            context.packageManager.setComponentEnabledSetting(component, previous, PackageManager.DONT_KILL_APP)
         }
     }
 

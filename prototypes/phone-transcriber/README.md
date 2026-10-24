@@ -9,7 +9,8 @@ listening and model status have separate elements.
 
 The native UI uses Jetpack Compose / Material 3, a ViewModel with StateFlow,
 lifecycle-aware collection, Activity Result contracts, Kotlin coroutines and
-WorkManager for persistent model downloads.
+an activity-started foreground download service, OkHttp requests and WorkManager
+for persistent recovery and update checks.
 Stable dependency versions are centralized in the
 [version catalog](android/gradle/libs.versions.toml); the
 [dependency baseline](docs/dependencies.md) records sources and compatibility.
@@ -51,8 +52,10 @@ milestones is complete merely because this source or an APK exists.
 - Multiple encrypted text conversations, collapsible connected timelines,
   participant renaming and explicit per-conversation TXT/JSON export.
 - Automatic compressed model downloads from the fixed Ascent HTTPS catalog,
-  resumed from verified chunks after interruption. The interface shows status
-  and progress without model installation or reinstall controls.
+  continued by a foreground service after ordinary app closure, with an ongoing
+  progress notification and prompt reconnect retries. WorkManager provides
+  recovery and daily update fallback. The interface shows status and progress
+  without model installation or reinstall controls.
 - Internet permission is used for model downloads. Speech recognition and speaker
   processing remain on device; conversation audio is never uploaded.
 
@@ -121,7 +124,7 @@ triggers. The base repository had no workflow to reuse.
    transport, not a GitHub artifact or an app import requirement. Deployment uses
    dedicated repository secrets and does not create a release tag.
 3. Download the APK ZIP from a successful Android run and install `ascent.apk`.
-   Opening the app schedules the model download from
+   Opening the app starts the foreground model transfer from
    `https://ascent.arbuz.lol/models/catalog.json`. The app verifies the catalog's
    immutable manifest, download index, compressed and expanded chunks, then
    every completed model file before activation. Once installed, the models work
@@ -140,13 +143,32 @@ this changes network transfer size, not model precision or installed model size.
 The download index records the actual compressed byte total. No weights are
 bundled in the APK. Peak RAM and processing speed need device measurements.
 
-WorkManager downloads in approximately four-minute resumable batches and checks
-the catalog on app open and through a 24-hour periodic job. Android may delay
-background work; force-stopping the app prevents it from continuing until the
-app is opened again. Verified chunks survive network loss and process restarts;
-an interrupted current chunk is downloaded again. A failed update leaves the
-previous models selected, and an active inference lease protects its revision
-until processing finishes. There is no model choice, install or cancel button.
+Opening the app starts a `dataSync` foreground service with a progress
+notification. Ordinary activity closure, removal from recent apps and screen-off
+do not deliberately stop the transfer. A validated default-network callback
+cancels requests on the lost connection and wakes retry waits when connectivity
+returns. Transient request failures retry after 1, 2, 4 and at most 10 seconds,
+subject to server `Retry-After`; current-chunk progress updates are throttled to
+approximately 150 ms; app status and notifications coalesce updates to about once
+per second. Retries stay inside the same download operation, so they
+do not reread the catalog or rehash every completed prefix.
+
+WorkManager remains a recovery fallback with approximately four-minute resumable
+batches, minimum 10-second linear retry backoff and 24-hour update checks. It does
+not launch a foreground service from a background job. Reopening the app can
+restore the direct foreground transfer without waiting through a scheduler
+backoff. Android may still defer fallback jobs. Force-stop prevents further work
+until reopening, device power policies can restrict execution, and Android 15+
+limits background `dataSync` foreground-service time to six hours per 24 hours.
+The service handles its timeout instead of attempting to bypass that limit.
+
+Verified prefixes are rechecked after a process restart; an interrupted current
+chunk is downloaded again. Matching installed revisions use metadata and file
+size checks without rehashing all weights on every open. Initial installation,
+resumed prefixes and completed new files retain their integrity checks. A failed
+update leaves the previous models selected, and an active inference lease
+protects its revision until processing finishes. There is no model choice,
+install or cancel button.
 
 ## Validation in CI
 
@@ -155,9 +177,11 @@ Executable validation must run in CI, not on the local machine.
 
 JVM tests cover CTC repetition/blank rules, chunk ownership, WAV parsing, speaker
 clustering, conservative voice enrollment, encrypted history/expiry, resumable
-model-download validation and invalid inputs. Server tests check immutable
+model-download validation, transient request recovery, partial progress, cancellation,
+HTTP retry classification and invalid inputs. Server tests check immutable
 publication, compressed chunk integrity, smoke-report requirements and failure cleanup. The
-emulator tests cover optimized app startup and native library loading. The separate model workflow checks actual speech inference; these tests
+emulator tests cover optimized app startup, native library loading and foreground
+transfer lifecycle with controlled fake data. The separate model workflow checks actual speech inference; these tests
 do not substitute for a Russian conversation accuracy benchmark.
 
 ## Model and runtime references

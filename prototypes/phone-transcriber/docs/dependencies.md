@@ -12,6 +12,7 @@ used. Preview, alpha, beta and release-candidate artifacts are excluded.
 | Activity Compose | 1.13.0 | [Activity releases](https://developer.android.com/jetpack/androidx/releases/activity) |
 | Lifecycle / ViewModel | 2.11.0 | [Lifecycle releases](https://developer.android.com/jetpack/androidx/releases/lifecycle) |
 | WorkManager | 2.12.0 | [WorkManager releases](https://developer.android.com/jetpack/androidx/releases/work) |
+| OkHttp | 5.5.1 | [Official changelog](https://raw.githubusercontent.com/square/okhttp/master/CHANGELOG.md) |
 | Coroutines | 1.11.0 | [Coroutines releases](https://github.com/Kotlin/kotlinx.coroutines/releases) |
 | ONNX Runtime Android for ASR | 1.31.0 | [Maven Central](https://central.sonatype.com/artifact/com.microsoft.onnxruntime/onnxruntime-android) |
 | sherpa-onnx | 2.0.0 | [Release and artifact checksums](https://github.com/k2-fsa/sherpa-onnx/releases/tag/v2.0.0) |
@@ -72,11 +73,19 @@ Android workflow inspects its output for expected architecture, compression,
 optimization evidence and absence of model files before publishing the short
 `debug-<8-character commit>.zip` archive with only `ascent.apk`.
 
-WorkManager 2.12.0, released September 23, 2026, owns the automatic download queue
-and approximate daily update checks. It requires a connected network and retries
-interrupted batches using verified chunk prefixes. Android scheduling and
-force-stop still apply; the app does not promise uninterrupted background
-execution. Independent gzip chunks use Android/Java platform compression APIs,
+An Android `dataSync` foreground service started from the visible activity owns
+the primary model transfer and its progress notification. WorkManager 2.12.0,
+released September 23, 2026, supplies connected-network recovery fallback and
+approximate daily update checks. Android scheduling, foreground-service budgets,
+force-stop and device power policies still apply; the app does not promise to
+bypass these limits.
+
+OkHttp 5.5.1, released October 22, 2026, provides cancellable HTTPS requests with
+connection reuse and eight-second connect/read timeouts. The fixed-host source
+keeps redirects disabled and requests identity transport encoding because gzip
+chunks are verified and decompressed explicitly. Per-request retries and
+validated-network callbacks replace long scheduler waits during an active
+foreground transfer. Independent gzip chunks use Android/Java compression APIs,
 without another native compression library. Encrypted text and confirmed voice
 templates use platform AES-GCM and Android Keystore APIs.
 

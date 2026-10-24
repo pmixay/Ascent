@@ -40,11 +40,21 @@ no-audio-persistence or watch-capture requirements.
    translucent layers and gradients, not a
    claim of Apple's native rendering implementation.
 
-7. Interrupt networking and kill/restart the process during a model download.
-   Confirm completed chunks are rechecked and reused; only unfinished or damaged
-   chunks transfer again. Background the app and observe scheduled continuation.
-   Force-stop it and verify resumption after reopening, allowing for Android
-   scheduling delays. Exercise insufficient storage and an unavailable catalog;
+7. Start a model download, close the activity, remove its task from recent apps,
+   and turn off the screen. Verify the foreground transfer and progress
+   notification continue, subject to the device's power policy. Switch between
+   Wi-Fi and mobile data, interrupt networking and restore a validated connection;
+   record the delay to the next request and visible progress update. Transient
+   failures should retry within the same operation, using 1/2/4-second delays
+   capped at ten seconds unless a server retry delay applies. Test a captive
+   portal separately: an available but unvalidated network must not count as
+   recovered internet access.
+   Kill/restart the process and confirm verified prefixes are rechecked and
+   reused; only unfinished or damaged chunks transfer again. Exercise scheduler
+   fallback, force-stop followed by reopening, notification denial and the
+   Android 15+ foreground-service timeout. Do not equate ordinary activity
+   closure with force-stop or promise to bypass Android restrictions.
+   Exercise insufficient storage and an unavailable catalog;
    status must remain understandable without switching servers or sending audio.
    Invalid catalog, index, compressed/raw chunk or final payload hashes must not
    replace working models. Publish a compatible revision through CI, check its

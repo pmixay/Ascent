@@ -6,6 +6,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.EOFException
 import java.util.zip.GZIPOutputStream
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -288,6 +289,196 @@ class ModelDownloaderTest {
             }
             assertEquals(listOf(previous), root.listFiles()!!.toList())
             ModelSpec.load(previous, verifyHashes = true)
+        } finally { root.deleteRecursively() }
+    }
+
+
+    @Test fun transientMidChunkFailureRetriesOnlyThatRequestWithoutRestartingTheDownload() {
+        val root = Files.createTempDirectory("model-retry").toFile()
+        try {
+            val fixture = compressedFixture()
+            val requested = mutableListOf<String>()
+            val attempts = mutableListOf<Int>()
+            var failOnce = true
+            val source = ModelSource { path ->
+                requested += path
+                val bytes = fixture.files.getValue(path)
+                val stream = if (path.endsWith("asr.onnx.1.gz") && failOnce) {
+                    failOnce = false
+                    object : ByteArrayInputStream(bytes) {
+                        private var delivered = false
+                        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                            if (delivered) throw IOException("Connection dropped mid-chunk")
+                            delivered = true
+                            return super.read(buffer, offset, minOf(length, 7))
+                        }
+                    }
+                } else ByteArrayInputStream(bytes)
+                ModelResponse(stream, bytes.size.toLong())
+            }
+            ModelDownloader(root, source, { Long.MAX_VALUE }, retryRequest = { _, attempt ->
+                attempts += attempt
+                attempt == 1
+            }).use { operation ->
+                ModelSpec.load(operation.download {}, verifyHashes = true)
+                operation.commit()
+            }
+            assertEquals(listOf(1), attempts)
+            assertEquals(1, requested.count { it == "catalog.json" })
+            assertEquals(1, requested.count { it.endsWith("manifest.json") })
+            assertEquals(1, requested.count { it.endsWith("asr.onnx.0.gz") })
+            assertEquals(2, requested.count { it.endsWith("asr.onnx.1.gz") })
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun truncatedCompressedBodyRetriesAsTransientEof() {
+        val root = Files.createTempDirectory("model-retry").toFile()
+        try {
+            val fixture = compressedFixture()
+            var failOnce = true
+            val failures = mutableListOf<IOException>()
+            val source = ModelSource { path ->
+                val bytes = fixture.files.getValue(path)
+                val truncated = path.endsWith("asr.onnx.0.gz") && failOnce
+                if (truncated) failOnce = false
+                ModelResponse(ByteArrayInputStream(if (truncated) bytes.copyOf(bytes.size - 2) else bytes), -1)
+            }
+            ModelDownloader(root, source, { Long.MAX_VALUE }, retryRequest = { error, attempt ->
+                failures += error
+                attempt == 1
+            }).use { operation ->
+                ModelSpec.load(operation.download {}, verifyHashes = true)
+                operation.commit()
+            }
+            assertEquals(1, failures.size)
+            assertTrue(failures.single() is EOFException)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun integrityFailureDoesNotEnterTheNetworkRetryLoop() {
+        val root = Files.createTempDirectory("model-retry").toFile()
+        try {
+            val fixture = compressedFixture()
+            val path = fixture.files.keys.single { it.endsWith("asr.onnx.0.gz") }
+            fixture.files[path] = fixture.files.getValue(path).copyOf().also { it[10] = (it[10].toInt() xor 255).toByte() }
+            var retries = 0
+            ModelDownloader(root, source(fixture), { Long.MAX_VALUE }, retryRequest = { _, _ ->
+                retries++
+                false
+            }).use { operation ->
+                assertThrows(IllegalStateException::class.java) { operation.download {} }
+            }
+            assertEquals(0, retries)
+            assertTrue(root.listFiles()!!.none { it.name.startsWith("gigaam-") })
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun compressedProgressIsVisibleBeforeTheWholeChunkArrives() {
+        val root = Files.createTempDirectory("model-progress").toFile()
+        try {
+            val fixture = compressedFixture()
+            val progress = mutableListOf<ModelDownloadProgress>()
+            var sawProgressBeforeChunkEnd = false
+            val precedingBytes = fixture.files.filterKeys {
+                it.endsWith("LICENSE-asr.txt.0.gz") || it.endsWith("LICENSE-speaker.txt.0.gz")
+            }.values.sumOf { it.size.toLong() }
+            val source = ModelSource { path ->
+                val bytes = fixture.files.getValue(path)
+                val stream = if (path.endsWith("asr.onnx.0.gz")) object : ByteArrayInputStream(bytes) {
+                    override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                        if (available() in 1 until bytes.size && progress.any {
+                                it.completedBytes > precedingBytes && it.completedBytes < precedingBytes + bytes.size
+                            }) sawProgressBeforeChunkEnd = true
+                        return super.read(buffer, offset, minOf(length, 256))
+                    }
+                } else ByteArrayInputStream(bytes)
+                ModelResponse(stream, bytes.size.toLong())
+            }
+            ModelDownloader(root, source, { Long.MAX_VALUE }).use { operation ->
+                operation.download { progress += it }
+                operation.commit()
+            }
+            assertTrue("Progress must not wait for the entire compressed chunk", sawProgressBeforeChunkEnd)
+            assertTrue(progress.zipWithNext().all { (before, after) -> before.completedBytes <= after.completedBytes })
+            assertEquals(progress.last().totalBytes, progress.last().completedBytes)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun interruptionBeforeTheNextRequestPreservesTheVerifiedPrefix() {
+        val root = Files.createTempDirectory("model-cancel").toFile()
+        try {
+            val fixture = compressedFixture()
+            var firstChunkRequested = false
+            var retryCount = 0
+            val requested = mutableListOf<String>()
+            val interruptedSource = ModelSource { path ->
+                requested += path
+                if (path.endsWith("asr.onnx.0.gz")) firstChunkRequested = true
+                val bytes = fixture.files.getValue(path)
+                ModelResponse(ByteArrayInputStream(bytes), bytes.size.toLong())
+            }
+            ModelDownloader(root, interruptedSource, { Long.MAX_VALUE }, beforeRequest = {
+                if (firstChunkRequested) throw InterruptedException("Service stopped")
+            }, retryRequest = { _, _ -> retryCount++; false }).use { operation ->
+                assertThrows(InterruptedException::class.java) { operation.download {} }
+            }
+            assertEquals(0, retryCount)
+            assertTrue(requested.none { it.endsWith("asr.onnx.1.gz") })
+            assertEquals(4L * 1024 * 1024, root.listFiles()!!.single().resolve("asr.onnx.part").length())
+            ModelDownloader(root, source(fixture), { Long.MAX_VALUE }).use { operation ->
+                ModelSpec.load(operation.download {}, verifyHashes = true)
+                operation.commit()
+            }
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun interruptionDuringCompressedReadDoesNotRetry() {
+        val root = Files.createTempDirectory("model-cancel").toFile()
+        try {
+            val fixture = compressedFixture()
+            var retryCount = 0
+            val source = ModelSource { path ->
+                val bytes = fixture.files.getValue(path)
+                val stream = if (path.endsWith("asr.onnx.1.gz")) object : ByteArrayInputStream(bytes) {
+                    override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+                        super.read(buffer, offset, length).also { Thread.currentThread().interrupt() }
+                } else ByteArrayInputStream(bytes)
+                ModelResponse(stream, bytes.size.toLong())
+            }
+            ModelDownloader(root, source, { Long.MAX_VALUE }, retryRequest = { _, _ -> retryCount++; false }).use { operation ->
+                assertThrows(InterruptedException::class.java) { operation.download {} }
+            }
+            assertEquals(0, retryCount)
+            assertEquals(4L * 1024 * 1024, root.listFiles()!!.single().resolve("asr.onnx.part").length())
+        } finally { Thread.interrupted(); root.deleteRecursively() }
+    }
+
+    @Test fun retryableHttpFailureCarriesRetryAfterAndPermanentFailureDoesNotRetry() {
+        val root = Files.createTempDirectory("model-http").toFile()
+        try {
+            val fixture = fixture()
+            var opens = 0
+            val failures = mutableListOf<Pair<Int, Long>>()
+            val recovering = ModelSource { path ->
+                if (opens++ == 0) throw ModelHttpException(503, 2_500)
+                val bytes = fixture.files.getValue(path)
+                ModelResponse(ByteArrayInputStream(bytes), bytes.size.toLong())
+            }
+            ModelDownloader(root, recovering, { Long.MAX_VALUE }, retryRequest = { error, attempt ->
+                val http = error as ModelHttpException
+                failures += http.statusCode to http.retryAfterMs
+                attempt == 1
+            }).use { operation ->
+                operation.download {}
+                operation.commit()
+            }
+            assertEquals(listOf(503 to 2_500L), failures)
+            var retries = 0
+            ModelDownloader(root, ModelSource { throw ModelHttpException(404) }, { Long.MAX_VALUE },
+                retryRequest = { _, _ -> retries++; false }).use { operation ->
+                assertThrows(ModelHttpException::class.java) { operation.download {} }
+            }
+            assertEquals(0, retries)
         } finally { root.deleteRecursively() }
     }
 

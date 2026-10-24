@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.coroutines.android)
     implementation(libs.work.runtime)
+    implementation(libs.okhttp)
     implementation(libs.onnxruntime.android)
     // Isolates sherpa's C runtime from the ASR Java runtime. See scripts/prepare_android.py.
     implementation(files("libs/sherpa-onnx-${libs.versions.sherpa.get()}-isolated-ort.aar"))

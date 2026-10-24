@@ -3,14 +3,21 @@ package com.pmixay.ascent
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
+import java.io.EOFException
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.io.RandomAccessFile
 import java.net.URI
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.GZIPInputStream
-import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLException
+import okhttp3.Call
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 internal const val MODEL_CATALOG_URL = "https://ascent.arbuz.lol/models/catalog.json"
 internal const val MAX_MODEL_MANIFEST_BYTES = 128 * 1024
@@ -121,37 +128,69 @@ internal class ModelResponse(val input: InputStream, val length: Long, private v
 
 internal fun interface ModelSource {
     fun open(relativePath: String): ModelResponse
+    fun cancelActiveRequest() {}
 }
+
+internal class ModelHttpException(val statusCode: Int, val retryAfterMs: Long = 0) :
+    IOException("Сервер моделей ответил HTTP $statusCode")
 
 /** GET-only access to the fixed model host. No audio, transcript, credentials or identifiers are sent. */
 internal class HttpsModelSource : ModelSource {
+    private val active = AtomicReference<Call?>()
+    override fun cancelActiveRequest() {
+        active.get()?.cancel()
+        client.connectionPool.evictAll()
+    }
+
     override fun open(relativePath: String): ModelResponse {
+        interrupted()
         val base = URI(MODEL_CATALOG_URL).resolve(".")
         val target = base.resolve(relativePath)
         require(target.scheme == "https" && target.host == base.host && target.port == base.port &&
             target.rawUserInfo == null && target.rawQuery == null && target.rawFragment == null &&
             target.path.startsWith(base.path) && target.normalize() == target) { "Некорректный адрес модели" }
-        val connection = target.toURL().openConnection() as HttpsURLConnection
-        connection.requestMethod = "GET"
-        connection.instanceFollowRedirects = false
-        connection.connectTimeout = 15_000
-        connection.readTimeout = 15_000
-        connection.useCaches = false
-        connection.setRequestProperty("Accept-Encoding", "identity")
+        val call = client.newCall(Request.Builder().url(target.toString())
+            .header("Accept-Encoding", "identity").header("Cache-Control", "no-cache").get().build())
+        check(active.compareAndSet(null, call)) { "Одновременные запросы моделей не поддерживаются" }
         try {
-            check(connection.responseCode == 200) {
-                if (connection.responseCode == 404 || connection.responseCode == 503)
-                    "Модели пока недоступны. Попробуйте позже."
-                else "Не удалось скачать модели (HTTP ${connection.responseCode})"
+            interrupted()
+            val response = call.execute()
+            if (response.code != 200) {
+                val wait = retryAfterMillis(response.header("Retry-After"))
+                val code = response.code
+                response.close()
+                throw ModelHttpException(code, wait)
             }
-            val encoding = connection.contentEncoding
-            check(encoding == null || encoding.equals("identity", ignoreCase = true)) { "Неподдерживаемый ответ сервера моделей" }
-            return ModelResponse(connection.inputStream, connection.contentLengthLong, connection::disconnect)
+            val encoding = response.header("Content-Encoding")
+            if (encoding != null && !encoding.equals("identity", ignoreCase = true)) {
+                response.close()
+                error("Неподдерживаемый ответ сервера моделей")
+            }
+            return ModelResponse(response.body.byteStream(), response.body.contentLength()) {
+                try { response.close() } finally { active.compareAndSet(call, null) }
+            }
         } catch (error: Throwable) {
-            connection.disconnect()
+            call.cancel()
+            active.compareAndSet(call, null)
             throw error
         }
     }
+
+    companion object {
+        private val client = OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(8, TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false)
+            .retryOnConnectionFailure(true).build()
+    }
+}
+
+internal fun retryAfterMillis(value: String?, nowMs: Long = System.currentTimeMillis()): Long {
+    if (value == null) return 0
+    val seconds = value.trim().toLongOrNull()
+    if (seconds != null) return seconds.coerceIn(0, 86_400) * 1000
+    return try {
+        (java.time.ZonedDateTime.parse(value, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)
+            .toInstant().toEpochMilli() - nowMs).coerceIn(0, 86_400_000)
+    } catch (_: java.time.format.DateTimeParseException) { 0 }
 }
 
 internal data class ModelDownloadProgress(val completedBytes: Long, val totalBytes: Long, val verifying: Boolean = false)
@@ -165,6 +204,8 @@ internal class ModelDownloader(
     private val availableBytes: () -> Long = { root.usableSpace },
     private val currentDirectory: File? = null,
     private val shouldYield: () -> Boolean = { false },
+    private val beforeRequest: () -> Unit = {},
+    private val retryRequest: (IOException, Int) -> Boolean = { _, _ -> false },
 ) : Closeable {
     private var temporary: File? = null
     private var installed: File? = null
@@ -176,7 +217,9 @@ internal class ModelDownloader(
         val catalog = ModelCatalog.parse(readSmall("catalog.json", MAX_CATALOG_BYTES))
         if (currentDirectory?.isDirectory == true &&
             fileHash(File(currentDirectory, "manifest.json")) == catalog.manifestSha256) {
-            val valid = try { ModelSpec.load(currentDirectory, verifyHashes = true); true }
+            // Installed immutable files were fully verified before selection. Routine
+            // catalog checks validate metadata/sizes, without scanning 1 GB again.
+            val valid = try { ModelSpec.load(currentDirectory); true }
                 catch (error: InterruptedException) { throw error }
                 catch (_: Exception) { false }
             if (valid) {
@@ -306,7 +349,9 @@ internal class ModelDownloader(
                     if (!reusable) {
                         file.setLength(offset)
                         val compressed = readSmall(catalog.downloadDirectory + "${entry.name}.$number.gz",
-                            CHUNK_BYTES + 65536, chunk.bytes, chunk.sha256)
+                            CHUNK_BYTES + 65536, chunk.bytes, chunk.sha256) { bytes ->
+                            progress(ModelDownloadProgress(completed + bytes, total))
+                        }
                         val temp = File(staging, entry.name + ".chunk")
                         try {
                             val digest = MessageDigest.getInstance("SHA-256")
@@ -349,13 +394,34 @@ internal class ModelDownloader(
         }
     }
 
-    private fun readSmall(path: String, maximum: Int, expectedSize: Long? = null, expectedHash: String? = null): ByteArray {
+    private fun readSmall(path: String, maximum: Int, expectedSize: Long? = null, expectedHash: String? = null,
+        onBytes: (Long) -> Unit = {}): ByteArray {
+        var failures = 0
+        while (true) {
+            interrupted()
+            beforeRequest()
+            try {
+                return readAttempt(path, maximum, expectedSize, expectedHash, onBytes)
+            } catch (error: IOException) {
+                interrupted()
+                if (error is DownloadYieldException || error is SSLException ||
+                    error is ModelHttpException && error.statusCode !in setOf(408, 425, 429) && error.statusCode !in 500..599) throw error
+                // Roll back only in-flight bytes; committed chunks and the file cursor stay intact.
+                onBytes(0)
+                if (!retryRequest(error, ++failures)) throw error
+            }
+        }
+    }
+
+    private fun readAttempt(path: String, maximum: Int, expectedSize: Long?, expectedHash: String?,
+        onBytes: (Long) -> Unit): ByteArray {
         interrupted()
         source.open(path).use { response ->
             check(response.length < 0 || response.length <= maximum) { "Ответ сервера моделей слишком большой" }
             if (expectedSize != null) check(response.length < 0 || response.length == expectedSize) { "Манифест моделей изменился" }
             val bytes = ByteArrayOutputStream()
             val buffer = ByteArray(8192)
+            var lastProgress = 0L
             while (true) {
                 interrupted()
                 if (path.endsWith(".gz") && shouldYield()) throw DownloadYieldException()
@@ -364,10 +430,16 @@ internal class ModelDownloader(
                 if (read < 0) break
                 check(bytes.size() + read <= maximum) { "Ответ сервера моделей слишком большой" }
                 bytes.write(buffer, 0, read)
+                val now = System.nanoTime()
+                if (now - lastProgress >= 150_000_000L) {
+                    onBytes(bytes.size().toLong())
+                    lastProgress = now
+                }
             }
             val result = bytes.toByteArray()
-            if (expectedSize != null) check(result.size.toLong() == expectedSize) { "Манифест загружен не полностью" }
+            if (expectedSize != null && result.size.toLong() != expectedSize) throw EOFException("Часть модели загружена не полностью")
             if (expectedHash != null) check(MessageDigest.getInstance("SHA-256").digest(result).hex() == expectedHash) { "Проверка манифеста моделей не пройдена" }
+            onBytes(result.size.toLong())
             return result
         }
     }

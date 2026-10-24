@@ -2,6 +2,7 @@ package com.pmixay.ascent
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -20,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 class MainActivity : ComponentActivity() {
     private lateinit var conversation: ConversationViewModel
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,7 +71,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onStart() { super.onStart(); conversation.setForeground(true) }
+    override fun onStart() {
+        super.onStart()
+        conversation.setForeground(true)
+        ModelDownloads.startFromVisible(this)
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            val preferences = getSharedPreferences("ascent", MODE_PRIVATE)
+            if (!preferences.getBoolean("notificationPrompted", false)) {
+                preferences.edit().putBoolean("notificationPrompted", true).apply()
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
     override fun onStop() {
         if (!isChangingConfigurations) conversation.setForeground(false)
         super.onStop()

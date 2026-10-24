@@ -12,12 +12,18 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import androidx.work.workDataOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.async
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import java.io.Closeable
@@ -71,45 +77,126 @@ internal object ModelSelection {
     }
 }
 
+/** Transfer hooks shared by the foreground owner and durable background recovery. */
+internal data class ModelTransferControl(
+    val source: ModelSource,
+    val beforeRequest: () -> Unit,
+    val retryRequest: (java.io.IOException, Int) -> Boolean,
+    val shouldYield: () -> Boolean,
+)
+
+internal fun interface ModelTransferRunner {
+    fun run(context: Context, control: ModelTransferControl, progress: (ModelDownloadProgress) -> Unit)
+}
+
+internal fun retryableModelFailure(error: Exception): Boolean = error is java.io.IOException &&
+    error !is javax.net.ssl.SSLException && error !is java.io.FileNotFoundException &&
+    (error !is ModelHttpException || error.statusCode in setOf(408, 425, 429) || error.statusCode in 500..599)
+
 internal object ModelDownloads {
     private const val UNIQUE = "ascent-model-download"
+    private const val PREFS = "ascent-model-transfer"
     private val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+    private val transferMutex = kotlinx.coroutines.sync.Mutex()
+
+    // Internal injection seam: Android lifecycle tests can exercise the actual service
+    // with an interruptible fake instead of downloading production model weights.
+    @Volatile var transferRunner: ModelTransferRunner = ModelTransferRunner { context, control, progress ->
+        ModelDownloader(ModelSelection.root(context), source = control.source,
+            currentDirectory = ModelSelection.current(context), shouldYield = control.shouldYield,
+            beforeRequest = control.beforeRequest, retryRequest = control.retryRequest).use { operation ->
+            val directory = operation.download(progress)
+            ModelSelection.select(context, directory)
+            operation.commit()
+            ModelSelection.cleanup(context)
+        }
+    }
+
+    /** Persisted fallback and daily checks do not attempt to start a service from the background. */
     fun schedule(context: Context) {
-        val manager = WorkManager.getInstance(context)
         enqueue(context)
-        manager.enqueueUniquePeriodicWork("ascent-model-updates", ExistingPeriodicWorkPolicy.KEEP,
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork("ascent-model-updates", ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<ModelUpdateWorker>(24, TimeUnit.HOURS)
                 .setConstraints(constraints).build())
     }
-    fun enqueue(context: Context) { enqueue(context, ExistingWorkPolicy.KEEP) }
-    fun continueDownload(context: Context) = enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE)
-    private fun enqueue(context: Context, policy: ExistingWorkPolicy) =
+
+    /** Called directly from a visible Activity; foreground ownership outlives its window. */
+    fun startFromVisible(context: Context): Boolean {
+        // REPLACE removes stale retry delays, and cancellation releases the shared transfer lock.
+        recovery(context, replace = true, delaySeconds = 60)
+        return try {
+            val started = context.startForegroundService(android.content.Intent(context, ModelDownloadService::class.java)) != null
+            if (!started) recovery(context, replace = true)
+            started
+        } catch (_: IllegalStateException) {
+            recovery(context, replace = true)
+            false
+        } catch (_: SecurityException) {
+            recovery(context, replace = true)
+            false
+        }
+    }
+
+    fun enqueue(context: Context) { request(context, ExistingWorkPolicy.KEEP) }
+    fun recovery(context: Context, replace: Boolean = false, delaySeconds: Long = 0) =
+        request(context, if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP, delaySeconds)
+    fun continueDownload(context: Context, delaySeconds: Long = 0) =
+        request(context, ExistingWorkPolicy.APPEND_OR_REPLACE, delaySeconds)
+    private fun request(context: Context, policy: ExistingWorkPolicy, delaySeconds: Long = 0) =
         WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE, policy,
             OneTimeWorkRequestBuilder<ModelDownloadWorker>().setConstraints(constraints)
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS).build())
-    fun observe(context: Context): Flow<ModelTransferState> =
-        WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(UNIQUE).map { records ->
-            val active = records.firstOrNull { it.state == WorkInfo.State.RUNNING }
-                ?: records.firstOrNull { !it.state.isFinished }
-            val record = active ?: records.firstOrNull()
-            val directory = ModelSelection.current(context)
-            val progress = record?.progress
-            val preferences = context.getSharedPreferences("ascent-model-transfer", Context.MODE_PRIVATE)
-            val running = active?.state == WorkInfo.State.RUNNING
-            val queued = active?.state == WorkInfo.State.ENQUEUED || active?.state == WorkInfo.State.BLOCKED
-            val message = when {
-                running -> progress?.getString("message") ?: if (directory == null) "Проверяю модели…" else "Проверяю обновления…"
-                queued -> preferences.getString("waiting", null)
-                    ?: if (directory == null) "Загрузка продолжится при доступной сети" else "Модели готовы. Проверка обновлений в очереди"
-                directory != null -> "Модели готовы"
-                else -> "Загрузка будет продолжена автоматически"
+                .setInitialDelay(delaySeconds, TimeUnit.SECONDS)
+                .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.SECONDS).build())
+
+    fun cancelRecovery(context: Context) { WorkManager.getInstance(context).cancelUniqueWork(UNIQUE) }
+
+    internal suspend fun transfer(context: Context, control: ModelTransferControl,
+        progress: (ModelDownloadProgress) -> Unit) = transferMutex.withLock {
+        kotlinx.coroutines.coroutineScope {
+            val task = async(Dispatchers.IO) {
+                runInterruptible { transferRunner.run(context, control, progress) }
             }
-            ModelTransferState(directory, message, running && progress?.getBoolean("transferring", false) == true,
-                progress?.getLong("completed", 0) ?: 0, progress?.getLong("total", 0) ?: 0)
-        }.flowOn(Dispatchers.IO)
+            try { task.await() }
+            finally { control.source.cancelActiveRequest() }
+        }
+    }
+
+    internal fun publish(context: Context, message: String, phase: String,
+        completed: Long? = null, total: Long? = null) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("message", message).putString("phase", phase)
+            .apply {
+                if (completed != null) putLong("completed", completed)
+                if (total != null) putLong("total", total)
+            }.apply()
+    }
+
+    private fun persisted(context: Context): Flow<ModelTransferState> = callbackFlow {
+        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(Unit) }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        trySend(Unit)
+        awaitClose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.conflate().map {
+        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val directory = ModelSelection.current(context)
+        ModelTransferState(directory,
+            preferences.getString("message", null) ?: if (directory == null)
+                "Загрузка начнётся автоматически" else "Модели готовы",
+            preferences.getString("phase", "") in setOf("download", "verify"),
+            preferences.getLong("completed", 0), preferences.getLong("total", 0))
+    }.distinctUntilChanged().flowOn(Dispatchers.IO)
+
+    fun observe(context: Context): Flow<ModelTransferState> = combine(
+        persisted(context), ModelDownloadService.running,
+        WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(UNIQUE),
+    ) { saved, serviceRunning, records ->
+        val working = serviceRunning || records.any { it.state == WorkInfo.State.RUNNING }
+        if (working || !saved.downloading) saved
+        else saved.copy(downloading = false, message = "Загрузка продолжится автоматически")
+    }.flowOn(Dispatchers.IO)
 }
 
-/** Periodic checks share the same unique transfer queue; two downloads cannot race. */
 class ModelUpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         ModelDownloads.enqueue(applicationContext)
@@ -117,41 +204,54 @@ class ModelUpdateWorker(context: Context, params: WorkerParameters) : CoroutineW
     }
 }
 
-/** Short, resumable batches stay below the normal background-job execution limit. */
+/** Recovery after reboot/process loss; an active foreground service remains the sole download owner. */
 class ModelDownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
+        if (ModelDownloadService.running.value) {
+            withContext(Dispatchers.IO) { ModelDownloads.continueDownload(applicationContext, 60).result.get() }
+            return Result.success()
+        }
         val start = System.nanoTime()
+        val source = HttpsModelSource()
         return try {
-            applicationContext.getSharedPreferences("ascent-model-transfer", Context.MODE_PRIVATE).edit().remove("waiting").apply()
-            runInterruptible(Dispatchers.IO) {
-                ModelDownloader(ModelSelection.root(applicationContext),
-                    currentDirectory = ModelSelection.current(applicationContext),
-                    shouldYield = { System.nanoTime() - start > TimeUnit.MINUTES.toNanos(4) }).use { operation ->
-                    val directory = operation.download { progress ->
-                        setProgressAsync(workDataOf("completed" to progress.completedBytes, "total" to progress.totalBytes,
-                            "transferring" to true,
-                            "message" to if (progress.verifying) "Проверяю модели…" else "Загружаю модели в фоне…")).get()
-                    }
-                    // Selection and transaction commit form one non-suspending critical section.
-                    ModelSelection.select(applicationContext, directory)
-                    operation.commit()
-                    ModelSelection.cleanup(applicationContext)
+            ModelDownloads.publish(applicationContext, "Проверяю модели…", "check")
+            var lastProgress = 0L
+            ModelDownloads.transfer(applicationContext, ModelTransferControl(source,
+                beforeRequest = {}, retryRequest = { error, attempt ->
+                    val delayMs = maxOf(minOf(1_000L shl (attempt - 1).coerceIn(0, 4), 10_000L),
+                        (error as? ModelHttpException)?.retryAfterMs ?: 0)
+                    if (System.nanoTime() - start + TimeUnit.MILLISECONDS.toNanos(delayMs) > TimeUnit.MINUTES.toNanos(4)) false
+                    else { Thread.sleep(delayMs); true }
+                }, shouldYield = { System.nanoTime() - start > TimeUnit.MINUTES.toNanos(4) })) { progress ->
+                val now = System.nanoTime()
+                if (now - lastProgress >= 1_000_000_000 || progress.verifying) {
+                    ModelDownloads.publish(applicationContext,
+                        if (progress.verifying) "Проверяю модели…" else "Загружаю модели в фоне…",
+                        if (progress.verifying) "verify" else "download", progress.completedBytes, progress.totalBytes)
+                    lastProgress = now
                 }
             }
+            ModelDownloads.publish(applicationContext, "Модели готовы", "ready")
             Result.success()
         } catch (error: CancellationException) {
             throw error
         } catch (_: DownloadYieldException) {
-            // A completed batch is progress, not a failed attempt. Queue its successor
-            // without growing the network-error backoff on every four-minute slice.
             withContext(Dispatchers.IO) { ModelDownloads.continueDownload(applicationContext).result.get() }
             Result.success()
         } catch (error: Exception) {
-            // Verified prefixes persist. WorkManager retries after network loss, quota stops or reboot.
-            val message = "Загрузка приостановлена: ${error.message ?: "нет соединения"}. Повторю автоматически."
-            applicationContext.getSharedPreferences("ascent-model-transfer", Context.MODE_PRIVATE).edit()
-                .putString("waiting", message.take(300)).apply()
-            Result.retry()
-        }
+            if (retryableModelFailure(error)) {
+                ModelDownloads.publish(applicationContext, "Соединение прервано. Загрузка продолжится автоматически", "waiting")
+                val serverDelay = (error as? ModelHttpException)?.retryAfterMs ?: 0
+                if (serverDelay > 0) {
+                    withContext(Dispatchers.IO) {
+                        ModelDownloads.continueDownload(applicationContext, (serverDelay + 999) / 1000).result.get()
+                    }
+                    Result.success()
+                } else Result.retry()
+            } else {
+                ModelDownloads.publish(applicationContext, error.message?.take(200) ?: "Не удалось подготовить модели", "error")
+                Result.failure()
+            }
+        } finally { source.cancelActiveRequest() }
     }
 }

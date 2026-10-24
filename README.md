@@ -8,7 +8,8 @@ retention filter and has no Wear OS app. Temporary audio still reaches disk, so
 this does not satisfy the production no-audio-persistence requirement. Its CI and model-export
 results must be inspected before treating an artifact as verified. The compact
 phone APK uses R8 optimization and automatically downloads compressed model
-chunks from the fixed Ascent host, resuming interrupted transfers. The interface
+chunks from the fixed Ascent host through a foreground service that continues
+after ordinary app closure, with prompt request retries and verified resume. The interface
 shows model status; no weights or manual model archive belong in the APK flow.
 
 Russian speech memory for Android and Wear OS.
@@ -102,7 +103,7 @@ Cloud STT is prohibited, including fallback after a local model failure. Downloa
 
 Android's generic `SpeechRecognizer` may use remote services and is documented as unsuitable for continuous recognition; it is not the default continuous engine. See [SpeechRecognizer](https://developer.android.com/reference/android/speech/SpeechRecognizer).
 
-The review prototype uses GigaAM Multilingual 220M CTC through ONNX Runtime and ERes2NetV2 speaker embeddings through sherpa-onnx. Models download automatically in verified, compressed chunks from the fixed Ascent host. WorkManager resumes interrupted transfers and checks for compatible model revisions on app open and approximately daily; Android scheduling can delay background work. Processing remains local once models are installed. Production watch-stream processing still requires measured Russian accuracy, memory behavior, speaker attribution and latency on supported devices.
+The review prototype uses GigaAM Multilingual 220M CTC through ONNX Runtime and ERes2NetV2 speaker embeddings through sherpa-onnx. Models download automatically in verified, compressed chunks from the fixed Ascent host. A foreground service started from the visible app keeps transfers active with a progress notification and prompt network recovery. WorkManager provides recovery fallback and approximate daily checks for compatible revisions; Android scheduling, service budgets and force-stop restrictions still apply. Processing remains local once models are installed. Production watch-stream processing still requires measured Russian accuracy, memory behavior, speaker attribution and latency on supported devices.
 
 ### 3.3 Speaker separation for conversations
 
