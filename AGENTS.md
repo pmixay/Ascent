@@ -1,6 +1,6 @@
 # Ascent engineering contract
 
-Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation.
+Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation. Write project documentation in English; the app's user-facing language remains Russian.
 
 ## Review prototype scope
 
@@ -8,11 +8,12 @@ The current user request publishes the prepared phone transcription prototype fo
 
 ## 1. Build only through GitHub CI
 
-- **Do not build on the local machine.** GitHub CI performs builds. The requested initial workflows are `.github/workflows/android.yml` and `.github/workflows/model-pack.yml`; the fetched base repository had no workflows.
+- **Do not build on the local machine.** GitHub CI performs builds. The requested initial workflows are **Ascent Android CI** (`.github/workflows/android.yml`, job **Build and validate Android app**) and **Ascent Model Export** (`.github/workflows/model-pack.yml`, job **Export and validate offline models**); the fetched base repository had no workflows.
 - Do not run local Gradle, compilation, assemble, build, test, or lint tasks. Do not generate APK/AAB files or download Android SDKs or build toolchains. Do not invoke a wrapper, script, IDE action, or alternate tool that performs these operations indirectly.
 - Local work may include editing, reading configuration, reviewing diffs, and strictly non-building static checks. Check what a command does before running it.
 - Inspect the repository's actual GitHub workflow files, triggers, commands, and required checks before using CI. Do not invent workflow names or assume a pipeline exists in a supplied document-only workspace.
 - Use the existing workflow. Do not create a replacement, weaken checks, bypass CI, or fall back to a local build unless the user explicitly changes this instruction.
+- Ascent Android CI publishes only the APK download ZIP. Keep test and lint diagnostics in the workflow console; do not upload report artifacts. Build dependency caches may reduce repeated work but must preserve verification and required checks.
 - Report CI as not run or unverified unless an actual run and its result have been inspected. When available, identify the run and commit. Static review does not establish a successful build or passing tests.
 
 ## 2. Preserve the product architecture
@@ -20,7 +21,7 @@ The current user request publishes the prepared phone transcription prototype fo
 - Support Android 12+ phones and Wear OS 6.0 watches. Keep minimum OS support separate from release-time target SDK requirements.
 - Continuous background listening through the watch microphone belongs in the first release and first capture milestone. The user explicitly enables a visible listening session; pause, stop, interruptions, and connection state must be accurate.
 - The phone performs Russian speech recognition, conversation diarization, speech enhancement, and sound classification locally. The watch captures, timestamps, transfers, and displays phone-produced results. Do not replace primary watch capture with a remote-control-only design or silently switch microphones.
-- Prioritize reliable live capture and early conversation speaker separation. Default to the Russian `День` experience with a chronological history.
+- Prioritize reliable live capture and early conversation speaker separation. Default to the Russian-language `Day` experience with a chronological history.
 
 ## 3. Never persist audio
 

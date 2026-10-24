@@ -13,7 +13,7 @@ class NativeRuntimeTest {
         val environment = OrtEnvironment.getEnvironment()
         environment.setTelemetry(false)
         assertNotNull(environment)
-        // Resolves sherpa's ORT C API references against the same packaged ORT .so.
+        // Resolves sherpa's C API against its isolated bundled runtime after Java ORT loads.
         System.loadLibrary("sherpa-onnx-jni")
     }
 }

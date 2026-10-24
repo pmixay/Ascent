@@ -13,8 +13,10 @@ audio and plaintext text, has no automatic expiry, and has no watch app.
    errors and speaker-label mistakes; the current clustering threshold is an
    initial default, not a calibrated accuracy guarantee.
 3. Run a longer recording. Measure wall time, peak process memory, battery use
-   and thermal behaviour. ASR and speaker inference are sequential, and WAV
-   windows are read from disk rather than loading the full recording into RAM.
+   and thermal behaviour. ASR and speaker model sessions are sequential, but the
+   Maven ASR runtime and sherpa's separately named bundled C runtime may both
+   remain loaded. Measure their combined process memory. WAV windows are read
+   from disk rather than loading the full recording into RAM.
 4. Deny/revoke microphone access, background the app while recording, rotate the
    screen while processing, and interrupt a model import. Verify that the app
    releases the microphone, keeps a valid completed recording, and retains the

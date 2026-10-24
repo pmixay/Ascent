@@ -1,4 +1,4 @@
-name: Android CI
+name: Ascent Android CI
 
 on:
   push:
@@ -13,8 +13,84 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gate:
+    name: Select CI run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      run_build: ${{ steps.decision.outputs.run_build }}
+    steps:
+      - name: Avoid duplicate builds for open pull requests
+        id: decision
+        env:
+          ASCENT_GITHUB_TOKEN: ${{ github.token }}
+          ASCENT_API_URL: ${{ github.api_url }}
+          ASCENT_EVENT_NAME: ${{ github.event_name }}
+          ASCENT_REF: ${{ github.ref }}
+          ASCENT_BRANCH: ${{ github.ref_name }}
+          ASCENT_COMMIT: ${{ github.sha }}
+          ASCENT_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          ASCENT_REPOSITORY: ${{ github.repository }}
+          ASCENT_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+
+          run_build = True
+          is_branch_push = (
+              os.environ['ASCENT_EVENT_NAME'] == 'push'
+              and os.environ['ASCENT_REF'].startswith('refs/heads/')
+              and os.environ['ASCENT_BRANCH'] != os.environ['ASCENT_DEFAULT_BRANCH']
+          )
+          if is_branch_push:
+              try:
+                  repository = os.environ['ASCENT_REPOSITORY']
+                  query = urllib.parse.urlencode({
+                      'state': 'open', 'per_page': 1,
+                      'head': f"{os.environ['ASCENT_REPOSITORY_OWNER']}:{os.environ['ASCENT_BRANCH']}",
+                  })
+                  request = urllib.request.Request(
+                      f"{os.environ['ASCENT_API_URL']}/repos/{repository}/pulls?{query}",
+                      headers={
+                          'Authorization': f"Bearer {os.environ['ASCENT_GITHUB_TOKEN']}",
+                          'Accept': 'application/vnd.github+json',
+                          'User-Agent': 'Ascent-CI',
+                      },
+                  )
+                  with urllib.request.urlopen(request, timeout=15) as response:
+                      pulls = json.load(response)
+                  for pull in pulls:
+                      if pull['head']['repo']['full_name'] != repository:
+                          continue
+                      detail_request = urllib.request.Request(
+                          f"{os.environ['ASCENT_API_URL']}/repos/{repository}/pulls/{pull['number']}",
+                          headers=dict(request.header_items()),
+                      )
+                      with urllib.request.urlopen(detail_request, timeout=15) as response:
+                          detail = json.load(response)
+                      # Conflicting PRs do not get a pull_request run. Unknown or
+                      # stale mergeability also keeps the push checks enabled.
+                      run_build = not (
+                          detail.get('mergeable') is True
+                          and detail['head']['sha'] == os.environ['ASCENT_COMMIT']
+                      )
+                      break
+              except (OSError, ValueError, KeyError, TypeError):
+                  print('Pull request lookup unavailable; running all checks.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f"run_build={str(run_build).lower()}\n")
+          print('Run all checks.' if run_build else 'The pull request run validates the merge commit.')
+          PY
+
   build:
-    name: Lint, unit tests, native runtime, and debug APK
+    name: Build and validate Android app
+    needs: gate
+    if: needs.gate.outputs.run_build == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     defaults:
@@ -38,9 +114,23 @@ jobs:
           python3 -m unittest discover -s tests -v
           python3 -m unittest discover -s tools -p 'test_*.py' -v
 
+      - name: Restore native dependency download
+        id: native-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: prototypes/phone-transcriber/.cache/sherpa-onnx-*.aar
+          key: ${{ runner.os }}-sherpa-v1-${{ hashFiles('prototypes/phone-transcriber/scripts/prepare_android.py') }}
+
       - name: Prepare verified native Android dependency
         working-directory: prototypes/phone-transcriber
         run: python3 scripts/prepare_android.py
+
+      - name: Save verified native dependency download
+        if: github.event_name != 'pull_request' && steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: prototypes/phone-transcriber/.cache/sherpa-onnx-*.aar
+          key: ${{ steps.native-cache.outputs.cache-primary-key }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
@@ -62,13 +152,25 @@ jobs:
           log-accepted-android-sdk-licenses: false
 
       - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-37.2" "build-tools;37.0.0"
+        id: sdk
+        run: |
+          sdkmanager "platforms;android-37.2" "build-tools;37.0.0" "emulator"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          properties = Path(os.environ['ANDROID_HOME']) / 'emulator/source.properties'
+          revision = next(line.split('=', 1)[1].strip() for line in properties.read_text().splitlines()
+                          if line.split('=', 1)[0].strip() == 'Pkg.Revision')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'emulator_revision={revision}\n')
+          PY
 
       # Inference weights are imported on the phone, not bundled into the APK.
       # A normal pull request build does not download or export large models.
       - name: Run checks and build APK
         run: >-
-          gradle --no-daemon --stacktrace --continue
+          gradle --stacktrace --continue
           :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
 
       - name: Enable emulator hardware acceleration
@@ -77,16 +179,53 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Restore clean Android emulator snapshot
+        id: avd-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/test.avd
+            ~/.android/avd/test.ini
+            ${{ env.ANDROID_HOME }}/system-images/android-36/google_apis/x86_64
+          key: ${{ runner.os }}-${{ runner.arch }}-avd-36-google-apis-x86_64-${{ steps.sdk.outputs.emulator_revision }}-v1-${{ hashFiles('.github/workflows/android.yml') }}
+
+      # Save an empty, booted emulator before installing the app or running tests.
+      - name: Create clean Android emulator snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          avd-name: test
+          force-avd-creation: false
+          working-directory: prototypes/phone-transcriber/android
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: echo "Clean emulator snapshot ready."
+
+      - name: Save clean Android emulator snapshot
+        if: github.event_name != 'pull_request' && steps.avd-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/test.avd
+            ~/.android/avd/test.ini
+            ${{ env.ANDROID_HOME }}/system-images/android-36/google_apis/x86_64
+          key: ${{ steps.avd-cache.outputs.cache-primary-key }}
+
       - name: Verify native runtimes on Android 16
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 36
           target: google_apis
           arch: x86_64
+          avd-name: test
+          force-avd-creation: false
           working-directory: prototypes/phone-transcriber/android
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-save -noaudio -no-boot-anim -camera-back none
+          script: gradle --stacktrace :app:connectedDebugAndroidTest
 
       - name: Upload checked debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -94,16 +233,29 @@ jobs:
           name: ascent-debug-${{ github.sha }}
           path: prototypes/phone-transcriber/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          compression-level: 0
           retention-days: 14
 
-      - name: Upload lint and test reports
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: android-reports-${{ github.sha }}
-          path: |
-            prototypes/phone-transcriber/android/app/build/reports/
-            prototypes/phone-transcriber/android/app/build/test-results/
-            prototypes/phone-transcriber/android/app/build/outputs/androidTest-results/
-          if-no-files-found: warn
-          retention-days: 14
+      - name: Print failed test details
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          roots = (Path('app/build/test-results'), Path('app/build/outputs/androidTest-results'))
+          count = 0
+          for root in roots:
+              for path in sorted(root.rglob('*.xml')):
+                  try:
+                      report = ET.parse(path)
+                  except ET.ParseError:
+                      continue
+                  for case in report.iter('testcase'):
+                      for issue in list(case.findall('failure')) + list(case.findall('error')):
+                          count += 1
+                          print(f"FAILED: {case.get('classname', '')}.{case.get('name', '')}")
+                          print((issue.get('message') or issue.text or 'No error details')[:4000])
+          if not count:
+              print('No failed testcase XML found; inspect the failed step above.')
+          PY

@@ -9,13 +9,17 @@ results must be inspected before treating an artifact as verified.
 
 Russian speech memory for Android and Wear OS.
 
+Documentation is in English. Interface labels and example prompts below are
+English descriptions of the planned Russian-language app.
+
 **Planned product: the watch is the primary continuous microphone. The phone converts speech to text locally. Ascent never saves audio. Optional AI features send selected text through OpenRouter under a verified no-retention policy.**
 
 Ascent turns everyday speech and relevant sounds into a searchable seven-day history. It provides a text view of the last 30 seconds, conversation summaries, a day timeline, and editable information about people and familiar places.
 
 Specification version: 0.5
 
-Updated: 24 October 2026  
+Updated: 24 October 2026
+
 Status: product and implementation plan. These are requirements, not claims that the software or its protections are already implemented.
 
 See [roadmap.md](roadmap.md) for task checkboxes and acceptance criteria. Contributors and coding agents must follow [AGENTS.md](AGENTS.md), including its prohibition on local builds.
@@ -33,7 +37,7 @@ See [roadmap.md](roadmap.md) for task checkboxes and acceptance criteria. Contri
 | Application backend | Fixed production endpoint: `https://ascent.arbuz.lol`. Neither the phone nor the watch app offers server selection or a custom server URL. |
 | Language | Russian speech, transcripts, summaries, and AI answers. Russian is the initial interface language. |
 | First engineering priority | Reliable encrypted watch-to-phone audio transport, local transcription, and speaker separation for stored conversations. |
-| Default mode | `День`. |
+| Default mode | `Day`. |
 | Default retention | Rolling seven days for encrypted transcripts, summaries, sound-event records, and source-linked derived information. |
 | Audio retention | None. No raw, enhanced, encoded, or encrypted audio is written to persistent storage. |
 | Recording features | No recording, saved clips, audio playback, audio export, or audio archive. Listening controls remain available. |
@@ -72,7 +76,7 @@ The user starts listening through a visible watch action. Once enabled, the watc
 Requirements:
 
 - A microphone foreground service owns live input independently of the watch screen.
-- The default active mode is `День`.
+- The default active mode is `Day`.
 - Listening state is visible, with accessible pause and stop actions.
 - Frames carry session identity, capture timestamps, sequence information, and source-device identity.
 - Missing input, processing delay, connection loss, and interrupted listening appear as explicit states or gaps.
@@ -98,7 +102,7 @@ Candidate runtimes include [Vosk](https://alphacephei.com/vosk/models), [whisper
 
 ### 3.3 Speaker separation for conversations
 
-Speaker separation is an early core function for retained text conversations. Process voices locally as frames arrive and store timestamped text turns under provisional labels such as `Говорящий 1` and `Говорящий 2`.
+Speaker separation is an early core function for retained text conversations. Process voices locally as frames arrive and store timestamped text turns under provisional labels such as `Speaker 1` and `Speaker 2`.
 
 Diarization must operate within the bounded live processing window. Choose an incremental approach that does not require keeping an entire conversation's audio for later analysis. Once frames are discarded, audio-based reprocessing is unavailable.
 
@@ -116,7 +120,7 @@ Diarization must not block rewind.
 
 ### 3.4 Simple 30-second text rewind
 
-`Последние 30 секунд` is a lightweight view of recently recognized speech. Its rolling buffer contains text and timestamps, never audio.
+`Last 30 seconds` is a lightweight view of recently recognized speech. Its rolling buffer contains text and timestamps, never audio.
 
 1. Capture the user's tap time and select the preceding 30 seconds of the current session.
 2. Freeze that text interval so incoming speech cannot move the selected fragment.
@@ -127,10 +131,10 @@ For every question, supply the **entire frozen fragment text**. Do not replace i
 
 Example questions:
 
-- `Что сейчас сказали?`
-- `Какое время назвали?`
-- `Что нужно сделать?`
-- `Объясни эту фразу.`
+- `What was just said?`
+- `What time was mentioned?`
+- `What needs to be done?`
+- `Explain this phrase.`
 
 Rewind is independent of diarization. It offers no audio replay or save control.
 
@@ -152,7 +156,7 @@ The phone timeline combines conversations, sound episodes, and listening gaps. C
 
 Details contain the summary, source-linked transcript, participants, and associated sound events. Support split, merge, rename, and text corrections for imperfect conversation boundaries.
 
-Provide `Этим утром`, `Сегодня`, `Вчера`, and `Последние 7 дней`. Show the resolved time range for natural-language filters. Use capture timestamps and the time zone at capture; delivery time must not move an event.
+Provide `This morning`, `Today`, `Yesterday`, and `Last 7 days`. Show the resolved time range for natural-language filters. Use capture timestamps and the time zone at capture; delivery time must not move an event.
 
 ### 3.6 Recap and summaries
 
@@ -264,7 +268,7 @@ Disconnected behavior:
 
 - The watch may keep the enabled microphone session alive while attempting reconnection, but undeliverable frames expire within the short volatile transport budget.
 - Do not store an offline backlog or backfill missed speech.
-- Show `Нет связи с телефоном` and an accurate coverage gap.
+- Show `No connection to phone` and an accurate coverage gap.
 - The phone microphone does not activate automatically. An optional live source change requires deliberate selection.
 - If the phone cannot process frames in time, discard overdue frames and show the gap instead of saving them.
 - A process restart cannot restore audio. Recovery resumes with new frames.
@@ -304,7 +308,7 @@ This specifies the planned hosting address; it does not assert that deployment o
 
 Server AI is optional and text-only. Before enabling it, explain which text leaves the device, its purpose, the routing service, and the retention policy. A concise user-facing explanation can say:
 
-> Распознавание речи выполняется на телефоне. Аудио не сохраняется и не отправляется в облако. Для этой AI-функции выбранный текст передаётся по защищённому соединению.
+> Speech recognition runs on your phone. Audio is never saved or sent to the cloud. For this AI feature, selected text is sent over a secure connection.
 
 Show the selected fragment or conversation scope and give automatic recaps their own enable control. Rewind always sends the entire frozen text, as requested, without extra history. Other functions send only the relevant retained text.
 
@@ -377,17 +381,17 @@ Use warm yellow as the main accent, cream surfaces and dark readable text. Trans
 - Use reliable touch targets and concise watch layouts.
 - Put time, duration, source, and place on separate labeled lines when needed.
 - Pair status colors with explicit labels.
-- Keep `Последние 30 секунд` and pause/stop in predictable positions.
+- Keep `Last 30 seconds` and pause/stop in predictable positions.
 - Use listening terminology in the product. Do not present audio recording, playback, clip-saving, or export actions.
 - Make local processing and a pending server-AI request understandable without displaying protocol details.
 
-Phone destinations: `Сегодня`, `История`, `Люди`, and `Поиск`. The watch provides shorter versions and essential listening controls.
+Phone destinations: `Today`, `History`, `People`, and `Search`. The watch provides shorter versions and essential listening controls.
 
 ## 10. Delivery and development workflow
 
 The first production slice must use the watch as the live microphone and the phone for processing. The phone-only review prototype does not complete that slice. [roadmap.md](roadmap.md) defines the sequence and acceptance gates.
 
-**Do not build locally. GitHub CI is the build and executable-validation environment.** This branch adds the requested [Android CI](.github/workflows/android.yml) and manual [Export offline model pack](.github/workflows/model-pack.yml) workflows for the review prototype; the fetched base repository had no workflows. Inspect each actual run and its commit before reporting success. Use these checks, do not weaken them or replace them with local builds, and do not claim an unobserved green result. Local document edits and static inspection are allowed. See [AGENTS.md](AGENTS.md).
+**Do not build locally. GitHub CI is the build and executable-validation environment.** This branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and manual [Ascent Model Export](.github/workflows/model-pack.yml) workflows for the review prototype; the fetched base repository had no workflows. Inspect each actual run and its commit before reporting success. Use these checks, do not weaken them or replace them with local builds, and do not claim an unobserved green result. Ascent Android CI publishes only an APK ZIP; test and lint diagnostics remain in the workflow console, without report artifacts. Local document edits and static inspection are allowed. See [AGENTS.md](AGENTS.md).
 
 Later ideas include personal vocabulary, source-linked commitment tracking, conversation preparation, comparing decisions, local custom-sound enrollment, and deliberately configured longer-term text memory. Audio recording or storage is not a later extension of this plan.
 

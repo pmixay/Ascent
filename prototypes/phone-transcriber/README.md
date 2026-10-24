@@ -49,11 +49,14 @@ GitHub Actions. Do not run them locally or download local Android build
 toolchains. Local editing and static inspection follow
 [AGENTS.md](../../AGENTS.md).
 
-[Android CI](../../.github/workflows/android.yml) sets up the pinned JDK, Gradle
+[Ascent Android CI](../../.github/workflows/android.yml) sets up the pinned JDK, Gradle
 and Android SDK, prepares the checksum-verified sherpa-onnx AAR, runs the checks,
-and produces the debug APK. The preparation step removes sherpa's bundled ONNX
-Runtime library so Java inference and speaker JNI use one shared runtime. The
-emulator check must establish that both load in the same Android process.
+and produces the debug APK. ASR uses Maven ONNX Runtime Android 1.31.0; speaker
+inference retains the C runtime bundled with sherpa-onnx 2.0.0 under a distinct
+library name. These are separate native runtimes. The emulator check must
+establish that both load in the same Android process. ASR and speaker model
+sessions run sequentially, but both native libraries may remain loaded; peak
+memory and actual inference still require device measurements.
 
 Supported architectures are ARM64 phones and x86_64 emulators. Android 12
 (`minSdk 31`) is the minimum; compile and target SDKs are pinned independently.
@@ -66,12 +69,16 @@ The workflows live at the root of [pmixay/Ascent](https://github.com/pmixay/Asce
 and operate on `prototypes/phone-transcriber/`. They require no signing keys or
 speech-service credentials. The base repository had no workflow to reuse.
 
-1. **Android CI** runs on pushes, pull requests and manual dispatch. It validates
-   packaging tools, runs Android lint/unit tests, builds a debug APK, and checks
-   native runtime loading on an emulator. APKs and test reports are artifacts.
-2. **Export offline model pack** is started manually in the Actions tab. It
-   downloads pinned official GigaAM source/checkpoint and verified speaker
-   weights, exports the waveform frontend and ASR network to ONNX, and runs
+1. **Ascent Android CI**, with job **Build and validate Android app**, runs on
+   pushes, pull requests and manual dispatch. It validates packaging tools, runs
+   Android lint/unit tests, builds a debug APK, and checks native runtime loading
+   on an emulator. Its only download artifact is a ZIP containing the APK. Test
+   and lint diagnostics remain in the workflow console; report artifacts are not
+   uploaded.
+2. **Ascent Model Export**, with job **Export and validate offline models**, is
+   started manually in the Actions tab. It downloads pinned official GigaAM
+   source/checkpoint and verified speaker weights, exports the waveform frontend
+   and ASR network to ONNX, and runs
    numerical/decoding checks against upstream on public Russian speech. It
    publishes a model ZIP only after the checks pass. Manual dispatch requires
    the workflow to exist on the default branch, so it may be unavailable while
@@ -80,6 +87,17 @@ speech-service credentials. The base repository had no workflow to reuse.
    inner `ascent-model-pack.zip` in the app's model picker. The outer GitHub
    artifact ZIP is a transport container, not the model pack.
 
+Ascent Android CI reuses a native AAR download that is checksum-verified on every
+run, Gradle dependency and build caches, and a clean emulator snapshot with its
+Android system image. The snapshot is created before installing the test app;
+test sessions do not save it. Pull requests restore caches without saving
+them. Pull-request checks validate the merge commit. A separate gate can skip
+a duplicate branch-push run when the matching pull request will run those checks;
+uncertain API results keep validation enabled. Every executed build retains the
+required checks on both cache hits and misses; cache reuse is intended to reduce
+repeated work, with no measured speedup claimed. Failure diagnostics are printed
+in the workflow console. The APK download uses an uncompressed ZIP container.
+
 The initial ASR export uses FP32, so the model package and required free storage
 are substantial (approximately 1 GB before compression). Actual peak RAM and
 speed need device measurements. Models are checked before installation; a failed
@@ -87,7 +105,7 @@ import leaves the previously selected model intact.
 
 ## Validation in CI
 
-Android CI runs the Python packaging/build-tool tests and the Android checks.
+Ascent Android CI runs the Python packaging/build-tool tests and the Android checks.
 Executable validation must run in CI, not on the local machine.
 
 JVM tests cover CTC repetition/blank rules, chunk ownership, WAV parsing, speaker

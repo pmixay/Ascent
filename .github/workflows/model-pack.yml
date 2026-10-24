@@ -1,4 +1,4 @@
-name: Export offline model pack
+name: Ascent Model Export
 
 # Exporting the models is a separate, explicitly started CPU job. Normal app
 # builds do not download weights. The public speech fixture is used only during
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   export:
-    name: Export GigaAM Multilingual 220M and speaker model
+    name: Export and validate offline models
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -51,6 +51,12 @@ jobs:
       # numerical parity checks below validate our explicit dependency versions.
       - name: Install pinned GigaAM source
         run: python3 -m pip install --no-deps -r tools/requirements-gigaam.txt
+
+      - name: Cache official GigaAM checkpoint
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: prototypes/phone-transcriber/build/gigaam-cache/multilingual_ctc.ckpt
+          key: ${{ runner.os }}-gigaam-v1-${{ hashFiles('prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tools/requirements-gigaam.txt') }}
 
       - name: Download and verify speaker weights and public speech fixture
         run: |

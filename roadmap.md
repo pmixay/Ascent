@@ -8,7 +8,7 @@ Specification version: 0.5
 
 Updated: 24 October 2026
 
-The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. It saves WAV audio and plaintext transcripts without automatic expiry and has no watch app. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Android CI](.github/workflows/android.yml) and [model export](.github/workflows/model-pack.yml) workflows; their actual run results must be checked.
+The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. It saves WAV audio and plaintext transcripts without automatic expiry and has no watch app. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) workflows; their actual run results must be checked.
 
 ## Confirmed scope
 
@@ -16,7 +16,7 @@ The separate [phone transcription prototype](prototypes/phone-transcriber/README
 - [x] Support Wear OS 6.0, with the watch as primary microphone and continuous background capture in the first vertical slice.
 - [x] Run Russian speech recognition, conversation speaker separation, and sound classification on the phone. Speech recognition never uses a cloud service.
 - [x] Give the watch a simplified version of the app: history snippets, Rewind, AI questions and results, listening status, and sound events.
-- [x] Default to **День**, showing conversations and sounds chronologically.
+- [x] Default to **Day**, showing conversations and sounds chronologically.
 - [x] Never save audio. Raw and processed audio exist only as short-lived volatile processing frames, with no files, caches, databases, disk-backed retries, offline spool, or watch audio backlog.
 - [x] Apply rolling seven-day retention to transcripts, summaries, sound events, and source-linked facts. Rewind uses a 30-second text ring.
 - [x] Freeze the preceding 30 seconds for Rewind and send its entire, unabridged transcript to AI, without speakers, profiles, locations, sounds, or full-history context.
@@ -123,7 +123,7 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 
 **Dependency:** Milestones 2 and 3. **Outcome:** daily history on both devices.
 
-- [ ] Open on **День**, with date navigation and filters such as **Этим утром**, conversations, and sounds.
+- [ ] Open on **Day**, with date navigation and filters such as **This morning**, conversations, and sounds.
 - [ ] Show start time, duration, processing state, and summary; add locations after Milestone 6.
 - [ ] Open a conversation on its summary, with access to timestamped text and speaker turns.
 - [ ] Add optional remote conversation summaries and day or morning recaps using visibly selected text scope, consent, and the same provider restrictions. Link claims to supporting spans.

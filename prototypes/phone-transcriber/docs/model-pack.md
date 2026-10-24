@@ -17,8 +17,9 @@ hashes detect corruption and do not establish who published a pack.
 
 ## Build in GitHub Actions
 
-Start the repository's [Export offline model pack](../../../.github/workflows/model-pack.yml)
-workflow for the intended ref when manual dispatch is available. GitHub requires
+Start the repository's [Ascent Model Export](../../../.github/workflows/model-pack.yml)
+workflow, whose job is **Export and validate offline models**, for the intended
+ref when manual dispatch is available. GitHub requires
 the workflow to exist on the default branch, so a review branch alone may not
 expose that action. The workflow
 uses Python 3.12, installs the pinned CPU environment, downloads and verifies the
@@ -30,7 +31,10 @@ Model export and executable checks run only in CI under the repository's
 [engineering contract](../../../AGENTS.md). Do not install local export or
 Android toolchains or run the exporter locally. The workflow file is the source
 of truth for its commands. Application audio is never uploaded to that workflow
-or an API; the public fixture is separate validation input.
+or an API; the public fixture is separate validation input. The workflow reuses
+pip downloads and the upstream checkpoint cache to reduce repeated downloads.
+Checkpoint verification and all export checks still run; no audio is cached.
+No measured speedup is claimed.
 
 Dependencies are pinned to stable releases verified on October 24, 2026:
 
@@ -40,7 +44,7 @@ Dependencies are pinned to stable releases verified on October 24, 2026:
 | [TorchAudio](https://pypi.org/project/torchaudio/2.11.0/) | 2.11.0 CPU |
 | [NumPy](https://pypi.org/project/numpy/2.5.4/) | 2.5.4 |
 | [ONNX](https://pypi.org/project/onnx/1.23.2/) | 1.23.2 |
-| [ONNX Runtime](https://pypi.org/project/onnxruntime/1.31.0/) | 1.31.0, matching Android |
+| [ONNX Runtime](https://pypi.org/project/onnxruntime/1.31.0/) | 1.31.0, matching Android ASR |
 | [sherpa-onnx](https://pypi.org/project/sherpa-onnx/2.0.0/) | 2.0.0, matching Android speaker bindings |
 | [Hydra](https://pypi.org/project/hydra-core/1.3.7/) | 1.3.7 |
 | [OmegaConf](https://pypi.org/project/omegaconf/2.3.1/) | 2.3.1, latest compatible with Hydra |

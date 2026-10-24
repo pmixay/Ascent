@@ -45,8 +45,8 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.coroutines.android)
     implementation(libs.onnxruntime.android)
-    // Prepared from a checksum-verified upstream AAR. See scripts/prepare_android.py.
-    implementation(files("libs/sherpa-onnx-${libs.versions.sherpa.get()}-shared-ort.aar"))
+    // Isolates sherpa's C runtime from the ASR Java runtime. See scripts/prepare_android.py.
+    implementation(files("libs/sherpa-onnx-${libs.versions.sherpa.get()}-isolated-ort.aar"))
     testImplementation(libs.junit4)
     testImplementation(libs.json)
     androidTestImplementation(libs.androidx.test.runner)
