@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -51,11 +53,15 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import kotlin.math.min
 import kotlin.math.pow
@@ -98,12 +104,7 @@ internal fun ConversationScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item {
-                Row(Modifier.widthIn(max = 620.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ascent", modifier = Modifier.weight(1f), color = Ink, fontSize = 28.sp,
-                        fontWeight = FontWeight.Medium, letterSpacing = (-1.6).sp)
-                    Text("●  На устройстве", modifier = Modifier.glass(24).padding(horizontal = 14.dp, vertical = 9.dp),
-                        color = Ink, fontSize = 11.sp)
-                }
+                AscentWordmark(Modifier.widthIn(max = 620.dp).fillMaxWidth())
             }
             item {
                 Column(Modifier.widthIn(max = 620.dp).fillMaxWidth()) {
@@ -225,6 +226,29 @@ internal fun ConversationScreen(
             TextButton(onClick = { exportDialog = false; onExport(false) }) { Text("Текст — TXT") }
             TextButton(onClick = { exportDialog = false; onExport(true) }) { Text("Участники и временные метки — JSON") }
         } }, confirmButton = {}, dismissButton = { TextButton(onClick = { exportDialog = false }) { Text("Отмена") } })
+}
+
+@Composable
+private fun AscentWordmark(modifier: Modifier = Modifier) {
+    Text(
+        text = buildAnnotatedString {
+            append("Ascent")
+            appendInlineContent("square-period", ".")
+        },
+        modifier = modifier,
+        color = Ink,
+        fontSize = 28.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = (-1.6).sp,
+        inlineContent = mapOf("square-period" to InlineTextContent(
+            Placeholder(0.24.em, 0.16.em, PlaceholderVerticalAlign.AboveBaseline),
+        ) {
+            Canvas(Modifier.fillMaxSize()) {
+                drawRect(Ink, topLeft = Offset(size.width - size.height, 0f),
+                    size = Size(size.height, size.height))
+            }
+        }),
+    )
 }
 
 @Composable
