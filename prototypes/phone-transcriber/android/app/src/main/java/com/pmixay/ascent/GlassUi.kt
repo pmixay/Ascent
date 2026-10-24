@@ -22,7 +22,8 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
@@ -102,11 +103,11 @@ internal fun ConversationScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize().safeDrawingPadding(),
             contentPadding = PaddingValues(horizontal = 22.dp, vertical = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            item { AscentWordmark(Modifier.widthIn(max = 620.dp).fillMaxWidth()) }
-            item {
+            spacedItem("wordmark") { AscentWordmark(Modifier.widthIn(max = 620.dp).fillMaxWidth()) }
+            spacedItem("capture") {
                 GlassCard {
                     Text(if (state.recording) "СЛУШАЮ" else "НОВЫЙ РАЗГОВОР", modifier = Modifier.fillMaxWidth(),
                         fontSize = 11.sp, letterSpacing = 1.8.sp, textAlign = TextAlign.Center, color = Secondary)
@@ -123,10 +124,10 @@ internal fun ConversationScreen(
                         modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 15.sp, color = Ink)
                 }
             }
-            item { ConversationStatus(state) }
-            item { ModelsStatus(state) }
+            spacedItem("status") { ConversationStatus(state) }
+            spacedItem("models") { ModelsStatus(state) }
             if (state.conversations.isEmpty()) {
-                item {
+                spacedItem("empty-history") {
                     Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().padding(vertical = 16.dp)) {
                         Text("Ваши разговоры", fontSize = 24.sp, fontWeight = FontWeight.Medium, color = Ink)
                         Spacer(Modifier.height(8.dp))
@@ -135,26 +136,36 @@ internal fun ConversationScreen(
                     }
                 }
             } else {
-                item {
+                spacedItem("history-heading") {
                     Row(Modifier.widthIn(max = 620.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("Разговоры", modifier = Modifier.weight(1f), fontSize = 24.sp,
                             fontWeight = FontWeight.Medium, color = Ink)
                         Text("7 дней", fontSize = 13.sp, color = Secondary)
                     }
                 }
-                items(state.conversations, key = { it.id }) { conversation ->
-                    ConversationTimeline(
-                        conversation = conversation,
-                        expanded = conversation.id in state.expandedConversationIds,
-                        editable = editable,
-                        onToggle = { onToggleConversation(conversation.id) },
-                        onExport = { exportConversation = conversation.id },
-                        onRename = { speakerId ->
-                            renameConversation = conversation.id
-                            renameSpeaker = speakerId
-                            renameText = conversation.speakerName(speakerId)
-                        },
-                    )
+                state.conversations.forEach { conversation ->
+                    val expanded = conversation.id in state.expandedConversationIds
+                    item(key = "${conversation.id}:header", contentType = "conversation-header") {
+                        ConversationHeader(conversation, expanded) { onToggleConversation(conversation.id) }
+                    }
+                    if (expanded) {
+                        itemsIndexed(conversation.segments,
+                            key = { index, _ -> "${conversation.id}:segment:$index" },
+                            contentType = { _, _ -> "conversation-segment" },
+                        ) { index, segment ->
+                            ConversationTimelineRow(conversation, segment, index, editable) {
+                                renameConversation = conversation.id
+                                renameSpeaker = segment.speakerId
+                                renameText = conversation.speakerName(segment.speakerId)
+                            }
+                        }
+                        item(key = "${conversation.id}:footer", contentType = "conversation-footer") {
+                            Column {
+                                ConversationFooter(conversation, editable) { exportConversation = conversation.id }
+                                Spacer(Modifier.height(18.dp))
+                            }
+                        }
+                    } else item(key = "${conversation.id}:gap", contentType = "gap") { Spacer(Modifier.height(18.dp)) }
                 }
             }
         }
@@ -213,16 +224,31 @@ private fun ModelsStatus(state: ConversationState) {
     }
 }
 
+/** Keep each utterance independently lazy while adjacent pieces form one unbroken amber card. */
+private fun LazyListScope.spacedItem(key: String, content: @Composable () -> Unit) {
+    item(key = key) {
+        Column {
+            content()
+            Spacer(Modifier.height(18.dp))
+        }
+    }
+}
+
+private fun Modifier.conversationSurface(first: Boolean = false, last: Boolean = false): Modifier {
+    val shape = RoundedCornerShape(
+        topStart = if (first) 28.dp else 0.dp,
+        topEnd = if (first) 28.dp else 0.dp,
+        bottomStart = if (last) 28.dp else 0.dp,
+        bottomEnd = if (last) 28.dp else 0.dp,
+    )
+    // A horizontal brush has identical colors at every row boundary, including lazy item seams.
+    return widthIn(max = 620.dp).fillMaxWidth().clip(shape)
+        .background(Brush.horizontalGradient(listOf(Color(0xFFFFE78B), Color(0xFFF9CF41), Color(0xFFFFE06D))))
+}
+
 @Composable
-private fun ConversationTimeline(
-    conversation: SavedConversation,
-    expanded: Boolean,
-    editable: Boolean,
-    onToggle: () -> Unit,
-    onExport: () -> Unit,
-    onRename: (String) -> Unit,
-) {
-    Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().glass(emphasis = true).padding(20.dp)) {
+private fun ConversationHeader(conversation: SavedConversation, expanded: Boolean, onToggle: () -> Unit) {
+    Column(Modifier.conversationSurface(first = true, last = !expanded).padding(20.dp)) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, onClick = onToggle)
             .semantics { stateDescription = if (expanded) "Развёрнут" else "Свёрнут" }
@@ -236,45 +262,52 @@ private fun ConversationTimeline(
             }
             Text(if (expanded) "−" else "+", modifier = Modifier.padding(start = 16.dp), fontSize = 28.sp, color = Ink)
         }
-        if (expanded) {
-            Spacer(Modifier.height(16.dp))
-            if (conversation.segments.isEmpty()) Text("Речь не обнаружена", color = Ink, fontSize = 15.sp)
-            conversation.segments.forEachIndexed { index, segment ->
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                    Canvas(Modifier.width(22.dp).fillMaxHeight()) {
-                        val x = 5.dp.toPx()
-                        val y = 13.dp.toPx()
-                        if (index > 0) drawLine(Ink.copy(alpha = 0.26f), Offset(x, 0f), Offset(x, y), 1.5.dp.toPx())
-                        if (index < conversation.segments.lastIndex)
-                            drawLine(Ink.copy(alpha = 0.26f), Offset(x, y), Offset(x, size.height), 1.5.dp.toPx())
-                        drawCircle(Ink, 4.dp.toPx(), Offset(x, y))
-                    }
-                    Column(Modifier.weight(1f).padding(bottom = if (index < conversation.segments.lastIndex) 20.dp else 0.dp)) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(conversation.speakerName(segment.speakerId), fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                                color = Ink, modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
-                                    .clickable(enabled = editable && segment.speakerId != UNKNOWN_SPEAKER,
-                                        role = Role.Button, onClick = { onRename(segment.speakerId) })
-                                    .padding(vertical = 4.dp))
-                            Text(formatTimelineTime(segment.startMs), fontSize = 12.sp, color = Ink.copy(alpha = 0.72f),
-                                modifier = Modifier.padding(start = 10.dp))
-                        }
-                        Spacer(Modifier.height(3.dp))
-                        SelectionContainer { Text(segment.text, color = Ink, fontSize = 17.sp, lineHeight = 25.sp) }
-                    }
-                }
+        if (!expanded) conversation.segments.firstOrNull()?.let {
+            Text(it.text, modifier = Modifier.padding(top = 8.dp), maxLines = 2,
+                overflow = TextOverflow.Ellipsis, color = Ink.copy(alpha = 0.8f), fontSize = 15.sp, lineHeight = 22.sp)
+        }
+    }
+}
+
+@Composable
+private fun ConversationTimelineRow(
+    conversation: SavedConversation,
+    segment: TranscriptSegment,
+    index: Int,
+    editable: Boolean,
+    onRename: () -> Unit,
+) {
+    Row(Modifier.conversationSurface().padding(horizontal = 20.dp).height(IntrinsicSize.Min)) {
+        Canvas(Modifier.width(22.dp).fillMaxHeight()) {
+            val x = 5.dp.toPx()
+            val y = 13.dp.toPx()
+            if (index > 0) drawLine(Ink.copy(alpha = 0.26f), Offset(x, 0f), Offset(x, y), 1.5.dp.toPx())
+            if (index < conversation.segments.lastIndex)
+                drawLine(Ink.copy(alpha = 0.26f), Offset(x, y), Offset(x, size.height), 1.5.dp.toPx())
+            drawCircle(Ink, 4.dp.toPx(), Offset(x, y))
+        }
+        Column(Modifier.weight(1f).padding(bottom = if (index < conversation.segments.lastIndex) 20.dp else 0.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(conversation.speakerName(segment.speakerId), fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    color = Ink, modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                        .clickable(enabled = editable && segment.speakerId != UNKNOWN_SPEAKER,
+                            role = Role.Button, onClick = onRename)
+                        .padding(vertical = 4.dp))
+                Text(formatTimelineTime(segment.startMs), fontSize = 12.sp, color = Ink.copy(alpha = 0.72f),
+                    modifier = Modifier.padding(start = 10.dp))
             }
-            if (conversation.segments.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                TextButton(onClick = onExport, enabled = editable, modifier = Modifier.align(Alignment.End)) {
-                    Text("Экспорт текста", color = Ink)
-                }
-            }
-        } else {
-            conversation.segments.firstOrNull()?.let {
-                Text(it.text, modifier = Modifier.padding(top = 8.dp), maxLines = 2,
-                    overflow = TextOverflow.Ellipsis, color = Ink.copy(alpha = 0.8f), fontSize = 15.sp, lineHeight = 22.sp)
-            }
+            Spacer(Modifier.height(3.dp))
+            SelectionContainer { Text(segment.text, color = Ink, fontSize = 17.sp, lineHeight = 25.sp) }
+        }
+    }
+}
+
+@Composable
+private fun ConversationFooter(conversation: SavedConversation, editable: Boolean, onExport: () -> Unit) {
+    Column(Modifier.conversationSurface(last = true).padding(horizontal = 20.dp, vertical = 16.dp)) {
+        if (conversation.segments.isEmpty()) Text("Речь не обнаружена", color = Ink, fontSize = 15.sp)
+        else TextButton(onClick = onExport, enabled = editable, modifier = Modifier.align(Alignment.End)) {
+            Text("Экспорт текста", color = Ink)
         }
     }
 }
