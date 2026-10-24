@@ -11,6 +11,9 @@ phone APK uses R8 optimization and automatically downloads compressed model
 chunks from the fixed Ascent host through a foreground service that continues
 after ordinary app closure, with prompt request retries and verified resume. The interface
 shows model status; no weights or manual model archive belong in the APK flow.
+Speaker attribution preserves short acoustic contexts and consolidates recurring
+voice fragments. CI includes real Russian reader regressions; natural conversation
+accuracy remains unmeasured. See the [speaker evaluation scope](prototypes/phone-transcriber/docs/speaker-diarization.md).
 
 Russian speech memory for Android and Wear OS.
 

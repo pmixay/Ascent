@@ -12,6 +12,11 @@ The separate [phone transcription prototype](prototypes/phone-transcriber/README
 
 ## Confirmed scope
 
+Prototype speaker work adds short-speech context recovery, centroid consolidation,
+and real-model regressions using three public Russian readers with controlled
+gain/noise changes. This development fixture does not complete the natural
+conversation diarization, overlap, or supported-phone accuracy acceptance criteria.
+
 - [x] Support Android 12 and later with `minSdk 31`; choose distribution `targetSdk` separately against release-time requirements.
 - [x] Support Wear OS 6.0, with the watch as primary microphone and continuous background capture in the first vertical slice.
 - [x] Run Russian speech recognition, conversation speaker separation, and sound classification on the phone. Speech recognition never uses a cloud service.

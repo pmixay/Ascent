@@ -45,8 +45,9 @@ milestones is complete merely because this source or an APK exists.
   Listening requires installed models. There are no audio-import, manual
   transcribe, playback or audio-delete controls.
 - Local GigaAM Multilingual 220M CTC inference, the June 2026 GigaAM line.
-- ERes2NetV2 embeddings, speech-constrained contexts, quality gates, bounded batch
-  clustering and uncertain-speaker labels. Naming a sufficiently clear current
+- ERes2NetV2 embeddings, context around short CTC emissions, quality gates, bounded
+  clustering with voice-fragment consolidation, and conservative temporal recovery
+  of uncertain labels. Naming a sufficiently clear current
   speaker enrolls an encrypted voice template for later strong matches. Automatic
   predictions never teach their own templates. See [speaker research](docs/speaker-diarization.md).
 - Multiple encrypted text conversations, collapsible connected timelines,
@@ -181,8 +182,13 @@ model-download validation, transient request recovery, partial progress, cancell
 HTTP retry classification and invalid inputs. Server tests check immutable
 publication, compressed chunk integrity, smoke-report requirements and failure cleanup. The
 emulator tests cover optimized app startup, native library loading and foreground
-transfer lifecycle with controlled fake data. The separate model workflow checks actual speech inference; these tests
-do not substitute for a Russian conversation accuracy benchmark.
+transfer lifecycle with controlled fake data. A cached, checksum-verified CI fixture
+uses the real speaker model on six public Russian utterances from three readers,
+including reduced-gain and white-noise variants. JVM tests apply the app's activity
+gates and clustering to these embeddings; the fixture audio and model never enter
+the APK or downloadable artifacts. The separate model workflow checks actual ASR
+inference. These controlled regressions do not substitute for a Russian conversation
+accuracy benchmark. See [fixture provenance](tools/fixtures/speakers/README.md).
 
 ## Model and runtime references
 

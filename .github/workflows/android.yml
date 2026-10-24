@@ -41,6 +41,28 @@ jobs:
           python3 -m unittest discover -s tools -p 'test_*.py' -v
           python3 -m unittest discover -s ../../server -p 'test_*.py' -v
 
+      - name: Restore verified Russian speaker regression fixtures
+        id: speaker-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            prototypes/phone-transcriber/.cache/speaker-test.onnx
+            prototypes/phone-transcriber/android/app/build/generated/speaker-fixtures
+          key: ${{ runner.os }}-speaker-fixtures-v1-${{ hashFiles('prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tests/requirements-speaker-test.txt', 'prototypes/phone-transcriber/tools/fixtures/speakers/**') }}
+
+      - name: Generate real speaker embeddings for regression checks
+        if: steps.speaker-cache.outputs.cache-hit != 'true'
+        working-directory: prototypes/phone-transcriber
+        run: |
+          python3 -m pip install -r tests/requirements-speaker-test.txt
+          mkdir -p .cache
+          curl --fail --location --retry 3 \
+            https://huggingface.co/csukuangfj/speaker-embedding-models/resolve/8be2a75c9ed7a590538b268e46fbb65e1aa9d208/3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx \
+            --output .cache/speaker-test.onnx
+          python3 tools/generate_speaker_fixtures.py \
+            --model .cache/speaker-test.onnx \
+            --output android/app/build/generated/speaker-fixtures/speaker-embeddings.json
+
       - name: Restore native dependency download
         id: native-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -93,7 +115,7 @@ jobs:
               output.write(f'emulator_revision={revision}\n')
           PY
 
-      # Models download inside the app; normal APK builds contain no weights.
+      # Regression resources are JVM-test-only; phone APKs contain no weights or speech fixtures.
       - name: Run checks and build APK
         run: >-
           gradle --stacktrace --continue
@@ -106,6 +128,19 @@ jobs:
             --mapping app/build/outputs/mapping/debug/mapping.txt
           mkdir -p build/distribution
           cp app/build/outputs/apk/debug/app-debug.apk build/distribution/ascent.apk
+
+      - name: Print Russian speaker regression measurements
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          for path in Path('app/build/test-results').rglob('*RealSpeakerRegressionTest.xml'):
+              report = ET.parse(path)
+              for output in report.iter('system-out'):
+                  print(output.text or '')
+          PY
 
       - name: Enable emulator hardware acceleration
         run: |

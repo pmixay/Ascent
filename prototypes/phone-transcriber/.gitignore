@@ -16,4 +16,5 @@ model-pack*.zip
 *.pt
 *.ckpt
 *.wav
+!tools/fixtures/speakers/*.wav
 *.apk

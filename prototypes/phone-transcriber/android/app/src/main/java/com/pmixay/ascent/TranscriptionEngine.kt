@@ -98,7 +98,8 @@ class TranscriptionEngine(private val modelDirectory: File) {
                 try {
                     val activity = SpeakerSpeechSupport.activity(samples, context.startMs)
                     val speechMs = activity.spans.sumOf { it.endMs - it.startMs }
-                    if (speechMs < 640 || activity.quality < 0.35f) continue
+                    // A short reply can match an established voice without teaching a new one.
+                    if (speechMs < 320 || activity.quality < 0.20f) continue
                     val stream = extractor.createStream()
                     try {
                         stream.acceptWaveform(samples, RATE)
@@ -117,22 +118,13 @@ class TranscriptionEngine(private val modelDirectory: File) {
         } finally { extractor.release() }
         checkCancelled()
         try {
-            // A changing left/right voice context cannot teach a speaker centroid.
-            val normalized = windows.map { SpeakerClusterer.normalized(it.vector) }
-            val stable = windows.mapIndexed { index, window ->
-                val left = index - 1
-                val right = index + 1
-                val straddlesChange = left >= 0 && right < windows.size &&
-                    regions[left] == regions[index] && regions[right] == regions[index] &&
-                    normalized[left] != null && normalized[right] != null &&
-                    SpeakerClusterer.dot(normalized[left]!!, normalized[right]!!) < 0.72f
-                window.copy(canSeed = window.canSeed && !straddlesChange)
-            }
+            val stable = SpeakerEvidence.stableSeeds(windows, regions)
             val clustered = SpeakerClusterer().cluster(stable)
+            val labels = SpeakerSpeechSupport.speakersForWords(words, stable, clustered.assignments)
             val result = mutableListOf<TranscriptSegment>()
-            for (word in words) {
+            for ((index, word) in words.withIndex()) {
                 checkCancelled()
-                val label = SpeakerSpeechSupport.speakerForWord(word, stable, clustered.assignments)
+                val label = labels[index]
                 val previous = result.lastOrNull()
                 if (previous != null && previous.speakerId == label && word.startMs - previous.endMs <= 700 &&
                     word.endMs - previous.startMs <= 20000) {

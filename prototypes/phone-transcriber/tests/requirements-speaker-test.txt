@@ -1,0 +1,3 @@
+# Match the embedding runtime used by Android and model export. No GigaAM/Torch.
+numpy==2.5.4
+sherpa-onnx==2.0.0

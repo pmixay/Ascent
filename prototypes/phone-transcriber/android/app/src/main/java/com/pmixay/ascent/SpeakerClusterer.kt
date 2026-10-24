@@ -19,7 +19,9 @@ data class SpeakerAssignment(val speakerId: String, val similarity: Float)
 data class SpeakerClustering(val assignments: List<SpeakerAssignment>, val signatures: List<VoiceSignature>)
 
 /**
- * Bounded, deterministic average-linkage clustering followed by confidence-gated reassignment.
+ * Bounded average-linkage discovery, centroid consolidation and evidence-gated reassignment.
+ * Discovery and labeling are different decisions: a short phrase can match an established voice
+ * without being allowed to establish a new voice or teach a remembered profile.
  * These cosine thresholds are initial operating points, not calibrated Russian accuracy claims.
  */
 class SpeakerClusterer(
@@ -39,7 +41,8 @@ class SpeakerClusterer(
         val candidates = observations.indices.filter {
             val item = observations[it]
             vectors[it]?.size == dimension && vectors[it] != null && item.canSeed &&
-                item.endMs - item.startMs >= 640 && item.quality.isFinite() && item.quality >= 0.55f
+                item.endMs - item.startMs >= 640 && item.quality.isFinite() && item.quality >= 0.55f &&
+                support(observations, listOf(it)) >= 640
         }.sortedWith(compareBy({ observations[it].startMs }, { observations[it].endMs }, { it }))
         if (candidates.isEmpty()) return unknown(observations.size)
 
@@ -81,43 +84,136 @@ class SpeakerClusterer(
             active[second] = false
         }
         data class Group(val indices: List<Int>, val center: FloatArray, val supportMs: Long)
+        fun group(indices: List<Int>) = Group(indices, mean(indices.map { vectors[it]!! }), support(observations, indices))
         val groups = members.indices.filter { active[it] }.map { index ->
-            val indices = members[index]
-            Group(indices, mean(indices.map { vectors[it]!! }), support(observations, indices))
+            group(members[index])
         }
+        val anchorOrder = anchors.sortedBy { observations[it].startMs }
         // A short context between two distinct voices is not evidence for a third person.
-        val cleanGroups = groups.filter { group ->
+        val consolidated = groups.filter { group ->
             if (group.supportMs >= 3000 || groups.size < 3) true else {
                 val neighbors = groups.filter { it !== group }
                     .map { it to dot(group.center, it.center) }.sortedByDescending { it.second }
-                !(neighbors[0].second >= 0.60f && neighbors[1].second >= 0.60f &&
+                val firstPosition = anchorOrder.indexOfFirst { it in group.indices }
+                val lastPosition = anchorOrder.indexOfLast { it in group.indices }
+                val before = anchorOrder.getOrNull(firstPosition - 1)
+                val after = anchorOrder.getOrNull(lastPosition + 1)
+                val betweenNeighbors = before != null && after != null &&
+                    ((before in neighbors[0].first.indices && after in neighbors[1].first.indices) ||
+                        (before in neighbors[1].first.indices && after in neighbors[0].first.indices)) &&
+                    group.indices.minOf { observations[it].startMs } - observations[before].endMs <= 500 &&
+                    observations[after].startMs - group.indices.maxOf { observations[it].endMs } <= 500 &&
+                    group.indices.maxOf { observations[it].endMs } -
+                        group.indices.minOf { observations[it].startMs } <= 3000
+                // Similarity to two voices alone does not make a third voice a mixed boundary.
+                // It must actually lie between those voices in time; distant replies are kept.
+                !(betweenNeighbors && neighbors[0].second >= 0.60f && neighbors[1].second >= 0.60f &&
                     abs(neighbors[0].second - neighbors[1].second) < margin &&
                     dot(neighbors[0].first.center, neighbors[1].first.center) < 0.60f)
             }
-        }.sortedWith(compareByDescending<Group> { it.supportMs }.thenBy { observations[it.indices.first()].startMs })
+        }.toMutableList()
+
+        // Average linkage compares individual noisy embeddings. Two fragments of the same voice
+        // can fail that comparison even when their denoised, normalized centroids agree. This is
+        // a separate centroid pass, as in the upstream 3D-Speaker clustering backend; it does not
+        // lower the discovery threshold or force small clusters into the largest speaker.
+        while (consolidated.size > 1) {
+            checkCancelled()
+            var first = -1
+            var second = -1
+            var best = maxOf(threshold, 0.80f)
+            for (a in consolidated.indices) for (b in a + 1 until consolidated.size) {
+                if (consolidated[a].indices.size == 1 && consolidated[b].indices.size == 1) continue
+                val score = dot(consolidated[a].center, consolidated[b].center)
+                if (score >= best && (first == -1 || score > best)) {
+                    first = a; second = b; best = score
+                }
+            }
+            if (first == -1) break
+            consolidated[first] = group(consolidated[first].indices + consolidated[second].indices)
+            consolidated.removeAt(second)
+        }
+
+        // A single poor context inside a stable voice must not create a new person solely because
+        // of a phonetic/channel excursion. Require acoustic agreement AND that same established
+        // cluster immediately on both sides. A different short voice and a one-sided boundary
+        // remain independent; no duration-only minor-cluster deletion is used.
+        val originalOwners = consolidated.flatMapIndexed { owner, item -> item.indices.map { it to owner } }.toMap()
+        val fragmentParents = mutableMapOf<Int, Int>()
+        for ((index, item) in consolidated.withIndex()) {
+            if (item.indices.size != 1 || item.supportMs >= 2400) continue
+            val position = anchorOrder.indexOf(item.indices.single())
+            val before = anchorOrder.getOrNull(position - 1) ?: continue
+            val after = anchorOrder.getOrNull(position + 1) ?: continue
+            val parent = originalOwners[before] ?: continue
+            if (parent == index || originalOwners[after] != parent) continue
+            val established = consolidated[parent]
+            if (established.indices.size < 3 || established.supportMs < 3000) continue
+            val sample = observations[item.indices.single()]
+            // A clear short reply is evidence for another voice, even inside someone else's
+            // longer turn. Only a degraded context is eligible for fragment cleanup.
+            if (sample.quality >= 0.75f) continue
+            if (sample.startMs - observations[before].endMs > 500 ||
+                observations[after].startMs - sample.endMs > 500) continue
+            val ranked = consolidated.indices.filter { it != index }
+                .map { it to dot(item.center, consolidated[it].center) }.sortedByDescending { it.second }
+            if (ranked.first().first != parent || ranked.first().second < (threshold - 0.10f).coerceAtLeast(0.60f)) continue
+            if (ranked.first().second - (ranked.getOrNull(1)?.second ?: -1f) < maxOf(margin, 0.12f)) continue
+            fragmentParents[index] = parent
+        }
+        // A recovered fragment may be labeled, but must not influence the centroid or enrollment.
+        val recoveredFragments = fragmentParents.keys.flatMap { consolidated[it].indices }.toSet()
+        val cleanGroups = consolidated.filterIndexed { index, _ -> index !in fragmentParents }
+            .sortedWith(compareByDescending<Group> { it.supportMs }.thenBy { observations[it.indices.first()].startMs })
             .take(maxSpeakers)
             .sortedBy { group -> group.indices.minOf { observations[it].startMs } }
         if (cleanGroups.isEmpty()) return unknown(observations.size)
 
         val margins = FloatArray(observations.size)
+        val bestGroups = IntArray(observations.size) { -1 }
+        val bestScores = FloatArray(observations.size)
         val assignments = observations.indices.map { index ->
             val vector = vectors[index]
             if (vector == null || vector.size != dimension || !observations[index].quality.isFinite() ||
-                observations[index].quality < 0.35f) SpeakerAssignment(UNKNOWN, 0f)
+                observations[index].quality < 0.20f || support(observations, listOf(index)) < 320)
+                SpeakerAssignment(UNKNOWN, 0f)
             else {
                 val ranked = cleanGroups.indices.map { it to dot(vector, cleanGroups[it].center) }
                     .sortedByDescending { it.second }
                 val best = ranked.first()
                 val difference = best.second - (ranked.getOrNull(1)?.second ?: -1f)
                 margins[index] = difference
-                if (best.second < threshold || difference < margin) SpeakerAssignment(UNKNOWN, best.second)
+                bestGroups[index] = best.first
+                bestScores[index] = best.second
+                // Low speech occupancy is acceptable for an acoustically clear short reply, but
+                // it needs stronger evidence and still cannot become a training observation.
+                val minimum = if (observations[index].quality < 0.35f) maxOf(threshold, 0.80f) else threshold
+                val separation = if (observations[index].quality < 0.35f) maxOf(margin, 0.12f) else margin
+                if (best.second < minimum || difference < separation) SpeakerAssignment(UNKNOWN, best.second)
                 else SpeakerAssignment("speaker_${best.first + 1}", best.second)
             }
+        }.toMutableList()
+        val strictAssignments = assignments.toList()
+        val order = observations.indices.sortedWith(compareBy({ observations[it].startMs }, { observations[it].endMs }))
+        for ((position, index) in order.withIndex()) {
+            if (strictAssignments[index].speakerId != UNKNOWN || bestGroups[index] < 0) continue
+            val groupIndex = bestGroups[index]
+            val id = "speaker_${groupIndex + 1}"
+            val before = order.getOrNull(position - 1) ?: continue
+            val after = order.getOrNull(position + 1) ?: continue
+            if (strictAssignments[before].speakerId != id || strictAssignments[after].speakerId != id) continue
+            val item = observations[index]
+            if (item.startMs - observations[before].endMs > 500 ||
+                observations[after].startMs - item.endMs > 500) continue
+            if (bestScores[index] < (threshold - 0.10f).coerceAtLeast(0.60f) || margins[index] < margin) continue
+            if (cleanGroups[groupIndex].indices.size < 2 || cleanGroups[groupIndex].supportMs < 2400) continue
+            assignments[index] = SpeakerAssignment(id, bestScores[index])
         }
         val signatures = cleanGroups.indices.mapNotNull { groupIndex ->
             val id = "speaker_${groupIndex + 1}"
             val trusted = observations.indices.filter {
-                observations[it].canSeed && observations[it].quality >= 0.6f &&
+                it !in recoveredFragments && observations[it].canSeed && observations[it].quality >= 0.6f &&
+                    strictAssignments[it].speakerId == id &&
                     assignments[it].speakerId == id && assignments[it].similarity >= 0.80f && margins[it] >= 0.12f
             }
             if (trusted.isEmpty()) null else {

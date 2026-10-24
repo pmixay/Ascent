@@ -29,6 +29,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     // Built-in Kotlin follows compileOptions.targetCompatibility.
+    // CI-only public speech and real embeddings: JVM resources never enter the phone APK.
+    sourceSets.getByName("test").resources.srcDir(layout.buildDirectory.dir("generated/speaker-fixtures"))
     buildFeatures { compose = true }
     lint { abortOnError = true }
     packaging {

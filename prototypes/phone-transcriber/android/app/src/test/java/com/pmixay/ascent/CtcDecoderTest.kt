@@ -17,6 +17,16 @@ class CtcDecoderTest {
         assertTrue(CtcDecoder.decode(intArrayOf(2, 2, 2), listOf("а", " "), 2, 0, 1000).isEmpty())
     }
 
+    @Test fun sustainedCharacterIncludesItsWholeEmissionWithoutRepeatingText() {
+        val words = CtcDecoder.decode(intArrayOf(0, 0, 0, 2, 1, 1), listOf("да", " "), 2, 500, 600)
+        assertEquals(listOf(TimedWord("да", 500, 800)), words)
+    }
+
+    @Test fun repeatedSpacesDoNotExtendThePreviousWord() {
+        val words = CtcDecoder.decode(intArrayOf(0, 1, 1, 1, 0, 0), listOf("а", " "), 2, 0, 600)
+        assertEquals(listOf(TimedWord("а", 0, 100), TimedWord("а", 400, 600)), words)
+    }
+
     @Test fun overlapBoundaryBelongsToExactlyOneChunk() {
         val words = listOf(TimedWord("до", 19000, 19800), TimedWord("граница", 19900, 20100), TimedWord("после", 20100, 20600))
         val first = CtcDecoder.ownedBy(words, 0, 20000)

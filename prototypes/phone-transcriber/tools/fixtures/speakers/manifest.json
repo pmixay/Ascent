@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "dataset": "istupakov/russian_librispeech",
+  "revision": "a519c986bb3342cc8136d3d14e5ad8a4f1e1a2bd",
+  "split": "test",
+  "sample_rate": 16000,
+  "source": "https://www.openslr.org/96/",
+  "catalog": "https://librivox.org/poemi-alexander-pushkin/",
+  "license": "Public domain in the USA; mirror metadata CC-BY-4.0",
+  "fixtures": [
+    {
+      "id": "ruls-2671-2",
+      "file": "ruls-2671-2.wav",
+      "speaker": "reader_2671",
+      "reader_credit": "Foreign Girl",
+      "source_row": 2,
+      "source_audio_filepath": "audio/2671/2145/poemi_01_pushkin_0002.wav",
+      "sha256": "d8aaaa18a5098d7c6de0595ae7ac1e64cacd0d4022af3595213bdaf23be77e69",
+      "bytes": 361324,
+      "frames": 180640
+    },
+    {
+      "id": "ruls-2671-3",
+      "file": "ruls-2671-3.wav",
+      "speaker": "reader_2671",
+      "reader_credit": "Foreign Girl",
+      "source_row": 3,
+      "source_audio_filepath": "audio/2671/2145/poemi_01_pushkin_0003.wav",
+      "sha256": "90b0c97365ec14a6fd069f2583c606200a44725e4d6861caee0fb32b3646a06c",
+      "bytes": 212844,
+      "frames": 106400
+    },
+    {
+      "id": "ruls-3056-500",
+      "file": "ruls-3056-500.wav",
+      "speaker": "reader_3056",
+      "reader_credit": "albus865",
+      "source_row": 500,
+      "source_audio_filepath": "audio/3056/2145/poemi_04_pushkin_0060.wav",
+      "sha256": "3bd7bede234bcfa8de3dd9664ddec30361398cc72623d8790a26350328374954",
+      "bytes": 328364,
+      "frames": 164160
+    },
+    {
+      "id": "ruls-3056-503",
+      "file": "ruls-3056-503.wav",
+      "speaker": "reader_3056",
+      "reader_credit": "albus865",
+      "source_row": 503,
+      "source_audio_filepath": "audio/3056/2145/poemi_04_pushkin_0063.wav",
+      "sha256": "e388e262124a955b8d29cc8a3ee053a2badd335345a8972aa0cd2d8a2099aeba",
+      "bytes": 191084,
+      "frames": 95520
+    },
+    {
+      "id": "ruls-4471-700",
+      "file": "ruls-4471-700.wav",
+      "speaker": "reader_4471",
+      "reader_credit": "Create",
+      "source_row": 700,
+      "source_audio_filepath": "audio/4471/2145/poemi_06_pushkin_0023.wav",
+      "sha256": "7645911d7a0010a3e45ab0dcfb3a13062f000abeac811fdeeefd967172f8e213",
+      "bytes": 163244,
+      "frames": 81600
+    },
+    {
+      "id": "ruls-4471-703",
+      "file": "ruls-4471-703.wav",
+      "speaker": "reader_4471",
+      "reader_credit": "Create",
+      "source_row": 703,
+      "source_audio_filepath": "audio/4471/2145/poemi_06_pushkin_0027.wav",
+      "sha256": "196b67ee725fee79ac0cdcf41c8cf4916bdfd69f1663c8d8f7e649d6dda4f416",
+      "bytes": 275564,
+      "frames": 137760
+    }
+  ]
+}

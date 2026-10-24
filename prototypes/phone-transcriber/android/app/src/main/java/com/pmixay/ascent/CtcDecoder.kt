@@ -31,7 +31,7 @@ object CtcDecoder {
                             end = frame + 1
                         }
                     }
-                }
+                } else if (text.isNotEmpty()) end = frame + 1
             }
             previous = id
         }
