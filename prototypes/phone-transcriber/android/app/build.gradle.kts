@@ -64,4 +64,6 @@ dependencies {
     testImplementation(libs.json)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
+    // AndroidX Test references these annotations; its optimized APK must resolve them.
+    androidTestImplementation(libs.errorprone.annotations)
 }
