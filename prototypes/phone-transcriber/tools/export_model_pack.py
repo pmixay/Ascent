@@ -2,7 +2,7 @@
 """Export pinned GigaAM Multilingual 220M CTC for offline Android inference.
 
 The export is published only after frontend/model numerical parity checks and
-archive validation pass. Exporting is not a Russian speech accuracy benchmark.
+file validation pass. Exporting is not a Russian speech accuracy benchmark.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ import zipfile
 
 from model_pack import (
     MODEL_ID, REQUIRED_FILES, SPEAKER_MODEL_ID, SPEAKER_SHA256, UPSTREAM_CHECKPOINT_MD5,
-    UPSTREAM_COMMIT, ctc_decode, sha256_file, validate_manifest, validate_zip,
+    UPSTREAM_COMMIT, ctc_decode, sha256_file, validate_directory, validate_manifest, validate_zip,
 )
 
 UPSTREAM_REPOSITORY = "https://github.com/salute-developers/GigaAM"
@@ -33,7 +33,8 @@ MAX_SAMPLES = 400000
 
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--output", required=True, type=Path,
+                        help="Verified ZIP transport for the model server; users download files in-app.")
     parser.add_argument("--cache-dir", type=Path, default=Path(".cache/gigaam"))
     parser.add_argument("--speaker-model", required=True, type=Path)
     parser.add_argument("--speaker-sha256", required=True)
@@ -255,8 +256,9 @@ def smoke_test(model, exported, session, tokens, paths):
 
 def main():
     args = arguments()
-    if args.output.exists():
-        raise FileExistsError(f"Refusing to replace existing output: {args.output}")
+    destination = args.output
+    if destination.exists():
+        raise FileExistsError(f"Refusing to replace existing output: {destination}")
     if not re.fullmatch(r"[0-9a-f]{64}", args.speaker_sha256):
         raise ValueError("--speaker-sha256 must be the verified lowercase SHA-256 of the ONNX asset")
     if args.speaker_sha256 != SPEAKER_SHA256:
@@ -294,9 +296,10 @@ def main():
     if not 180_000_000 < parameter_count < 300_000_000:
         raise RuntimeError("Loaded model is not the expected 220M family")
     exported = make_export_model(model)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="ascent-model-export-") as directory:
-        staging = Path(directory)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".ascent-model-export-", dir=destination.parent) as directory:
+        staging = Path(directory) / "files"
+        staging.mkdir()
         export_path = staging / "asr.onnx"
         # Fixed batch=1 avoids the upstream batch-dependent attention path.
         audio = torch.zeros(1, SAMPLE_RATE * 2)
@@ -368,19 +371,20 @@ def main():
         }
         validate_manifest(manifest)
         write_json(staging / "manifest.json", manifest)
-        temporary_output = args.output.with_name(args.output.name + ".part")
+        validate_directory(staging)
+        temporary_output = destination.with_name(destination.name + ".part")
         try:
             with zipfile.ZipFile(temporary_output, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
                 for file in sorted(staging.iterdir()):
                     archive.write(file, arcname=file.name)
             validate_zip(temporary_output)
-            temporary_output.replace(args.output)
+            temporary_output.replace(destination)
         finally:
             temporary_output.unlink(missing_ok=True)
-    digest = sha256_file(args.output)
-    args.output.with_name(args.output.name + ".sha256").write_text(
-        f"{digest}  {args.output.name}\n", encoding="utf-8")
-    print(f"Created verified pack: {args.output}\nSHA-256: {digest}", flush=True)
+    digest = sha256_file(destination)
+    destination.with_name(destination.name + ".sha256").write_text(
+        f"{digest}  {destination.name}\n", encoding="utf-8")
+    print(f"Created verified deployment transport: {destination}\nSHA-256: {digest}", flush=True)
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -75,7 +76,8 @@ internal fun ConversationScreen(
     state: ConversationState,
     onRecord: () -> Unit,
     onOpenAudio: () -> Unit,
-    onOpenModels: () -> Unit,
+    onDownloadModels: () -> Unit,
+    onCancelModelDownload: () -> Unit,
     onTranscribe: () -> Unit,
     onRename: (String, String) -> Unit,
     onDelete: () -> Unit,
@@ -111,6 +113,9 @@ internal fun ConversationScreen(
                     Text("Каждый голос. Каждая реплика.", fontSize = 15.sp, color = Secondary)
                 }
             }
+            if (state.modelDirectory == null || state.downloadingModels) {
+                item { ModelDownloadCard(state, editable, onDownloadModels, onCancelModelDownload) }
+            }
             item {
                 GlassCard {
                     Text("ВАШ РАЗГОВОР", modifier = Modifier.fillMaxWidth(), fontSize = 10.sp,
@@ -123,7 +128,8 @@ internal fun ConversationScreen(
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         RecordOrb(recording = state.recording, level = state.level, enabled = !state.busy, onClick = onRecord)
                     }
-                    Text(if (state.recording) "Коснитесь, чтобы завершить" else if (state.busy) "Обрабатываю на устройстве…" else "Коснитесь, чтобы начать",
+                    Text(if (state.recording) "Коснитесь, чтобы завершить" else if (state.downloadingModels) "Загружаю модели…"
+                        else if (state.busy) "Обрабатываю на устройстве…" else "Коснитесь, чтобы начать",
                         modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 14.sp, color = Ink)
                     Spacer(Modifier.height(7.dp))
                     Text("Аудио остаётся на вашем телефоне", modifier = Modifier.fillMaxWidth(),
@@ -193,15 +199,8 @@ internal fun ConversationScreen(
                     }
                 }
             }
-            item {
-                GlassCard {
-                    Text("Локальное распознавание", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Ink)
-                    Spacer(Modifier.height(7.dp))
-                    Text(if (state.modelDirectory != null) "Модели готовы. Интернет для обработки не нужен."
-                        else "Добавьте выбранный пакет моделей один раз, чтобы распознавать речь без интернета.", fontSize = 12.sp, color = Secondary)
-                    Spacer(Modifier.height(14.dp))
-                    GlassAction("Выбрать модели — ZIP", enabled = editable, onClick = onOpenModels)
-                }
+            if (state.modelDirectory != null && !state.downloadingModels) {
+                item { ModelDownloadCard(state, editable, onDownloadModels, onCancelModelDownload) }
             }
             item {
                 Text("При сворачивании запись сохраняется. В приложении хранится одна текущая запись: следующая заменит её. Экспортируйте нужную расшифровку заранее.",
@@ -226,6 +225,33 @@ internal fun ConversationScreen(
             TextButton(onClick = { exportDialog = false; onExport(false) }) { Text("Текст — TXT") }
             TextButton(onClick = { exportDialog = false; onExport(true) }) { Text("Участники и временные метки — JSON") }
         } }, confirmButton = {}, dismissButton = { TextButton(onClick = { exportDialog = false }) { Text("Отмена") } })
+}
+
+@Composable
+private fun ModelDownloadCard(state: ConversationState, editable: Boolean, onDownload: () -> Unit, onCancel: () -> Unit) {
+    GlassCard {
+        Text("Локальное распознавание", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Ink)
+        Spacer(Modifier.height(7.dp))
+        Text(if (state.modelDirectory != null && !state.downloadingModels) "Модели готовы. Интернет для обработки не нужен."
+            else "Скачайте модели один раз — около 1 ГБ. Аудио и расшифровки не отправляются на сервер.", fontSize = 12.sp, color = Secondary)
+        Spacer(Modifier.height(14.dp))
+        if (state.downloadingModels) {
+            if (state.modelDownloadTotal > 0) {
+                LinearProgressIndicator(progress = {
+                    (state.modelDownloadBytes.toDouble() / state.modelDownloadTotal).toFloat().coerceIn(0f, 1f)
+                }, modifier = Modifier.fillMaxWidth(), color = Amber)
+                Spacer(Modifier.height(8.dp))
+                Text("${state.modelDownloadBytes / 1_000_000} из ${(state.modelDownloadTotal + 999_999) / 1_000_000} МБ",
+                    color = Ink, fontSize = 13.sp)
+            } else LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Amber)
+            Spacer(Modifier.height(8.dp))
+            Text("Оставьте приложение открытым до завершения загрузки.", fontSize = 12.sp, color = Secondary)
+            Spacer(Modifier.height(12.dp))
+            GlassAction(if (state.cancellingModelDownload) "Останавливаю…" else "Отменить загрузку",
+                enabled = !state.cancellingModelDownload, onClick = onCancel)
+        } else GlassAction(if (state.modelDirectory == null) "Скачать модели" else "Переустановить модели",
+            emphasis = state.modelDirectory == null, enabled = editable, onClick = onDownload)
+    }
 }
 
 /** Translucent gradients and reflective borders, without claiming optical background blur. */
@@ -301,5 +327,5 @@ private fun RecordOrb(recording: Boolean, level: Float, enabled: Boolean, onClic
 @Preview(name = "Ascent — yellow glass", widthDp = 393, heightDp = 852, showBackground = true)
 @Composable
 private fun ConversationPreview() {
-    AscentTheme { ConversationScreen(ConversationState(), {}, {}, {}, {}, { _, _ -> }, {}, {}) }
+    AscentTheme { ConversationScreen(ConversationState(), {}, {}, {}, {}, {}, { _, _ -> }, {}, {}) }
 }

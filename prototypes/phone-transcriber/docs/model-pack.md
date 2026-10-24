@@ -1,4 +1,4 @@
-# Offline model pack
+# Downloadable offline models
 
 The selected recognizer is **GigaAM Multilingual 220M CTC**, official model name
 `multilingual_ctc`. The upstream README dates this family to June 2026; its source
@@ -15,26 +15,73 @@ installed library versions, and each packaged file's SHA-256. MD5 is the upstrea
 revision check; it is not advertised as a cryptographic signature. The pack's
 hashes detect corruption and do not establish who published a pack.
 
-## Build in GitHub Actions
+## Download in the app
 
-Start the repository's [Ascent Model Export](../../../.github/workflows/model-pack.yml)
-workflow, whose job is **Export and validate offline models**, for the intended
-ref when manual dispatch is available. GitHub requires
-the workflow to exist on the default branch, so a review branch alone may not
-expose that action. The workflow
-uses Python 3.12, installs the pinned CPU environment, downloads and verifies the
-speaker model and public speech fixture, exports the model and publishes a pack
-only after validation. Its working directory is
-`prototypes/phone-transcriber/`.
+The APK contains no model weights. The app downloads its catalog from the fixed
+Ascent host at `https://ascent.arbuz.lol/models/catalog.json` when the user chooses
+to install the models. No external archive or server selection is required.
+Recognition and speaker processing run locally after installation; conversation
+audio is not part of model download requests.
+
+The catalog is a small JSON object:
+
+```json
+{
+  "schema_version": 1,
+  "model_id": "gigaam-multilingual-ctc-220m-2026-06",
+  "manifest_sha256": "<64 lowercase hexadecimal characters>",
+  "manifest_bytes": 12345
+}
+```
+
+The digest and size above are illustrative. The publisher computes them from the
+validated manifest. The app derives the immutable manifest URL as
+`/models/<model_id>/<manifest_sha256>/manifest.json` on that same host and
+checks its exact byte length and SHA-256 before parsing it. The six payload files
+are siblings of the manifest. No URL supplied by an arbitrary model file can
+redirect the app to another model server.
+
+The app shows download progress and supports cancellation and retry. It validates
+every payload before replacing the selected model directory; an incomplete or
+corrupt download leaves the previously installed models selected. HTTPS
+protects the connection to the configured publisher. Hashes detect corruption;
+they are not an independent signature of publisher identity.
+
+## Build and publish in GitHub Actions
+
+The repository's [Ascent Model Export](../../../.github/workflows/model-pack.yml)
+workflow, whose job is **Export and validate offline models**, runs only on
+pushes affecting model export tools, export dependencies, model publishing
+server files, or the workflow itself on `main` and the current prototype branch.
+There is no pull-request or manual-dispatch trigger. Ordinary Android-only pushes
+do not download or export weights.
+
+The workflow uses Python 3.12, installs the pinned CPU environment, downloads and
+verifies the speaker model and public speech fixture, and exports the model.
+Only after the numerical, decoding, speaker-inference and file-integrity checks
+pass does it stream the verified deployment ZIP over SSH to
+`ascent-models@ascent.arbuz.lol`. The server's forced `publish-models` command
+revalidates the archive, installs an immutable model directory, and atomically
+replaces `catalog.json` after all files are ready. Previously published immutable
+paths remain available to downloads that already fetched an older catalog.
+
+The repository secrets `ASCENT_MODEL_DEPLOY_KEY` and `ASCENT_MODEL_HOST_KEY`
+provide the dedicated deployment key and pinned SSH known-hosts entry. The
+workflow uses strict host-key checking, writes the private key only to a
+restricted temporary directory, and removes it at step exit. No application
+release tag is created. The deployment archive is internal transport: it is not
+uploaded as a GitHub artifact and users do not import it into the app. Android
+CI publishes only its compact APK ZIP.
 
 Model export and executable checks run only in CI under the repository's
 [engineering contract](../../../AGENTS.md). Do not install local export or
 Android toolchains or run the exporter locally. The workflow file is the source
-of truth for its commands. Application audio is never uploaded to that workflow
-or an API; the public fixture is separate validation input. The workflow reuses
-pip downloads and the upstream checkpoint cache to reduce repeated downloads.
-Checkpoint verification and all export checks still run; no audio is cached.
-No measured speedup is claimed.
+of truth for its commands. Its working directory is
+`prototypes/phone-transcriber/`. Application audio is never uploaded to that
+workflow or an API; the public fixture is separate validation input. The
+workflow reuses pip downloads and the upstream checkpoint cache. Checkpoint
+verification and all export checks still run; no audio is cached. No measured
+export speedup is claimed.
 
 Dependencies are pinned to stable releases verified on October 24, 2026:
 
@@ -106,7 +153,8 @@ are recorded by the build; no model binaries belong in Git.
 
 ## Android contract
 
-The ZIP is flat and contains exactly these seven files:
+Each installed or published immutable model directory contains exactly these seven files.
+The internal SSH deployment ZIP uses the same flat file set:
 
 | File | Purpose |
 | --- | --- |
@@ -142,11 +190,12 @@ Manifest fields consumed by Android:
 The vocabulary count above is illustrative, not the model's actual count.
 The builder reads it from the checkpoint. The real `files` object has one entry
 for each of the six payload files, with `sha256` (64 lowercase hex digits) and
-`bytes` (positive integer). An importer must check every entry before activating
-a pack, reject extra paths, duplicate entries and oversized files, and keep the
-previous pack until the new one has been verified. `manifest.json` is not
-self-hashed; the companion ZIP `.sha256` protects the complete archive when
-checked against a trusted build artifact.
+`bytes` (positive integer). A downloader must check every entry before activating
+the models, reject extra paths and oversized files, and keep the previous models
+until the new files have been verified. The server additionally rejects duplicate
+ZIP entries. `manifest.json` is not self-hashed: the fixed-host catalog supplies
+its exact SHA-256 and byte length. The internal ZIP checksum is deployment
+diagnostics and is not required from the app user.
 
 ASR ONNX inputs:
 
@@ -184,7 +233,7 @@ separate step; ASR does not itself identify speakers or semantic roles.
 ## Verification status
 
 The exporter fails before publication if source/checkpoint identity, frontend
-parity, ONNX validity, model output parity, CTC text parity or archive integrity
+parity, ONNX validity, model output parity, CTC text parity or file/archive integrity
 checks fail. Synthetic smoke cases establish numerical equivalence and dynamic
 input lengths, **not** Russian accuracy or diarization quality. The supplied
 speaker model is hash-checked and must produce a finite, nonzero 192-dimensional
@@ -195,9 +244,10 @@ Android native linking, cluster thresholds or speaker-turn accuracy.
 
 The repository permits local editing and static inspection only. Packaging
 tests, model export and Android executable checks run in GitHub Actions. A
-successful inspected CI artifact plus a real-device trial is required before
-claiming the app works with these weights. This document does not establish a
-successful export, Android build or device inference result.
+successful inspected model-export/deployment run, an accessible verified
+catalog and a real-device trial are required before claiming the app works with
+these weights. This document describes the publishing pipeline; it does not by
+itself establish a successful model export, deployment or device inference result.
 
 ## Sources checked
 

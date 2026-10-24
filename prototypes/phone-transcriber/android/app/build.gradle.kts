@@ -3,6 +3,10 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// The downloadable APK targets phones. CI selects x86_64 only for emulator tests.
+val ascentAbi = providers.gradleProperty("ascentAbi").orElse("arm64-v8a").get()
+require(ascentAbi in setOf("arm64-v8a", "x86_64")) { "Unsupported Ascent ABI: $ascentAbi" }
+
 android {
     namespace = "com.pmixay.ascent"
     compileSdk {
@@ -18,7 +22,7 @@ android {
         versionCode = 1
         versionName = "0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        ndk { abiFilters += setOf("arm64-v8a", "x86_64") }
+        ndk { abiFilters += ascentAbi }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -27,8 +31,18 @@ android {
     // Built-in Kotlin follows compileOptions.targetCompatibility.
     buildFeatures { compose = true }
     lint { abortOnError = true }
+    packaging {
+        // Smaller direct APK downloads; Android extracts native libraries on install.
+        jniLibs { useLegacyPackaging = true }
+        dex { useLegacyPackaging = true }
+    }
     buildTypes {
-        release { isMinifyEnabled = false }
+        debug {
+            // Retain debug signing for installation, with production-style R8 optimization.
+            isDebuggable = false
+            optimization { enable = true }
+        }
+        release { optimization { enable = true } }
     }
 }
 
@@ -37,8 +51,7 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
-    implementation(libs.compose.ui.tooling.preview)
-    debugImplementation(libs.compose.ui.tooling)
+    compileOnly(libs.compose.ui.tooling.preview)
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)

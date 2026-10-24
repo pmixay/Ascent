@@ -31,8 +31,9 @@ That bundled runtime is retained rather than replaced by the Maven Java runtime:
 the latter does not export `OrtGetApiBase`, which the sherpa JNI library needs.
 
 The preparation script renames the bundled C runtime to `libort_sherpa.so`,
-updates its ELF `DT_SONAME`, and rewrites every sherpa native `DT_NEEDED`
-reference to that name, including the C, C++ and JNI libraries. The prepared AAR
+updates its ELF `DT_SONAME`, and rewrites the retained sherpa JNI `DT_NEEDED`
+reference to that name. The unused standalone sherpa C and C++ wrapper libraries
+are omitted after checking that retained libraries do not depend on them. The prepared AAR
 is `sherpa-onnx-2.0.0-isolated-ort.aar`. This gives the two runtimes separate
 library identities in the APK. It
 does not assert that sherpa has been upgraded to ONNX Runtime 1.31.0 or that the
@@ -44,6 +45,31 @@ ASR and speaker model sessions run sequentially to avoid loading both models at
 once. Both native runtime libraries may remain mapped in the process, so this
 arrangement does not establish a memory budget or guarantee that either library
 is unloaded. Measure peak RAM and processing latency on supported phones.
+
+## Compact APK packaging
+
+The phone download targets only `arm64-v8a`. CI selects `x86_64` separately for
+the emulator through `-PascentAbi=x86_64`; it does not distribute that APK.
+Both build types enable AGP's R8 code/resource optimization. The installed
+prototype excludes Compose preview/runtime tooling and retains only targeted
+JNI/reflection entry points. Native libraries and DEX use compressed packaging;
+Android extracts the native libraries during installation. Download size and
+installed size are therefore different measurements.
+
+The earlier APK contained no model weights yet occupied 172,724,060 bytes
+(172.7 MB). Static inspection found 65,676,344 bytes of ARM64 native libraries,
+76,515,592 bytes of x86_64 native libraries and 29,883,036 bytes of DEX, all stored
+without compression. R8 can reduce managed code/resources but does not remove
+native inference engines merely because their weights are downloaded separately.
+A single phone ABI, omitted unused wrappers/tooling and compressed payloads
+address that overhead. The new exact size must be measured from CI; no reduced
+byte count is asserted here before a successful artifact is inspected.
+
+Models are separate HTTPS downloads from the fixed Ascent catalog. The APK
+contains the runtime engines and downloader, not ASR or speaker weights. The
+Android workflow inspects its output for expected architecture, compression,
+optimization evidence and absence of model files before publishing the short
+`debug-<8-character commit>.zip` archive with only `ascent.apk`.
 
 ## Export environment
 

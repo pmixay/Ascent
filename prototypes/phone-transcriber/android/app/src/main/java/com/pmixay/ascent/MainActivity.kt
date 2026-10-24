@@ -33,17 +33,14 @@ class MainActivity : ComponentActivity() {
             val openAudio = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 uri?.let(conversation::importAudio)
             }
-            val openModels = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-                uri?.let(conversation::importModels)
-            }
             val exportText = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
                 uri?.let { conversation.exportTranscript(it, json = false) }
             }
             val exportJson = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
                 uri?.let { conversation.exportTranscript(it, json = true) }
             }
-            DisposableEffect(state.recording) {
-                if (state.recording) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            DisposableEffect(state.recording, state.downloadingModels) {
+                if (state.recording || state.downloadingModels) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
             }
@@ -56,7 +53,8 @@ class MainActivity : ComponentActivity() {
                         else microphone.launch(Manifest.permission.RECORD_AUDIO)
                     },
                     onOpenAudio = { openAudio.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream")) },
-                    onOpenModels = { openModels.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")) },
+                    onDownloadModels = conversation::downloadModels,
+                    onCancelModelDownload = conversation::cancelModelDownload,
                     onTranscribe = conversation::transcribe,
                     onRename = conversation::renameSpeaker,
                     onDelete = conversation::deleteRecording,

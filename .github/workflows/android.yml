@@ -2,8 +2,6 @@ name: Ascent Android CI
 
 on:
   push:
-  pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,84 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gate:
-    name: Select CI run
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      pull-requests: read
-    outputs:
-      run_build: ${{ steps.decision.outputs.run_build }}
-    steps:
-      - name: Avoid duplicate builds for open pull requests
-        id: decision
-        env:
-          ASCENT_GITHUB_TOKEN: ${{ github.token }}
-          ASCENT_API_URL: ${{ github.api_url }}
-          ASCENT_EVENT_NAME: ${{ github.event_name }}
-          ASCENT_REF: ${{ github.ref }}
-          ASCENT_BRANCH: ${{ github.ref_name }}
-          ASCENT_COMMIT: ${{ github.sha }}
-          ASCENT_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          ASCENT_REPOSITORY: ${{ github.repository }}
-          ASCENT_REPOSITORY_OWNER: ${{ github.repository_owner }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import urllib.parse
-          import urllib.request
-
-          run_build = True
-          is_branch_push = (
-              os.environ['ASCENT_EVENT_NAME'] == 'push'
-              and os.environ['ASCENT_REF'].startswith('refs/heads/')
-              and os.environ['ASCENT_BRANCH'] != os.environ['ASCENT_DEFAULT_BRANCH']
-          )
-          if is_branch_push:
-              try:
-                  repository = os.environ['ASCENT_REPOSITORY']
-                  query = urllib.parse.urlencode({
-                      'state': 'open', 'per_page': 1,
-                      'head': f"{os.environ['ASCENT_REPOSITORY_OWNER']}:{os.environ['ASCENT_BRANCH']}",
-                  })
-                  request = urllib.request.Request(
-                      f"{os.environ['ASCENT_API_URL']}/repos/{repository}/pulls?{query}",
-                      headers={
-                          'Authorization': f"Bearer {os.environ['ASCENT_GITHUB_TOKEN']}",
-                          'Accept': 'application/vnd.github+json',
-                          'User-Agent': 'Ascent-CI',
-                      },
-                  )
-                  with urllib.request.urlopen(request, timeout=15) as response:
-                      pulls = json.load(response)
-                  for pull in pulls:
-                      if pull['head']['repo']['full_name'] != repository:
-                          continue
-                      detail_request = urllib.request.Request(
-                          f"{os.environ['ASCENT_API_URL']}/repos/{repository}/pulls/{pull['number']}",
-                          headers=dict(request.header_items()),
-                      )
-                      with urllib.request.urlopen(detail_request, timeout=15) as response:
-                          detail = json.load(response)
-                      # Conflicting PRs do not get a pull_request run. Unknown or
-                      # stale mergeability also keeps the push checks enabled.
-                      run_build = not (
-                          detail.get('mergeable') is True
-                          and detail['head']['sha'] == os.environ['ASCENT_COMMIT']
-                      )
-                      break
-              except (OSError, ValueError, KeyError, TypeError):
-                  print('Pull request lookup unavailable; running all checks.')
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write(f"run_build={str(run_build).lower()}\n")
-          print('Run all checks.' if run_build else 'The pull request run validates the merge commit.')
-          PY
-
   build:
     name: Build and validate Android app
-    needs: gate
-    if: needs.gate.outputs.run_build == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     defaults:
@@ -103,6 +25,10 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set short artifact name
+        id: artifact
+        run: echo "short_sha=${GITHUB_SHA:0:8}" >> "$GITHUB_OUTPUT"
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -113,6 +39,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -v
           python3 -m unittest discover -s tools -p 'test_*.py' -v
+          python3 -m unittest discover -s ../../server -p 'test_*.py' -v
 
       - name: Restore native dependency download
         id: native-cache
@@ -126,7 +53,7 @@ jobs:
         run: python3 scripts/prepare_android.py
 
       - name: Save verified native dependency download
-        if: github.event_name != 'pull_request' && steps.native-cache.outputs.cache-hit != 'true'
+        if: steps.native-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: prototypes/phone-transcriber/.cache/sherpa-onnx-*.aar
@@ -143,7 +70,7 @@ jobs:
         with:
           gradle-version: '9.8.2'
           cache-provider: basic
-          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-read-only: false
 
       - name: Set up Android SDK command-line tools
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
@@ -166,12 +93,19 @@ jobs:
               output.write(f'emulator_revision={revision}\n')
           PY
 
-      # Inference weights are imported on the phone, not bundled into the APK.
-      # A normal pull request build does not download or export large models.
+      # Models download inside the app; normal APK builds contain no weights.
       - name: Run checks and build APK
         run: >-
           gradle --stacktrace --continue
           :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Inspect and preserve ARM64 phone APK
+        run: |
+          python3 ../scripts/check_apk.py \
+            --apk app/build/outputs/apk/debug/app-debug.apk \
+            --mapping app/build/outputs/mapping/debug/mapping.txt
+          mkdir -p build/distribution
+          cp app/build/outputs/apk/debug/app-debug.apk build/distribution/ascent.apk
 
       - name: Enable emulator hardware acceleration
         run: |
@@ -205,7 +139,7 @@ jobs:
           script: echo "Clean emulator snapshot ready."
 
       - name: Save clean Android emulator snapshot
-        if: github.event_name != 'pull_request' && steps.avd-cache.outputs.cache-hit != 'true'
+        if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -225,13 +159,13 @@ jobs:
           working-directory: prototypes/phone-transcriber/android
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-save -noaudio -no-boot-anim -camera-back none
-          script: gradle --stacktrace :app:connectedDebugAndroidTest
+          script: gradle --stacktrace -PascentAbi=x86_64 :app:connectedDebugAndroidTest
 
       - name: Upload checked debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ascent-debug-${{ github.sha }}
-          path: prototypes/phone-transcriber/android/app/build/outputs/apk/debug/*.apk
+          name: debug-${{ steps.artifact.outputs.short_sha }}
+          path: prototypes/phone-transcriber/android/build/distribution/ascent.apk
           if-no-files-found: error
           compression-level: 0
           retention-days: 14

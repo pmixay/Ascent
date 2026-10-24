@@ -3,7 +3,6 @@ package com.pmixay.ascent
 import android.content.Context
 import android.net.Uri
 import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
@@ -18,30 +17,14 @@ data class ModelSpec(val directory: File, val tokens: List<String>, val blankId:
         const val MODEL_ID = "gigaam-multilingual-ctc-220m-2026-06"
         fun load(directory: File, verifyHashes: Boolean = false): ModelSpec {
             val manifestFile = File(directory, "manifest.json")
-            require(manifestFile.length() in 1..1_048_576) { "Некорректный манифест моделей" }
-            val manifest = JSONObject(manifestFile.readText())
-            require(manifest.getInt("schema_version") == 1 && manifest.getString("model_id") == MODEL_ID) {
-                "Нужен пакет GigaAM Multilingual 220M для Ascent"
+            require(manifestFile.length() in 1..MAX_MODEL_MANIFEST_BYTES.toLong()) { "Некорректный манифест моделей" }
+            val manifest = ModelManifest.parse(manifestFile.readBytes())
+            val expected = ModelManifest.payloadNames + "manifest.json"
+            manifest.files.forEach { entry ->
+                val file = File(directory, entry.name)
+                require(file.isFile && file.length() == entry.bytes) { "Отсутствует или повреждён ${entry.name}" }
+                if (verifyHashes) require(file.inputStream().use(::sha256) == entry.sha256) { "Не совпадает SHA-256: ${entry.name}" }
             }
-            require(manifest.getInt("sample_rate") == 16000 && manifest.getInt("channels") == 1)
-            require(manifest.getInt("min_samples") == 4000 && manifest.getInt("max_samples") == 400000)
-            require(manifest.getString("asr_file") == "asr.onnx" && manifest.getString("tokens_file") == "tokens.json")
-            require(manifest.getString("speaker_file") == "speaker.onnx")
-            require(manifest.getString("speaker_model_id") == "3dspeaker-eres2netv2-2024")
-            require(manifest.getString("speaker_runtime") == "sherpa-onnx")
-            val files = manifest.getJSONObject("files")
-            val expected = mutableSetOf("manifest.json")
-            files.keys().forEach { name ->
-                require(isSafePackName(name)) { "Недопустимое имя файла модели" }
-                expected += name
-                val entry = files.getJSONObject(name)
-                val file = File(directory, name)
-                require(file.isFile && file.length() == entry.getLong("bytes")) { "Отсутствует или повреждён $name" }
-                val hash = entry.getString("sha256")
-                require(hash.matches(Regex("[0-9a-f]{64}")))
-                if (verifyHashes) require(file.inputStream().use(::sha256) == hash) { "Не совпадает SHA-256: $name" }
-            }
-            require(expected == setOf("manifest.json", "asr.onnx", "speaker.onnx", "tokens.json", "LICENSE-asr.txt", "LICENSE-speaker.txt", "smoke-report.json"))
             require(directory.listFiles()?.map { it.name }?.toSet() == expected) { "Неожиданные файлы в пакете" }
             val tokenFile = File(directory, "tokens.json")
             require(tokenFile.length() in 1..1_048_576)
@@ -49,9 +32,8 @@ data class ModelSpec(val directory: File, val tokens: List<String>, val blankId:
             require(array.length() in 2 until 65536)
             val tokens = (0 until array.length()).map { array.getString(it) }
             require(tokens.all { it.isNotEmpty() }) { "Пустой токен в словаре модели" }
-            val blank = manifest.getInt("blank_id")
-            require(blank == tokens.size && manifest.getInt("vocabulary_size") == tokens.size)
-            return ModelSpec(directory, tokens, blank)
+            require(manifest.blankId == tokens.size && manifest.vocabularySize == tokens.size)
+            return ModelSpec(directory, tokens, manifest.blankId)
         }
     }
 }

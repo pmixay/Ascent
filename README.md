@@ -5,7 +5,9 @@ The product plan below remains the production target. The separate
 for review: it uses the phone microphone, saves WAV files and plaintext
 transcripts, has no seven-day expiry, and has no Wear OS app. It does not satisfy
 the production capture or privacy requirements below. Its CI and model-export
-results must be inspected before treating an artifact as verified.
+results must be inspected before treating an artifact as verified. The compact
+phone APK uses R8 optimization and downloads models in the app from the fixed
+Ascent host; no model weights or manual model archive belong in the APK flow.
 
 Russian speech memory for Android and Wear OS.
 
@@ -98,7 +100,7 @@ Cloud STT is prohibited, including fallback after a local model failure. Downloa
 
 Android's generic `SpeechRecognizer` may use remote services and is documented as unsuitable for continuous recognition; it is not the default continuous engine. See [SpeechRecognizer](https://developer.android.com/reference/android/speech/SpeechRecognizer).
 
-Candidate runtimes include [Vosk](https://alphacephei.com/vosk/models), [whisper.cpp](https://github.com/ggml-org/whisper.cpp), and [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx). Evaluate exact model licenses, Russian accuracy, memory behavior, and measured device performance.
+The review prototype uses GigaAM Multilingual 220M CTC through ONNX Runtime and ERes2NetV2 speaker embeddings through sherpa-onnx. Models are downloaded in the app from the fixed Ascent host, then processed locally. Production watch-stream processing still requires measured Russian accuracy, memory behavior, speaker attribution and latency on supported devices.
 
 ### 3.3 Speaker separation for conversations
 
@@ -302,7 +304,7 @@ The production application backend will be hosted at **`https://ascent.arbuz.lol
 - Users can enable or disable server AI and control the text scope without choosing a server.
 - If the backend is unavailable, show that server AI is unavailable and keep local functions working. Do not switch to another application server automatically.
 
-This specifies the planned hosting address; it does not assert that deployment or connectivity has been verified.
+The prototype uses `/models/catalog.json` on this host for static model downloads. That distribution service is separate from the planned text-AI gateway; its existence does not establish remote AI functionality. Model export, deployment and connectivity require inspected run evidence.
 
 ### Scope and user control
 
@@ -391,7 +393,7 @@ Phone destinations: `Today`, `History`, `People`, and `Search`. The watch provid
 
 The first production slice must use the watch as the live microphone and the phone for processing. The phone-only review prototype does not complete that slice. [roadmap.md](roadmap.md) defines the sequence and acceptance gates.
 
-**Do not build locally. GitHub CI is the build and executable-validation environment.** This branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and manual [Ascent Model Export](.github/workflows/model-pack.yml) workflows for the review prototype; the fetched base repository had no workflows. Inspect each actual run and its commit before reporting success. Use these checks, do not weaken them or replace them with local builds, and do not claim an unobserved green result. Ascent Android CI publishes only an APK ZIP; test and lint diagnostics remain in the workflow console, without report artifacts. Local document edits and static inspection are allowed. See [AGENTS.md](AGENTS.md).
+**Do not build locally. GitHub CI is the build and executable-validation environment.** This branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) workflows for the review prototype; the fetched base repository had no workflows. Inspect each actual run and its commit before reporting success. Use these checks, do not weaken them or replace them with local builds, and do not claim an unobserved green result. Both workflows trigger only on pushes; model export additionally filters relevant source paths. Ascent Android CI publishes only `debug-<8-character commit>.zip` containing the compact ARM64 `ascent.apk`; test and lint diagnostics remain in the workflow console, without report artifacts. The optimized x86_64 emulator build is checked but never uploaded. Model CI deploys verified weights to the fixed HTTPS catalog through restricted SSH; users download them inside the app. Local document edits and static inspection are allowed. See [AGENTS.md](AGENTS.md).
 
 Later ideas include personal vocabulary, source-linked commitment tracking, conversation preparation, comparing decisions, local custom-sound enrollment, and deliberately configured longer-term text memory. Audio recording or storage is not a later extension of this plan.
 

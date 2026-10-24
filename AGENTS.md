@@ -13,8 +13,11 @@ The current user request publishes the prepared phone transcription prototype fo
 - Local work may include editing, reading configuration, reviewing diffs, and strictly non-building static checks. Check what a command does before running it.
 - Inspect the repository's actual GitHub workflow files, triggers, commands, and required checks before using CI. Do not invent workflow names or assume a pipeline exists in a supplied document-only workspace.
 - Use the existing workflow. Do not create a replacement, weaken checks, bypass CI, or fall back to a local build unless the user explicitly changes this instruction.
-- Ascent Android CI publishes only the APK download ZIP. Keep test and lint diagnostics in the workflow console; do not upload report artifacts. Build dependency caches may reduce repeated work but must preserve verification and required checks.
+- Both workflows trigger only on pushes; do not add a separate pull-request or manual-dispatch trigger. Model export filters relevant model/export/server paths.
+- Ascent Android CI publishes only `debug-<8-character commit>.zip`, containing the compact ARM64 `ascent.apk`. Use R8 code/resource optimization and keep model weights outside the APK. The separately optimized x86_64 emulator variant must pass its checks but is not a download artifact. Keep test and lint diagnostics in the workflow console; do not upload report artifacts. Build dependency caches may reduce repeated work but must preserve verification and required checks.
 - Report CI as not run or unverified unless an actual run and its result have been inspected. When available, identify the run and commit. Static review does not establish a successful build or passing tests.
+
+- The app downloads models from `https://ascent.arbuz.lol/models/catalog.json` and verifies the immutable manifest and every payload before activation. No manual external model archive or server-selection UI is required. Internet permission for weights does not authorize audio uploads. Model CI may use a private archive solely as authenticated deployment transport.
 
 ## 2. Preserve the product architecture
 

@@ -120,6 +120,34 @@ def validate_zip(path: Path) -> dict:
         return manifest
 
 
+def validate_directory(path: Path) -> dict:
+    """Validate the flat, independently downloadable model files before publication."""
+    entries = list(path.iterdir())
+    if {entry.name for entry in entries} != REQUIRED_FILES | {"manifest.json"}:
+        raise ValueError("Directory must contain only the declared flat file set")
+    if any(entry.is_symlink() or not entry.is_file() for entry in entries):
+        raise ValueError("Model files must be regular files, not directories or symlinks")
+    manifest_path = path / "manifest.json"
+    if manifest_path.stat().st_size > 128 * 1024:
+        raise ValueError("Manifest is too large")
+    manifest = load_json(manifest_path.read_text(encoding="utf-8"))
+    validate_manifest(manifest)
+    for name, record in manifest["files"].items():
+        file = path / name
+        if file.stat().st_size != record["bytes"]:
+            raise ValueError(f"Size mismatch: {name}")
+        if sha256_file(file) != record["sha256"]:
+            raise ValueError(f"SHA-256 mismatch: {name}")
+    if manifest["files"]["tokens.json"]["bytes"] > 1024 * 1024:
+        raise ValueError("Vocabulary is too large")
+    tokens = load_json((path / "tokens.json").read_text(encoding="utf-8"))
+    if not isinstance(tokens, list) or len(tokens) != manifest["vocabulary_size"]:
+        raise ValueError("Vocabulary size mismatch")
+    if any(not isinstance(token, str) or not token for token in tokens):
+        raise ValueError("Vocabulary must contain nonempty strings")
+    return manifest
+
+
 def ctc_decode(labels, tokens: list[str], valid_frames: int) -> tuple[str, list[int]]:
     """Upstream charwise greedy CTC: collapse repeats before dropping blank."""
     blank_id = len(tokens)

@@ -8,7 +8,7 @@ Specification version: 0.5
 
 Updated: 24 October 2026
 
-The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. It saves WAV audio and plaintext transcripts without automatic expiry and has no watch app. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) workflows; their actual run results must be checked.
+The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. It saves WAV audio and plaintext transcripts without automatic expiry and has no watch app. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) push-only workflows; their actual run results must be checked. The compact prototype uses R8 optimization, downloads models through the fixed in-app catalog, and publishes only the ARM64 APK as `debug-<8-character commit>.zip`. Emulator APKs, reports and model weights are not Android download artifacts.
 
 ## Confirmed scope
 

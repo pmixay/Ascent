@@ -1,0 +1,23 @@
+ascent.arbuz.lol {
+    root * /srv/ascent
+
+    @hidden path_regexp hidden (^|/)\.
+    respond @hidden 404
+
+    handle /health {
+        respond "Ascent model server is running." 200
+    }
+    handle /models/catalog.json {
+        header Cache-Control "no-store"
+        header X-Content-Type-Options "nosniff"
+        file_server
+    }
+    handle /models/* {
+        header Cache-Control "public, max-age=31536000, immutable"
+        header X-Content-Type-Options "nosniff"
+        file_server
+    }
+    handle {
+        respond 404
+    }
+}

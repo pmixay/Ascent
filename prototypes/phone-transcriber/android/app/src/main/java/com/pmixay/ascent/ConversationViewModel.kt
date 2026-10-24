@@ -14,7 +14,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -41,6 +43,10 @@ data class ConversationState(
     val waveform: List<Float> = List(52) { 0f },
     val audioFile: File? = null,
     val modelDirectory: File? = null,
+    val downloadingModels: Boolean = false,
+    val cancellingModelDownload: Boolean = false,
+    val modelDownloadBytes: Long = 0,
+    val modelDownloadTotal: Long = 0,
     val segments: List<TranscriptSegment> = emptyList(),
     val speakerNames: Map<String, String> = emptyMap(),
 ) {
@@ -56,6 +62,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     val state = mutableState.asStateFlow()
     private var recorder: AudioRecorder? = null
     private var meterJob: Job? = null
+    private var modelDownloadJob: Job? = null
     private var foreground = false
     private val transcriptMutex = Mutex()
     private val transcriptFile get() = AtomicFile(File(app.filesDir, "latest-transcript.json"))
@@ -75,7 +82,10 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
 
     fun setForeground(visible: Boolean) {
         foreground = visible
-        if (!visible) stopRecording(recognize = false)
+        if (!visible) {
+            stopRecording(recognize = false)
+            cancelModelDownload()
+        }
     }
 
     fun microphoneDenied() { mutableState.update { it.copy(status = "Доступ к микрофону не разрешён. Можно открыть WAV.") } }
@@ -119,7 +129,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 mutableState.update { it.copy(status = "Запись сохранена на устройстве") }
                 startRecognition = recognize && foreground && isActive && mutableState.value.modelDirectory != null
                 if (recognize && mutableState.value.modelDirectory == null) {
-                    mutableState.update { it.copy(status = "Запись сохранена. Выберите модели для расшифровки.") }
+                    mutableState.update { it.copy(status = "Запись сохранена. Скачайте модели для расшифровки.") }
                 }
             } catch (_: OutOfMemoryError) { reportMemoryError() }
             catch (error: Exception) {
@@ -136,11 +146,51 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         }
     }) { file -> replaceAudio(file); mutableState.update { it.copy(status = "Запись импортирована") } }
 
-    fun importModels(uri: Uri) = work("Проверяю и устанавливаю модели…", {
-        runInterruptible(Dispatchers.IO) {
-            ModelPackImporter.importZip(app, uri).also { installSelection("modelPath", it, File(app.filesDir, "models")) }
+    fun downloadModels() {
+        if (!foreground || mutableState.value.busy || mutableState.value.recording) return
+        mutableState.update { it.copy(busy = true, downloadingModels = true, cancellingModelDownload = false,
+            modelDownloadBytes = 0, modelDownloadTotal = 0, status = "Проверяю доступность моделей…") }
+        val root = File(app.filesDir, "models")
+        val operation = ModelDownloader(root)
+        modelDownloadJob = viewModelScope.launch {
+            var installed = false
+            try {
+                val directory = runInterruptible(Dispatchers.IO) {
+                    operation.download { progress ->
+                        mutableState.update {
+                            if (it.cancellingModelDownload) it else it.copy(
+                                modelDownloadBytes = progress.completedBytes, modelDownloadTotal = progress.totalBytes,
+                                status = if (progress.verifying) "Проверяю и устанавливаю модели…" else "Скачиваю модели…")
+                        }
+                    }
+                }
+                currentCoroutineContext().ensureActive()
+                // Once installation begins, commit the selection and transaction together.
+                withContext(NonCancellable + Dispatchers.IO) {
+                    installSelection("modelPath", directory, root)
+                    operation.commit()
+                    installed = true
+                    mutableState.update { it.copy(modelDirectory = directory, status = "Модели готовы. Распознавание работает без интернета.") }
+                }
+            } catch (error: CancellationException) {
+                if (!installed) mutableState.update { it.copy(status = "Загрузка отменена. Её можно запустить снова.") }
+                throw error
+            } catch (_: OutOfMemoryError) { reportMemoryError() }
+            catch (error: Exception) { reportError(error) }
+            finally {
+                withContext(NonCancellable + Dispatchers.IO) { operation.close() }
+                modelDownloadJob = null
+                mutableState.update { it.copy(busy = false, downloadingModels = false, cancellingModelDownload = false) }
+            }
         }
-    }) { directory -> mutableState.update { it.copy(modelDirectory = directory, status = "Модели готовы к работе без интернета") } }
+    }
+
+    fun cancelModelDownload() {
+        modelDownloadJob?.let {
+            mutableState.update { state -> state.copy(cancellingModelDownload = true, status = "Останавливаю загрузку…") }
+            it.cancel()
+        }
+    }
 
     fun transcribe() {
         val snapshot = mutableState.value
@@ -223,7 +273,13 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     private fun installSelection(key: String, file: File, root: File) {
         val old = preferences.getString(key, null)?.let(::File)
         check(file.canonicalFile.parentFile == root.canonicalFile) { "Некорректный путь файла" }
-        check(preferences.edit().putString(key, file.absolutePath).commit()) { "Не удалось сохранить выбор файла" }
+        if (!preferences.edit().putString(key, file.absolutePath).commit()) {
+            // commit() can update the in-memory preference even when its disk write fails.
+            val rollback = preferences.edit()
+            if (old == null) rollback.remove(key) else rollback.putString(key, old.absolutePath)
+            rollback.commit()
+            error("Не удалось сохранить выбор файла")
+        }
         if (old != null && old != file && old.canonicalFile.parentFile == root.canonicalFile) {
             if (old.isDirectory) old.deleteRecursively() else old.delete()
         }
@@ -231,7 +287,16 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
 
     private fun restore(): ConversationState {
         val audio = preferences.getString("audioPath", null)?.let(::File)?.takeIf { it.isFile }
-        val models = preferences.getString("modelPath", null)?.let(::File)?.takeIf { it.isDirectory }
+        val modelRoot = File(app.filesDir, "models")
+        val models = preferences.getString("modelPath", null)?.let(::File)?.takeIf { candidate ->
+            candidate.isDirectory && candidate.canonicalFile.parentFile == modelRoot.canonicalFile &&
+                runCatching { ModelSpec.load(candidate) }.isSuccess
+        }
+        // A killed process cannot finish its transaction; clear only app-owned unselected directories.
+        modelRoot.listFiles()?.filter { child ->
+            child != models && child.canonicalFile.parentFile == modelRoot.canonicalFile &&
+                (child.name.startsWith(".download-") || child.name.startsWith(".import-") || child.name.startsWith("gigaam-"))
+        }?.forEach { it.deleteRecursively() }
         val initial = ConversationState(audioFile = audio, modelDirectory = models, elapsedMs = audio?.let(::duration) ?: 0)
         if (audio == null || !transcriptFile.baseFile.isFile || transcriptFile.baseFile.length() > 10 * 1024 * 1024) return initial
         return try {

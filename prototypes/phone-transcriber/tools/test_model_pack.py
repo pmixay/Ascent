@@ -6,7 +6,7 @@ import tempfile
 import unittest
 import zipfile
 
-from model_pack import MODEL_ID, REQUIRED_FILES, SPEAKER_MODEL_ID, ctc_decode, load_json, validate_zip
+from model_pack import MODEL_ID, REQUIRED_FILES, SPEAKER_MODEL_ID, ctc_decode, load_json, validate_directory, validate_zip
 
 
 class ModelPackTests(unittest.TestCase):
@@ -65,6 +65,45 @@ class ModelPackTests(unittest.TestCase):
     def test_duplicate_manifest_keys_rejected(self):
         with self.assertRaisesRegex(ValueError, "Duplicate JSON key"):
             load_json('{"schema_version":1,"schema_version":2}')
+
+    def test_download_directory_validates_the_complete_file_set(self):
+        content, manifest = self.fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"
+            source.mkdir()
+            for name, value in content.items():
+                (source / name).write_bytes(value)
+            manifest_bytes = json.dumps(manifest).encode()
+            (source / "manifest.json").write_bytes(manifest_bytes)
+            self.assertEqual(validate_directory(source), manifest)
+
+    def test_corrupt_download_directory_is_rejected(self):
+        content, manifest = self.fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"
+            source.mkdir()
+            for name, value in content.items():
+                (source / name).write_bytes(value)
+            (source / "manifest.json").write_text(json.dumps(manifest))
+            (source / "asr.onnx").write_bytes(b"corrupt")
+            with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+                validate_directory(source)
+            self.assertTrue(source.is_dir())
+
+    def test_download_directory_rejects_symbolic_links(self):
+        content, manifest = self.fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"
+            source.mkdir()
+            for name, value in content.items():
+                (source / name).write_bytes(value)
+            (source / "manifest.json").write_text(json.dumps(manifest))
+            external = Path(directory) / "external.onnx"
+            external.write_bytes(content["asr.onnx"])
+            (source / "asr.onnx").unlink()
+            (source / "asr.onnx").symlink_to(external)
+            with self.assertRaisesRegex(ValueError, "regular files"):
+                validate_directory(source)
 
     def test_ctc_blank_separates_repeated_characters(self):
         # "ааб" requires a blank between the two а emissions.

@@ -1,17 +1,23 @@
 name: Ascent Model Export
 
-# Exporting the models is a separate, explicitly started CPU job. Normal app
-# builds do not download weights. The public speech fixture is used only during
-# validation; it is not included in the uploaded artifact.
+# Only model/export changes start this CPU job. Android builds do not fetch
+# weights. The public speech fixture is validation input, never publication data.
 on:
-  workflow_dispatch:
+  push:
+    branches: [main, codex/ascent-android-prototype]
+    paths:
+      - '.github/workflows/model-pack.yml'
+      - 'prototypes/phone-transcriber/tools/export_model_pack.py'
+      - 'prototypes/phone-transcriber/tools/model_pack.py'
+      - 'prototypes/phone-transcriber/tools/requirements-*.txt'
+      - 'server/**'
 
 permissions:
   contents: read
 
 concurrency:
   group: model-pack-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   export:
@@ -43,6 +49,9 @@ jobs:
           cache-dependency-path: |
             prototypes/phone-transcriber/tools/requirements-export.txt
             prototypes/phone-transcriber/tools/requirements-gigaam.txt
+
+      - name: Check model publication integrity
+        run: python3 -m unittest discover -s ../../server -p 'test_*.py' -v
 
       - name: Install CPU export dependencies
         run: python3 -m pip install -r tools/requirements-export.txt
@@ -103,10 +112,10 @@ jobs:
           soundfile.write('build/models/smoke-16k.wav', mono.numpy(), 16000, subtype='PCM_16')
           PY
 
-      - name: Export and validate model pack
+      - name: Export and validate downloadable models
         run: |
           python3 tools/export_model_pack.py \
-            --output build/ascent-model-pack.zip \
+            --output build/model-downloads.zip \
             --cache-dir build/gigaam-cache \
             --speaker-model "build/models/$ASCENT_SPEAKER_FILENAME" \
             --speaker-sha256 "$ASCENT_SPEAKER_SHA256" \
@@ -114,13 +123,22 @@ jobs:
             --speaker-source "$ASCENT_SPEAKER_SOURCE" \
             --smoke-wav build/models/smoke-16k.wav
 
-      - name: Upload offline model pack
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ascent-model-pack-${{ github.sha }}
-          path: |
-            prototypes/phone-transcriber/build/ascent-model-pack.zip
-            prototypes/phone-transcriber/build/ascent-model-pack.zip.sha256
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 7
+      # The archive exists only as an authenticated deployment transport. The
+      # server publishes individual HTTPS files; users never import an archive.
+      - name: Publish verified models to Ascent
+        env:
+          ASCENT_MODEL_DEPLOY_KEY: ${{ secrets.ASCENT_MODEL_DEPLOY_KEY }}
+          ASCENT_MODEL_HOST_KEY: ${{ secrets.ASCENT_MODEL_HOST_KEY }}
+        run: |
+          test -n "$ASCENT_MODEL_DEPLOY_KEY" || { echo "Model deployment key is not configured."; exit 1; }
+          test -n "$ASCENT_MODEL_HOST_KEY" || { echo "Pinned model server host key is not configured."; exit 1; }
+          ascent_ssh_dir="$(mktemp -d)"
+          trap 'rm -rf "$ascent_ssh_dir"' EXIT
+          printf '%s\n' "$ASCENT_MODEL_DEPLOY_KEY" > "$ascent_ssh_dir/key"
+          printf '%s\n' "$ASCENT_MODEL_HOST_KEY" > "$ascent_ssh_dir/known_hosts"
+          chmod 600 "$ascent_ssh_dir/key" "$ascent_ssh_dir/known_hosts"
+          ssh -i "$ascent_ssh_dir/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o "UserKnownHostsFile=$ascent_ssh_dir/known_hosts" \
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ascent-models@ascent.arbuz.lol publish-models < build/model-downloads.zip

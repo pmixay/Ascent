@@ -18,7 +18,8 @@ OUTPUT = ROOT / "android/app/libs" / f"sherpa-onnx-{VERSION}-isolated-ort.aar"
 ORIGINAL_RUNTIME = "libonnxruntime.so"
 ISOLATED_RUNTIME = "libort_sherpa.so"
 ARCHITECTURES = ("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
-SHERPA_LIBRARIES = ("libsherpa-onnx-c-api.so", "libsherpa-onnx-cxx-api.so", "libsherpa-onnx-jni.so")
+SHERPA_LIBRARIES = ("libsherpa-onnx-jni.so",)
+UNUSED_SHERPA_LIBRARIES = ("libsherpa-onnx-c-api.so", "libsherpa-onnx-cxx-api.so")
 
 
 def dynamic_strings(data: bytes) -> list[tuple[int, int, bytes]]:
@@ -114,27 +115,35 @@ def isolate_runtime(data: bytes, *, is_runtime: bool) -> bytes:
 
 
 def repackage(data: bytes, output: Path) -> None:
-    """Preserve sherpa's own C runtime under a distinct name for every bundled ABI.
+    """Preserve the JNI binding and its isolated C runtime for every bundled ABI.
 
     Maven's ORT Android JNI library does not export the C API required by sherpa.
     Do not remove that C runtime or resolve the collision with Gradle pickFirst.
+    The separate C/C++ API wrappers are unused by the app and omitted only after
+    confirming that the retained JNI/runtime libraries do not depend on them.
     """
     with zipfile.ZipFile(io.BytesIO(data)) as source:
         names = set(source.namelist())
         required = {"classes.jar"} | {f"jni/{arch}/{library}" for arch in ARCHITECTURES
-                                     for library in (ORIGINAL_RUNTIME, *SHERPA_LIBRARIES)}
+                                     for library in (ORIGINAL_RUNTIME, *SHERPA_LIBRARIES, *UNUSED_SHERPA_LIBRARIES)}
         if len(names) != len(source.infolist()) or not required <= names:
             raise ValueError(f"Unexpected AAR layout: missing {required - names}")
         if any(name.endswith("/" + ISOLATED_RUNTIME) for name in names):
             raise ValueError("Isolated runtime name already exists in the source AAR")
+        omitted = {f"jni/{arch}/{library}" for arch in ARCHITECTURES for library in UNUSED_SHERPA_LIBRARIES}
         output.parent.mkdir(parents=True, exist_ok=True)
         temporary = output.with_suffix(".tmp")
         try:
             with zipfile.ZipFile(temporary, "w", zipfile.ZIP_DEFLATED) as target:
                 for entry in source.infolist():
+                    if entry.filename in omitted:
+                        continue
                     content = source.read(entry)
                     rewritten_entry = copy.copy(entry)
                     if entry.filename in required and entry.filename.endswith(".so"):
+                        dependencies = {value.decode("ascii") for tag, _, value in dynamic_strings(content) if tag == 1}
+                        if dependencies.intersection(UNUSED_SHERPA_LIBRARIES):
+                            raise ValueError("A retained native library requires an omitted sherpa wrapper")
                         is_runtime = entry.filename.endswith("/" + ORIGINAL_RUNTIME)
                         content = isolate_runtime(content, is_runtime=is_runtime)
                         if is_runtime:

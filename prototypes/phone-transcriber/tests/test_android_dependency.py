@@ -45,15 +45,17 @@ def elf_library(bits, soname, needed=("libc.so",)):
     return bytes(data)
 
 
-def source_archive(corrupt_name=None):
+def source_archive(corrupt_name=None, jni_needs_wrapper=False):
     source = io.BytesIO()
     with zipfile.ZipFile(source, "w") as archive:
         archive.writestr("classes.jar", b"classes")
         archive.writestr("AndroidManifest.xml", b"manifest")
         for arch in module.ARCHITECTURES:
             bits = 64 if arch in ("arm64-v8a", "x86_64") else 32
-            for name in (module.ORIGINAL_RUNTIME, *module.SHERPA_LIBRARIES):
+            for name in (module.ORIGINAL_RUNTIME, *module.SHERPA_LIBRARIES, *module.UNUSED_SHERPA_LIBRARIES):
                 needed = ("libc.so",) if name == module.ORIGINAL_RUNTIME else ("libc.so", module.ORIGINAL_RUNTIME)
+                if jni_needs_wrapper and name in module.SHERPA_LIBRARIES:
+                    needed += (module.UNUSED_SHERPA_LIBRARIES[0],)
                 payload = elf_library(bits, name, needed)
                 archive.writestr(f"jni/{arch}/{name}", b"broken" if name == corrupt_name else payload)
     return source.getvalue()
@@ -69,6 +71,8 @@ class RuntimePreparationTest(unittest.TestCase):
                 self.assertEqual(result.read("AndroidManifest.xml"), b"manifest")
                 self.assertFalse(any(name.endswith("/libonnxruntime.so") for name in result.namelist()))
                 for arch in module.ARCHITECTURES:
+                    for name in module.UNUSED_SHERPA_LIBRARIES:
+                        self.assertNotIn(f"jni/{arch}/{name}", result.namelist())
                     runtime = result.read(f"jni/{arch}/{module.ISOLATED_RUNTIME}")
                     self.assertIn((14, module.ISOLATED_RUNTIME.encode()),
                                   [(tag, text) for tag, _, text in module.dynamic_strings(runtime)])
@@ -76,6 +80,14 @@ class RuntimePreparationTest(unittest.TestCase):
                         consumer = result.read(f"jni/{arch}/{name}")
                         self.assertIn((1, module.ISOLATED_RUNTIME.encode()),
                                       [(tag, text) for tag, _, text in module.dynamic_strings(consumer)])
+
+    def test_does_not_drop_a_wrapper_required_by_the_jni_library(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "result.aar"
+            with self.assertRaisesRegex(ValueError, "requires an omitted"):
+                module.repackage(source_archive(jni_needs_wrapper=True), output)
+            self.assertFalse(output.exists())
+            self.assertFalse(output.with_suffix(".tmp").exists())
 
     def test_rewrite_preserves_offsets_and_all_unrelated_bytes_for_elf32_and_elf64(self):
         for bits in (32, 64):
