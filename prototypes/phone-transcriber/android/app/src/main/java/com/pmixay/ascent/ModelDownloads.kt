@@ -9,7 +9,6 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.CancellationException
@@ -21,6 +20,8 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.withLock
@@ -34,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal data class ModelTransferState(
     val directory: File?, val message: String, val downloading: Boolean = false,
     val completedBytes: Long = 0, val totalBytes: Long = 0,
+    val phase: ModelTransferPhase = ModelTransferPhase.IDLE,
 )
 
 /** A lease protects the selected revision until both inference passes release it. */
@@ -45,13 +47,16 @@ internal class ModelLease(val directory: File, private val release: () -> Unit) 
 internal object ModelSelection {
     private val lock = Any()
     private val leases = mutableMapOf<String, Int>()
-    fun root(context: Context) = File(context.filesDir, "models").apply { mkdirs() }
+    fun root(context: Context) = File(context.filesDir, "models").canonicalFile.apply { mkdirs() }
     fun current(context: Context): File? = synchronized(lock) {
-        val path = context.getSharedPreferences("ascent", Context.MODE_PRIVATE).getString("modelPath", null)
-            ?: return@synchronized null
-        val file = File(path)
-        if (file.parentFile?.canonicalFile != root(context).canonicalFile || !file.name.startsWith("gigaam-")) return@synchronized null
-        try { ModelSpec.load(file); file } catch (_: Exception) { null }
+        try {
+            val path = context.getSharedPreferences("ascent", Context.MODE_PRIVATE).getString("modelPath", null)
+                ?: return@synchronized null
+            val file = File(path).canonicalFile
+            if (file.parentFile != root(context) || !file.name.startsWith("gigaam-")) return@synchronized null
+            ModelSpec.load(file)
+            file
+        } catch (_: Exception) { null }
     }
     fun acquire(context: Context): ModelLease = synchronized(lock) {
         val file = checkNotNull(current(context)) { "Модели ещё загружаются" }
@@ -64,10 +69,11 @@ internal object ModelSelection {
         } }
     }
     fun select(context: Context, file: File) = synchronized(lock) {
-        check(file.parentFile?.canonicalFile == root(context).canonicalFile && file.name.startsWith("gigaam-"))
-        ModelSpec.load(file)
+        val selected = file.canonicalFile
+        check(selected.parentFile == root(context) && selected.name.startsWith("gigaam-"))
+        ModelSpec.load(selected)
         check(context.getSharedPreferences("ascent", Context.MODE_PRIVATE).edit()
-            .putString("modelPath", file.absolutePath).commit()) { "Не удалось сохранить выбор моделей" }
+            .putString("modelPath", selected.absolutePath).commit()) { "Не удалось сохранить выбор моделей" }
     }
     fun cleanup(context: Context) = synchronized(lock) {
         val selected = current(context)
@@ -98,6 +104,11 @@ internal object ModelDownloads {
     private const val PREFS = "ascent-model-transfer"
     private val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
     private val transferMutex = kotlinx.coroutines.sync.Mutex()
+    private val transferActive = MutableStateFlow(false)
+    private val selectionRefresh = MutableStateFlow(0L)
+
+    /** Recheck local metadata after returning to the app or finishing a transfer. */
+    fun refresh() { selectionRefresh.update { it + 1 } }
 
     // Internal injection seam: Android lifecycle tests can exercise the actual service
     // with an interruptible fake instead of downloading production model weights.
@@ -151,13 +162,33 @@ internal object ModelDownloads {
     fun cancelRecovery(context: Context) { WorkManager.getInstance(context).cancelUniqueWork(UNIQUE) }
 
     internal suspend fun transfer(context: Context, control: ModelTransferControl,
-        progress: (ModelDownloadProgress) -> Unit) = transferMutex.withLock {
-        kotlinx.coroutines.coroutineScope {
-            val task = async(Dispatchers.IO) {
-                runInterruptible { transferRunner.run(context, control, progress) }
+        onStatus: (String) -> Unit = {}, progress: (ModelDownloadProgress) -> Unit) = transferMutex.withLock {
+        fun status(message: String, phase: String) {
+            publish(context, message, phase)
+            onStatus(message)
+        }
+        transferActive.value = true
+        refresh()
+        try {
+            // Queued/cancelled work cannot overwrite the current owner's status.
+            status("Проверяю модели…", "check")
+            kotlinx.coroutines.coroutineScope {
+                val task = async(Dispatchers.IO) {
+                    runInterruptible { transferRunner.run(context, control, progress) }
+                }
+                try { task.await() }
+                finally { control.source.cancelActiveRequest() }
             }
-            try { task.await() }
-            finally { control.source.cancelActiveRequest() }
+            status("Модели готовы", "ready")
+        } catch (error: Exception) {
+            if (error is CancellationException || error is DownloadYieldException || retryableModelFailure(error)) {
+                status("Загрузка продолжится автоматически", "waiting")
+            } else status(error.message?.take(200) ?: "Не удалось подготовить модели", "error")
+            throw error
+        } finally {
+            control.source.cancelActiveRequest()
+            refresh()
+            transferActive.value = false
         }
     }
 
@@ -166,35 +197,51 @@ internal object ModelDownloads {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("message", message).putString("phase", phase)
             .apply {
-                if (completed != null) putLong("completed", completed)
-                if (total != null) putLong("total", total)
+                if (phase in setOf("ready", "check", "idle")) {
+                    putLong("completed", 0).putLong("total", 0)
+                } else {
+                    if (completed != null) putLong("completed", completed)
+                    if (total != null) putLong("total", total)
+                }
             }.apply()
     }
 
-    private fun persisted(context: Context): Flow<ModelTransferState> = callbackFlow {
-        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(Unit) }
+    private fun preferenceChanges(context: Context, name: String, key: String? = null): Flow<Unit> = callbackFlow {
+        val preferences = context.getSharedPreferences(name, Context.MODE_PRIVATE)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
+            if (key == null || changed == null || changed == key) trySend(Unit)
+        }
         preferences.registerOnSharedPreferenceChangeListener(listener)
         trySend(Unit)
         awaitClose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
-    }.conflate().map {
+    }.conflate()
+
+    private fun selection(context: Context): Flow<File?> = combine(
+        preferenceChanges(context, "ascent", "modelPath"), selectionRefresh,
+    ) { _, _ -> Unit }.conflate().map { ModelSelection.current(context) }
+        .distinctUntilChanged().flowOn(Dispatchers.IO)
+
+    private fun persisted(context: Context): Flow<ModelTransferRecord> = preferenceChanges(context, PREFS).map {
         val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val directory = ModelSelection.current(context)
-        ModelTransferState(directory,
-            preferences.getString("message", null) ?: if (directory == null)
-                "Загрузка начнётся автоматически" else "Модели готовы",
-            preferences.getString("phase", "") in setOf("download", "verify"),
-            preferences.getLong("completed", 0), preferences.getLong("total", 0))
+        // One snapshot avoids reading keys from different progress publications.
+        val values = preferences.all
+        val phase = when (values["phase"]) {
+            "check" -> ModelTransferPhase.CHECKING
+            "download" -> ModelTransferPhase.DOWNLOADING
+            "verify" -> ModelTransferPhase.VERIFYING
+            "waiting" -> ModelTransferPhase.WAITING
+            "error" -> ModelTransferPhase.ERROR
+            "ready" -> ModelTransferPhase.READY
+            else -> ModelTransferPhase.IDLE
+        }
+        ModelTransferRecord(phase, values["message"] as? String ?: "",
+            values["completed"] as? Long ?: 0, values["total"] as? Long ?: 0)
     }.distinctUntilChanged().flowOn(Dispatchers.IO)
 
     fun observe(context: Context): Flow<ModelTransferState> = combine(
-        persisted(context), ModelDownloadService.running,
-        WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(UNIQUE),
-    ) { saved, serviceRunning, records ->
-        val working = serviceRunning || records.any { it.state == WorkInfo.State.RUNNING }
-        if (working || !saved.downloading) saved
-        else saved.copy(downloading = false, message = "Загрузка продолжится автоматически")
-    }.flowOn(Dispatchers.IO)
+        selection(context), persisted(context), transferActive,
+    ) { directory, saved, active -> resolveModelTransfer(directory, saved, active) }
+        .distinctUntilChanged().flowOn(Dispatchers.IO)
 }
 
 class ModelUpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -214,7 +261,6 @@ class ModelDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         val start = System.nanoTime()
         val source = HttpsModelSource()
         return try {
-            ModelDownloads.publish(applicationContext, "Проверяю модели…", "check")
             var lastProgress = 0L
             ModelDownloads.transfer(applicationContext, ModelTransferControl(source,
                 beforeRequest = {}, retryRequest = { error, attempt ->
@@ -231,7 +277,6 @@ class ModelDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
                     lastProgress = now
                 }
             }
-            ModelDownloads.publish(applicationContext, "Модели готовы", "ready")
             Result.success()
         } catch (error: CancellationException) {
             throw error
@@ -240,7 +285,6 @@ class ModelDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
             Result.success()
         } catch (error: Exception) {
             if (retryableModelFailure(error)) {
-                ModelDownloads.publish(applicationContext, "Соединение прервано. Загрузка продолжится автоматически", "waiting")
                 val serverDelay = (error as? ModelHttpException)?.retryAfterMs ?: 0
                 if (serverDelay > 0) {
                     withContext(Dispatchers.IO) {
@@ -249,7 +293,6 @@ class ModelDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
                     Result.success()
                 } else Result.retry()
             } else {
-                ModelDownloads.publish(applicationContext, error.message?.take(200) ?: "Не удалось подготовить модели", "error")
                 Result.failure()
             }
         } finally { source.cancelActiveRequest() }

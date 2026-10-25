@@ -5,7 +5,8 @@ listening, press stop, and the app automatically produces a dialogue with speake
 labels and time ranges, then deletes its temporary audio. Multiple conversations
 appear as collapsible timelines with linked dots, names and timestamps inside
 warm amber glass surfaces. The header reads `Ascent.` with a square period;
-listening and model status have separate elements.
+listening and model status have separate elements. A dedicated glass model panel
+contains readiness, update status, downloaded bytes, and download progress.
 
 The native UI uses Jetpack Compose / Material 3, a ViewModel with StateFlow,
 lifecycle-aware collection, Activity Result contracts, Kotlin coroutines and
@@ -55,8 +56,9 @@ milestones is complete merely because this source or an APK exists.
 - Automatic compressed model downloads from the fixed Ascent HTTPS catalog,
   continued by a foreground service after ordinary app closure, with an ongoing
   progress notification and prompt reconnect retries. WorkManager provides
-  recovery and daily update fallback. The interface shows status and progress
-  without model installation or reinstall controls.
+  recovery and daily update fallback. The model panel keeps installed readiness
+  separate from update checks, download progress, network waits, and update errors.
+  There are no model installation or reinstall controls.
 - Internet permission is used for model downloads. Speech recognition and speaker
   processing remain on device; conversation audio is never uploaded.
 
@@ -171,6 +173,23 @@ update leaves the previous models selected, and an active inference lease
 protects its revision until processing finishes. There is no model choice,
 install or cancel button.
 
+Readiness comes from the selected local revision passing manifest, vocabulary,
+file-presence and size validation. A saved successful transfer cannot make
+missing or invalid files ready; an unavailable update cannot make valid installed
+models unavailable. The model panel therefore keeps its ready state while a
+compatible update is checked, downloaded, or waiting for a connection. Download
+bytes and percentage appear inside that panel, including retained partial progress
+while paused. Listening remains available with the installed revision.
+
+Selection changes are observed independently of transfer status and rechecked on
+foreground entry and transfer completion. Progress notifications do not repeatedly
+rescan the installed model directory. Only the transfer holding the shared download
+lock publishes its lifecycle; a queued or cancelled fallback cannot overwrite that
+owner's status. A persisted download without a live owner appears paused rather
+than indefinitely running. Starting a fresh check or completing activation clears
+obsolete byte counters. The first local check has its own checking state instead
+of briefly claiming that installed models are missing.
+
 ## Validation in CI
 
 Ascent Android CI runs the Python packaging/build-tool tests and the Android checks.
@@ -179,10 +198,17 @@ Executable validation must run in CI, not on the local machine.
 JVM tests cover CTC repetition/blank rules, chunk ownership, WAV parsing, speaker
 clustering, conservative voice enrollment, encrypted history/expiry, resumable
 model-download validation, transient request recovery, partial progress, cancellation,
-HTTP retry classification and invalid inputs. Server tests check immutable
+HTTP retry classification and invalid inputs. Model-status policy tests cover
+first installation, installed models during update checks or failures, offline
+waiting, interrupted owners, stale completion records, and bounded progress.
+Server tests check immutable
 publication, compressed chunk integrity, smoke-report requirements and failure cleanup. The
 emulator tests cover optimized app startup, native library loading and foreground
-transfer lifecycle with controlled fake data. A cached, checksum-verified CI fixture
+transfer lifecycle with controlled fake data. Android preference/Flow regressions
+check selection changes without transfer publications, failed-update readiness,
+observation restart, selection removal, and rejection of missing payloads after
+a local refresh. These use tiny metadata fixtures and do not run fake weights
+through the inference runtimes. A cached, checksum-verified CI fixture
 uses the real speaker model on six public Russian utterances from three readers,
 including reduced-gain and white-noise variants. JVM tests apply the app's activity
 gates and clustering to these embeddings; the fixture audio and model never enter

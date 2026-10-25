@@ -24,6 +24,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -62,11 +63,10 @@ class ModelDownloadService : Service() {
         if (transfer?.isActive != true) {
             transfer = scope.launch {
                 try {
-                    report("Проверяю модели…", "check")
                     ModelDownloads.transfer(this@ModelDownloadService, ModelTransferControl(source,
                         beforeRequest = network::beforeRequest,
                         retryRequest = network::retry,
-                        shouldYield = { false })) { progress ->
+                        shouldYield = { false }), onStatus = { message -> notifyStatus(message) }) { progress ->
                         val now = System.nanoTime()
                         if (now - lastNotification >= 1_000_000_000 || progress.verifying) {
                             val message = if (progress.verifying) "Проверяю модели…" else "Загружаю модели…"
@@ -75,18 +75,15 @@ class ModelDownloadService : Service() {
                         }
                     }
                     finishing = true
-                    report("Модели готовы", "ready")
                     ModelDownloads.cancelRecovery(this@ModelDownloadService)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {
                     finishing = true
                     if (retryableModelFailure(error)) {
-                        report("Загрузка приостановлена. Повторю автоматически", "waiting")
                         ModelDownloads.recovery(this@ModelDownloadService, replace = true,
                             delaySeconds = (((error as? ModelHttpException)?.retryAfterMs ?: 0) + 999) / 1000)
                     } else {
-                        report(error.message?.take(200) ?: "Не удалось подготовить модели", "error")
                         ModelDownloads.cancelRecovery(this@ModelDownloadService)
                     }
                 } finally {
@@ -104,6 +101,12 @@ class ModelDownloadService : Service() {
 
     private fun report(message: String, phase: String, completed: Long? = null, total: Long? = null) {
         ModelDownloads.publish(this, message, phase, completed, total)
+        notifyStatus(message, completed, total)
+    }
+
+    private fun notifyStatus(message: String, completed: Long? = null, total: Long? = null) {
+        // Persist cancellation for recovery without reviving a destroyed service's notification.
+        if (!scope.isActive) return
         if (Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
             getSystemService(NotificationManager::class.java).notify(NOTIFICATION, notification(message, completed, total))
         }
@@ -137,7 +140,6 @@ class ModelDownloadService : Service() {
         // Android 15+ limits dataSync to six background hours per day. Preserve chunks
         // and hand recovery to the scheduler instead of restarting around that limit.
         finishing = true
-        ModelDownloads.publish(this, "Android приостановил фоновую загрузку. Прогресс сохранён", "waiting")
         source.cancelActiveRequest()
         if (::network.isInitialized) network.close()
         scope.cancel()

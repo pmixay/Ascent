@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -205,21 +206,73 @@ private fun ConversationStatus(state: ConversationState) {
 
 @Composable
 private fun ModelsStatus(state: ConversationState) {
-    Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().padding(horizontal = 4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Модели", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Ink)
-            Text(state.modelStatus, fontSize = 13.sp, color = Secondary)
+    val ready = state.modelDirectory != null
+    val availability = when {
+        ready -> "Готовы"
+        !state.modelsChecked -> "Проверяю готовность"
+        state.modelPhase == ModelTransferPhase.ERROR -> "Подготовка приостановлена"
+        state.modelPhase == ModelTransferPhase.WAITING -> "Ожидаю продолжения"
+        else -> "Подготавливаю модели"
+    }
+    val retainedProgress = state.modelDownloadTotal > 0 && state.modelPhase in setOf(
+        ModelTransferPhase.DOWNLOADING, ModelTransferPhase.VERIFYING,
+        ModelTransferPhase.WAITING, ModelTransferPhase.ERROR,
+    )
+    val active = !state.modelsChecked || state.modelPhase in setOf(
+        ModelTransferPhase.CHECKING, ModelTransferPhase.DOWNLOADING, ModelTransferPhase.VERIFYING,
+    )
+    val completed = state.modelDownloadBytes.coerceIn(0, state.modelDownloadTotal.coerceAtLeast(0))
+    val fraction = if (retainedProgress) (completed.toDouble() / state.modelDownloadTotal).toFloat() else 0f
+    Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().testTag("model-status-panel")
+        .glass(24).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(44.dp).glass(14, emphasis = true), contentAlignment = Alignment.Center) {
+                ModelStatusMark(ready, Modifier.size(24.dp))
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("Модели", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Ink)
+                Text(availability, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+            }
         }
-        if (state.downloadingModels) {
-            Spacer(Modifier.height(8.dp))
-            if (state.modelDownloadTotal > 0) {
-                LinearProgressIndicator(progress = {
-                    (state.modelDownloadBytes.toDouble() / state.modelDownloadTotal).toFloat().coerceIn(0f, 1f)
-                }, modifier = Modifier.fillMaxWidth(), color = Amber)
-                Spacer(Modifier.height(6.dp))
-                Text("${state.modelDownloadBytes / 1_000_000} из ${(state.modelDownloadTotal + 999_999) / 1_000_000} МБ",
-                    fontSize = 12.sp, color = Secondary)
-            } else LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = Amber)
+        if (!ready || state.modelPhase !in setOf(ModelTransferPhase.READY, ModelTransferPhase.IDLE)) {
+            Text(state.modelStatus, fontSize = 14.sp, lineHeight = 21.sp, color = Ink)
+        }
+        if (retainedProgress || active) {
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                val progressModifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape)
+                    .testTag("model-transfer-progress")
+                if (retainedProgress) {
+                    LinearProgressIndicator(progress = { fraction }, modifier = progressModifier,
+                        color = Amber, trackColor = Amber.copy(alpha = 0.15f))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("${completed / 1_000_000} из ${(state.modelDownloadTotal + 999_999) / 1_000_000} МБ",
+                            modifier = Modifier.weight(1f), fontSize = 14.sp, color = Ink,
+                            style = TextStyle(fontFeatureSettings = "tnum"))
+                        Text("${(fraction * 100).toInt()}%", fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                            color = Ink, style = TextStyle(fontFeatureSettings = "tnum"))
+                    }
+                } else LinearProgressIndicator(modifier = progressModifier,
+                    color = Amber, trackColor = Amber.copy(alpha = 0.15f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModelStatusMark(ready: Boolean, modifier: Modifier) {
+    Canvas(modifier) {
+        if (ready) {
+            drawLine(Ink, Offset(size.width * .18f, size.height * .51f),
+                Offset(size.width * .42f, size.height * .74f), strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(Ink, Offset(size.width * .42f, size.height * .74f),
+                Offset(size.width * .84f, size.height * .28f), strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round)
+        } else {
+            val tile = size.width * .28f
+            for (x in 0..1) for (y in 0..1) drawRoundRect(Ink,
+                Offset(size.width * .14f + x * size.width * .44f, size.height * .14f + y * size.height * .44f),
+                Size(tile, tile), CornerRadius(2.dp.toPx()))
         }
     }
 }

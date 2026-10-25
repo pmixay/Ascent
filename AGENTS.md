@@ -21,6 +21,12 @@ The current user request publishes the phone transcription prototype for review 
 
 ## 2. Preserve the product architecture
 
+Keep the model status panel separate from conversation status. Validated local
+selection determines readiness; network update activity is secondary. Observe
+selection changes independently of progress, and publish transfer state only
+while that operation owns the transfer lock. Stale saved success never proves
+that model files still exist.
+
 - Support Android 12+ phones and Wear OS 6.0 watches. Keep minimum OS support separate from release-time target SDK requirements.
 - Continuous background listening through the watch microphone belongs in the first release and first capture milestone. The user explicitly enables a visible listening session; pause, stop, interruptions, and connection state must be accurate.
 - The phone performs Russian speech recognition, conversation diarization, speech enhancement, and sound classification locally. The watch captures, timestamps, transfers, and displays phone-produced results. Do not replace primary watch capture with a remote-control-only design or silently switch microphones.

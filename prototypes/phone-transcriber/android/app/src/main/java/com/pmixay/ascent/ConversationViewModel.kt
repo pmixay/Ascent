@@ -42,6 +42,8 @@ data class ConversationState(
     val level: Float = 0f,
     val waveform: List<Float> = List(52) { 0f },
     val modelDirectory: File? = null,
+    val modelsChecked: Boolean = false,
+    val modelPhase: ModelTransferPhase = ModelTransferPhase.IDLE,
     val modelStatus: String = "Проверяю доступность…",
     val downloadingModels: Boolean = false,
     val modelDownloadBytes: Long = 0,
@@ -69,7 +71,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         ModelDownloads.schedule(app)
         viewModelScope.launch {
             ModelDownloads.observe(app).collect { models ->
-                mutableState.update { it.copy(modelDirectory = models.directory, modelStatus = models.message,
+                mutableState.update { it.copy(modelDirectory = models.directory, modelsChecked = true,
+                    modelPhase = models.phase, modelStatus = models.message,
                     downloadingModels = models.downloading, modelDownloadBytes = models.completedBytes,
                     modelDownloadTotal = models.totalBytes) }
             }
@@ -104,6 +107,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     fun setForeground(visible: Boolean) {
         foreground = visible
         if (visible) {
+            ModelDownloads.refresh()
             ModelDownloads.schedule(app)
             viewModelScope.launch { expireHistory() }
         } else stopRecording()

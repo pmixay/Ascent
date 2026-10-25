@@ -12,6 +12,10 @@ The separate [phone transcription prototype](prototypes/phone-transcriber/README
 
 ## Confirmed scope
 
+The prototype model panel reports validated local readiness independently of
+background update activity. Checks, transfer progress and resumable waiting states
+appear together without disabling installed models during an update failure.
+
 Prototype speaker work adds short-speech context recovery, centroid consolidation,
 and real-model regressions using three public Russian readers with controlled
 gain/noise changes. This development fixture does not complete the natural
