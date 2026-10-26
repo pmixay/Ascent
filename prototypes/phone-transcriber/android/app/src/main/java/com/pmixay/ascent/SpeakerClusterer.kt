@@ -273,25 +273,61 @@ class SpeakerClusterer(
                 item.indices.zip(matches).forEach { (observation, match) ->
                     proposedAssignments[observation] = match!!
                 }
-                continue
             }
+        }
+        val originalPrototypeParents = prototypeParents.toMap()
+        val sourceIndicesByGroup = consolidated.mapIndexed { index, item ->
+            (item.indices + originalSupporters[index]).distinct()
+        }
+        val sourceSupportByGroup = sourceIndicesByGroup.map { support(observations, it) }
+        val establishedByGroup = consolidated.indices.map { index -> consolidated.indices.filter { candidate ->
+            candidate != index && independentSeeds[candidate] &&
+                originalSupportMs[candidate] >= maxOf(4000, sourceSupportByGroup[index] * 2)
+        } }
+        // Freeze each tiny group's independent preference against established voices first.
+        // Two weak fragments must not become mutually convincing "new people" merely because
+        // their nuisance features agree. Each must independently satisfy the unchanged
+        // assignment and margin rules for EVERY original observation, without using the
+        // other fragment, its proposed label, or any recovered template as parent evidence.
+        val frozenPreferences = mutableMapOf<Int, Int>()
+        for (index in consolidated.indices) {
+            checkCancelled()
+            if (sourceSupportByGroup[index] >= 3000) continue
+            val established = establishedByGroup[index]
+            val preferences = sourceIndicesByGroup[index].map { observation ->
+                val vector = vectors[observation]!!
+                val candidate = established.maxByOrNull { verificationScore(vector, it) } ?: return@map null
+                val score = verificationScore(vector, candidate)
+                val runnerUp = established.filter { it != candidate }.maxOfOrNull { verificationScore(vector, it) } ?: -1f
+                val minimum = if (observations[observation].quality < .35f)
+                    maxOf(assignmentThreshold, .80f) else assignmentThreshold
+                candidate.takeIf { score >= minimum && score - runnerUp >= maxOf(margin, .12f) }
+            }
+            val candidate = preferences.firstOrNull()
+            if (candidate != null && preferences.all { it == candidate } &&
+                (originalPrototypeParents[index] == null || originalPrototypeParents[index] == candidate))
+                frozenPreferences[index] = candidate
+        }
+        for ((index, _) in consolidated.withIndex()) {
+            checkCancelled()
+            if (index in originalPrototypeParents) continue
             // A tiny component can win only because it compares to its own seeds. Before
             // declaring another person, test whether ALL its observations independently pass
             // the existing assignment cutoff against an established voice, excluding itself.
             // This is asymmetric: a well-supported second person never enters this path.
-            val sourceIndices = (item.indices + originalSupporters[index]).distinct()
-            val sourceSupport = support(observations, sourceIndices)
+            val sourceIndices = sourceIndicesByGroup[index]
+            val sourceSupport = sourceSupportByGroup[index]
             if (sourceSupport >= 3000) continue
-            val established = consolidated.indices.filter { candidate ->
-                candidate != index && independentSeeds[candidate] &&
-                    originalSupportMs[candidate] >= maxOf(4000, sourceSupport * 2)
-            }
+            val established = establishedByGroup[index]
             val centroidMatches = sourceIndices.map { observation ->
                 val vector = vectors[observation]!!
                 val candidate = established.maxByOrNull { verificationScore(vector, it) }
                     ?: return@map null
                 val score = verificationScore(vector, candidate)
-                val runnerUp = consolidated.indices.filter { it != index && it != candidate }
+                val runnerUp = consolidated.indices.filter { rival ->
+                    rival != index && rival != candidate && !(frozenPreferences[index] == candidate &&
+                        frozenPreferences[rival] == candidate)
+                }
                     .maxOfOrNull { verificationScore(vector, it) } ?: -1f
                 val minimum = if (observations[observation].quality < .35f)
                     maxOf(assignmentThreshold, .80f) else assignmentThreshold

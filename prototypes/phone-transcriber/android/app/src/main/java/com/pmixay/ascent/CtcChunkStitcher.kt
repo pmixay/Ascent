@@ -34,13 +34,16 @@ internal class CtcChunkStitcher {
             }.singleOrNull()
             val leftEvidence = uniqueEvidence(before.decoded)
             val rightEvidence = uniqueEvidence(decoded)
+            val mergedStart = minOf(left.startMs, right.startMs)
+            val predecessor = output.getOrNull(output.lastIndex - 1)
             // Each contextual decode must show exactly one occurrence in the overlap.
             // An intentional repetition such as "да да" therefore remains untouched.
             if (sharedStart < sharedEnd && leftEvidence != null && rightEvidence != null &&
-                overlaps(leftEvidence, rightEvidence)) {
+                overlaps(leftEvidence, rightEvidence) &&
+                (predecessor == null || mergedStart >= predecessor.startMs)) {
                 // The union preserves the complete ASR-supported acoustic span; speaker
                 // context extraction sees exactly the same support before and after repair.
-                output[output.lastIndex] = left.copy(startMs = minOf(left.startMs, right.startMs),
+                output[output.lastIndex] = left.copy(startMs = mergedStart,
                     endMs = maxOf(left.endMs, right.endMs))
                 consumed = 1
             }

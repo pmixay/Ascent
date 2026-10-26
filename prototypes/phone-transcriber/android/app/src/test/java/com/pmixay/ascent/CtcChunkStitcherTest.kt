@@ -53,6 +53,12 @@ class CtcChunkStitcherTest {
         assertEquals(listOf(word), stitcher.finish())
     }
 
+    @Test fun inconsistentTimingCannotMoveAMergedWordBeforeItsPredecessor() {
+        val left = listOf(TimedWord("до", 19900, 19920), TimedWord("граница", 19930, 20010))
+        val right = listOf(TimedWord("граница", 19880, 20150))
+        assertEquals((left + right).sortedBy { it.startMs }, stitch(left, right))
+    }
+
     private fun stitch(left: List<TimedWord>, right: List<TimedWord>): List<TimedWord> {
         val stitcher = CtcChunkStitcher()
         stitcher.append(left, 0, 20000, 0, 21250)
