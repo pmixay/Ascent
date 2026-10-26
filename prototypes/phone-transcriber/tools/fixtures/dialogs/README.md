@@ -148,11 +148,12 @@ diversity. Publisher train/validation/test labels do not determine this frozen
 application selection or its development/validation split. Model weights are
 not trained on this selection; upstream training exclusion cannot be established.
 
-The existing **Ascent Android CI** workflow runs the dedicated **Evaluate two
-hours of labeled Russian dialogue** job on pushes. It prepares verified inputs,
-compiles the Kotlin harness, performs or resumes inference, then scores the
-actual application attribution code. Run these commands only in GitHub CI,
-from `prototypes/phone-transcriber`:
+The **Evaluate two hours of labeled Russian dialogue** job scores a previously
+completed inference cache on pushes. Model inference for algorithm improvement
+runs on the development machine; Android builds and application tests remain CI
+only. In CI, the harness scores the actual application attribution code. For
+local public-corpus inference, use the pinned environment from
+`prototypes/phone-transcriber`:
 
 ```sh
 python3 -m pip install -r tests/requirements-dialog-evaluation.txt
@@ -168,10 +169,11 @@ com.pmixay.ascent.TwoHourSpeechEvaluationTest` from `android`, with
 `evaluation.json`. A skipped or missing test is a failed evaluation.
 
 Per-block checkpoints bind the source selection, model revision, dependency
-pins, evaluator code and audio hashes. Valid checkpoints resume expensive
-inference without changing the evaluation denominator. Source and weight
-caches are saved before inference; failed or interrupted jobs preserve completed
-blocks for a retry. Cache hits still verify payload and checkpoint integrity.
+pins, evaluator code and audio hashes. Valid checkpoints resume inference
+without changing the evaluation denominator. Hash-verified sources and weights
+remain in the local evaluation cache; public recordings, transcripts, vectors
+and reports are not GitHub download artifacts. CI only restores completed
+recognition inputs and fails if that cache is missing.
 The scorer always runs against the current application code. Console summaries carry
 the aggregate measurements; public recordings, transcripts, vectors and reports
 are not uploaded as download artifacts. A completed CI result must be inspected

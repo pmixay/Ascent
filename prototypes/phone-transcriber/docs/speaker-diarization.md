@@ -409,11 +409,11 @@ training model weights or enrolling benchmark actors into voice memory.
 
 Before baseline inference or score inspection, `masha_dima_part1` is frozen as
 the development subset for diagnosing failures and choosing algorithm changes.
-The three other selected recordings (`masha_sveta_part1`, `masha_sveta_part2`,
-and `masha_dima_part2`) remain reserved until a candidate is chosen, then compare
-that candidate with the frozen baseline without further tuning to their scores.
-Report development and validation separately. This split separates recordings
-but shares M/D across subsets; S appears only in validation. Existing six-reader
+The original three reserved recordings (`masha_sveta_part1`, `masha_sveta_part2`,
+and `masha_dima_part2`) have been inspected. They exposed a female/female merge
+(61.30% completed clip-time attribution and 77.94% cpWER) and are diagnostic data,
+not untouched validation. The original split shares M/D; S appears only in that
+diagnostic set. A separate recording-level check is required. Existing six-reader
 regression gates remain unchanged.
 
 Source clips retain their numeric turn order in approximately five-minute blocks
@@ -445,10 +445,10 @@ WER is 160/5,572 (2.8715%), CER is 254/29,095 (0.8730%), and joint cpWER is
 same denominator. Completion inferred 56 of 5,567 recognized words; the
 separate reference-probe diagnostic inferred 255,893 ms of clip time.
 
-The candidate adds bounded anchor diversity, an independent-cohesion guard for
-centroid merging, and conservative duplicate-word seam reconciliation. Its
-comparative measurements are pending. Validation recordings remain reserved
-until a candidate is selected. These measurements cannot establish speech-only
+Candidate `ffa5fa7` added bounded anchor diversity, an independent-cohesion guard
+for centroid merging, and conservative duplicate-word seam reconciliation. It
+did not fix the female/female merge on the original diagnostic set. The current
+complete-linkage candidate awaits CI scoring; no improvement is claimed yet. These measurements cannot establish speech-only
 DER, overlap separation, phone speed or natural-conversation acceptance;
 those requirements remain open.
 

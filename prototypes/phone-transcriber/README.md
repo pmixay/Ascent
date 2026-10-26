@@ -134,10 +134,10 @@ triggers. The base repository had no workflow to reuse.
    optimization output and absence of model weights. Its only download artifact
    is `debug-<8-character commit>.zip`, containing only `ascent.apk`. Test and lint
    diagnostics remain in the workflow console; report artifacts are not uploaded.
-   Its additional **Evaluate two hours of labeled Russian dialogue** job downloads
-   the frozen public Dialogs selection, runs the deployed models, and scores the
-   application's attribution code. Its development baseline has been inspected;
-   candidate comparisons and reserved validation reporting remain pending.
+   Its additional **Evaluate two hours of labeled Russian dialogue** job scores a
+   previously completed inference cache against the application attribution code.
+   Model inference for algorithm improvement runs on the development machine; CI
+   fails on a missing cache rather than downloading speech or starting models.
 2. **Ascent Model Export**, with job **Export and validate offline models**, runs
    on relevant model/export/server changes on `main` and the current prototype
    branch. It exports pinned official GigaAM and speaker weights, requires
@@ -264,7 +264,7 @@ speaker-attributed word errors (cpWER), strict and completed clip-time attributi
 per-actor results, extra/missing labels and inferred assignments. Kotlin checks
 the host CTC/context mirrors and runs the production attribution policy on real
 embeddings. Inference checkpoints resume only after integrity checks; scoring
-runs on every evaluation job even when inference is cached. Audio, transcripts,
+runs on every evaluation job using the completed inference cache. Audio, transcripts,
 vectors and reports are not download artifacts.
 
 The inspected development baseline covers `masha_dima_part1`: 336 clips,
@@ -272,13 +272,13 @@ The inspected development baseline covers `masha_dima_part1`: 336 clips,
 0.8730% CER, 4.9892% cpWER and 97.6839% completed clip-time attribution.
 [Baseline CI](https://github.com/pmixay/Ascent/actions/runs/40378549620) and the
 [development diagnostic run](https://github.com/pmixay/Ascent/actions/runs/40381522671)
-passed. The other three recordings remain reserved for validation of the chosen
-candidate; M/D occur across the split and S appears only in validation.
+passed. The three originally reserved recordings were inspected and exposed a severe female/female merge (61.30% completed clip-time attribution). They are diagnostic data now, not held-out validation; M and D also occur across the original split.
 
-The current candidate reserves acoustic diversity within the existing 256-anchor
+Candidate `ffa5fa7` reserves acoustic diversity within the existing 256-anchor
 budget, checks independent within-group agreement before centroid merging, and
-reconciles unique duplicated CTC words across overlapping chunk decodes. Candidate
-measurements are pending; these edits alone do not establish improvement. This
+reconciles unique duplicated CTC words across overlapping chunk decodes. The
+original reserved set showed that these changes do not fix female/female merging.
+A complete-linkage discovery candidate is under CI evaluation; its results are pending. This
 corpus does not establish natural-conversation DER, cross-session identity,
 overlap handling or supported-phone performance. See the linked evaluation
 record for exact denominators and scope.

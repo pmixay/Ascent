@@ -230,59 +230,31 @@ jobs:
           PY
 
   speech-evaluation:
-    name: Evaluate two hours of labeled Russian dialogue
+    name: Score cached two-hour Russian speech evaluation
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash
-        working-directory: prototypes/phone-transcriber
+        working-directory: prototypes/phone-transcriber/android
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: '3.12'
-          cache: pip
-          cache-dependency-path: prototypes/phone-transcriber/tests/requirements-dialog-evaluation.txt
-
-      - name: Install pinned evaluation runtimes
-        run: python3 -m pip install -r tests/requirements-dialog-evaluation.txt
-
-      - name: Restore public audio and verified production models
-        id: dialog-inputs
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: prototypes/phone-transcriber/.cache/long-evaluation
-          key: ${{ runner.os }}-dialog-inputs-v1-${{ hashFiles('prototypes/phone-transcriber/tools/fixtures/dialogs/manifest.json') }}
-          restore-keys: |
-            ${{ runner.os }}-dialog-inputs-v1-${{ hashFiles('prototypes/phone-transcriber/tools/fixtures/dialogs/manifest.json') }}-partial-
-
-      - name: Download and verify two hours of unique labeled speech
-        id: prepare-dialogs
-        run: >-
-          python3 tools/evaluate_dialogs.py --cache .cache/long-evaluation
-          --output android/app/build/generated/long-evaluation --prepare-only
-
-      - name: Save verified public evaluation inputs
-        if: steps.dialog-inputs.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: prototypes/phone-transcriber/.cache/long-evaluation
-          key: ${{ steps.dialog-inputs.outputs.cache-primary-key }}
-
-      - name: Restore completed or resumable speech inference
+      - name: Restore previously inferred public speech inputs
         id: dialog-results
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: prototypes/phone-transcriber/android/app/build/generated/long-evaluation
           key: ${{ runner.os }}-dialog-inference-v1-${{ hashFiles('prototypes/phone-transcriber/tools/fixtures/dialogs/manifest.json', 'prototypes/phone-transcriber/tools/evaluate_dialogs.py', 'prototypes/phone-transcriber/tools/evaluate_speech.py', 'prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tests/requirements-dialog-evaluation.txt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/AsrChunking.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/CtcDecoder.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/SpeakerSpeechSupport.kt') }}
-          restore-keys: |
-            ${{ runner.os }}-dialog-inference-v1-${{ hashFiles('prototypes/phone-transcriber/tools/fixtures/dialogs/manifest.json', 'prototypes/phone-transcriber/tools/evaluate_dialogs.py', 'prototypes/phone-transcriber/tools/evaluate_speech.py', 'prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tests/requirements-dialog-evaluation.txt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/AsrChunking.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/CtcDecoder.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/SpeakerSpeechSupport.kt') }}-partial-
+
+      - name: Require a completed local-improvement inference cache
+        if: steps.dialog-results.outputs.cache-hit != 'true'
+        run: |-
+          echo 'No completed speech-inference cache is available. Generate it on the development machine; CI does not download audio or run models.'
+          exit 1
 
       - name: Restore native dependency download
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -290,7 +262,8 @@ jobs:
           path: prototypes/phone-transcriber/.cache/sherpa-onnx-*.aar
           key: ${{ runner.os }}-sherpa-v1-${{ hashFiles('prototypes/phone-transcriber/scripts/prepare_android.py') }}
 
-      - name: Prepare verified native compile dependency
+      - name: Prepare verified native Android dependency
+        working-directory: prototypes/phone-transcriber
         run: python3 scripts/prepare_android.py
 
       - name: Set up JDK 17
@@ -312,27 +285,12 @@ jobs:
           cmdline-tools-version: '15859902' # 22.0
           log-accepted-android-sdk-licenses: false
 
-      - name: Compile evaluation harness before model inference
-        working-directory: prototypes/phone-transcriber/android
+      - name: Compile evaluation harness
         run: |
           sdkmanager "platforms;android-37.2" "build-tools;37.0.0"
           gradle --stacktrace :app:compileDebugUnitTestKotlin
 
-      - name: Run or resume actual GigaAM and speaker model inference
-        id: infer-dialogs
-        run: >-
-          python3 tools/evaluate_dialogs.py --cache .cache/long-evaluation
-          --output android/app/build/generated/long-evaluation --threads 2 --download-workers 8
-
-      - name: Save completed speech inference
-        if: steps.dialog-results.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: prototypes/phone-transcriber/android/app/build/generated/long-evaluation
-          key: ${{ steps.dialog-results.outputs.cache-primary-key }}
-
-      - name: Score actual Android attribution and joint transcription errors
-        working-directory: prototypes/phone-transcriber/android
+      - name: Score Android attribution and joint transcription errors
         env:
           ASCENT_DIALOG_EVALUATION: ${{ github.workspace }}/prototypes/phone-transcriber/android/app/build/generated/long-evaluation/evaluation.json
         run: gradle --stacktrace :app:testDebugUnitTest --tests com.pmixay.ascent.TwoHourSpeechEvaluationTest
@@ -346,35 +304,21 @@ jobs:
           import xml.etree.ElementTree as ET
 
           found = False
-          for path in Path('android/app/build/test-results').rglob('*TwoHourSpeechEvaluationTest.xml'):
+          for path in Path('app/build/test-results').rglob('*TwoHourSpeechEvaluationTest.xml'):
               found = True
               report = ET.parse(path)
               root = report.getroot()
               if int(root.get('tests', '0')) != 1 or int(root.get('skipped', '0')) != 0:
-                  raise SystemExit('The complete two-hour evaluation must actually execute, without a skipped test.')
+                  raise SystemExit('The complete two-hour evaluation must execute without a skipped test.')
               for output in report.iter('system-out'):
                   lines = (output.text or '').splitlines()
                   print('\n'.join(lines))
                   selected = [line for line in lines if line.startswith(('DIALOG EVALUATION TOTAL:', 'DIALOG EVALUATION actor=', 'Scope:'))]
                   if selected:
                       with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-                          summary.write('### Two-hour Russian dialogue evaluation\n\n```text\n' + '\n'.join(selected) + '\n```\n')
+                          summary.write('### Cached two-hour Russian dialogue evaluation\n\n```text\n' + '\n'.join(selected) + '\n```\n')
               for issue in list(report.iter('failure')) + list(report.iter('error')):
                   print((issue.get('message') or issue.text or 'No error details')[:5000])
           if not found:
               raise SystemExit('No two-hour evaluation test result was produced; inspect the preceding step.')
           PY
-
-      - name: Preserve partial inference for interrupted evaluation
-        if: always() && (steps.infer-dialogs.outcome == 'failure' || steps.infer-dialogs.outcome == 'cancelled') && steps.dialog-results.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: prototypes/phone-transcriber/android/app/build/generated/long-evaluation
-          key: ${{ steps.dialog-results.outputs.cache-primary-key }}-partial-${{ github.run_id }}
-
-      - name: Preserve partial public downloads for retry
-        if: always() && (steps.prepare-dialogs.outcome == 'failure' || steps.prepare-dialogs.outcome == 'cancelled') && steps.dialog-inputs.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: prototypes/phone-transcriber/.cache/long-evaluation
-          key: ${{ steps.dialog-inputs.outputs.cache-primary-key }}-partial-${{ github.run_id }}

@@ -7,12 +7,12 @@ Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for del
 The current user request publishes the phone transcription prototype for review under `prototypes/phone-transcriber/`, with the corrected Ascent name. Stopping listening automatically transcribes a temporary WAV and deletes it after processing or failure; abandoned audio is removed on the next launch after process death. Multiple conversations and confirmed voice templates use encrypted local storage and source-based seven-day retention filtering. There is no Wear OS app. Temporary audio still reaches disk, and expiry cleanup cannot run while the app process is stopped, so this does not establish the production no-persistence or full retention guarantees. Preserve the production requirements below and do not mark their acceptance work complete or extend the prototype exception into production.
 
 The user authorizes downloading at least two hours of labeled public multi-speaker
-speech for evaluation. Licensed public benchmark audio may be cached in GitHub CI;
+speech for evaluation. Licensed public benchmark audio may be cached on the development machine or in GitHub CI;
 never substitute application recordings or upload evaluation files as artifacts.
 Freeze source selection and report unique source duration, annotation quality,
 transcription errors, speaker errors and inferred assignments. Reassembled dialogue
 turns must be identified as constructed sequences, not original continuous recordings.
-Run evaluation and model inference in CI, consistent with the build-only rule below.
+Run public-corpus model inference on the development machine for algorithm improvement; do not run model inference in GitHub CI. Keep Android builds and executable application tests in GitHub CI under the build-only rule below. The CI evaluation job may score a previously completed inference cache.
 Use measured development errors to improve the algorithms, then validate the
 selected changes without adjusting them to validation scores. Before baseline
 inference, freeze `masha_dima_part1` as the Dialogs development subset and reserve

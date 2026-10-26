@@ -33,16 +33,15 @@ Speaker discovery reserves a bounded set of acoustically different examples
 before filling its time coverage; centroid merging checks independent internal
 agreement to avoid collapsing voices merely as more examples accumulate. CI
 includes six-reader Russian regressions and reference-transcript ASR measurements.
-A new CI evaluation freezes 1,134 public Russian Dialogs clips from three actors,
-with 7,233.107 seconds of source metadata duration and an enforced minimum of
-two hours after resampling. It measures ASR, speaker attribution and joint word
-errors on constructed dialogue sequences. The measured development baseline is
-2.8715% WER, 0.8730% CER, 4.9892% joint cpWER and 97.6839% completed clip-time
-attribution; this last figure is not DER. Candidate comparisons are pending.
-Algorithm improvements use `masha_dima_part1` development errors; the other three
-selected recordings are reserved for validation of the chosen changes. This
-split separates recordings, with shared speakers M/D and validation-only S;
-existing six-reader regression gates remain unchanged.
+A CI evaluation freezes 1,134 public Russian Dialogs clips from three actors,
+with 7,233.107 seconds of source metadata duration. It measures ASR, speaker
+attribution and joint word errors on constructed dialogue sequences. The initial
+development baseline is 2.8715% WER, 0.8730% CER, 4.9892% joint cpWER and 97.6839%
+completed clip-time attribution; this last figure is not DER. The original
+reserved recordings exposed a female/female merge: candidate cpWER was 77.94% and
+completed clip-time attribution 61.30%. They are diagnostic data now, not a
+held-out validation set. A complete-linkage candidate is under CI evaluation; no
+new improvement is claimed yet. Six-reader regression gates remain unchanged.
 Natural conversation and phone accuracy remain unmeasured. See the
 [speaker evaluation scope](prototypes/phone-transcriber/docs/speaker-diarization.md).
 
