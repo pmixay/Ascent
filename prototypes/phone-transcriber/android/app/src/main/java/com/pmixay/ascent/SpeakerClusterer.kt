@@ -180,6 +180,15 @@ class SpeakerClusterer(
                 originalSupporters[best.first].add(index)
         }
         val originalSupportMs = originalSupporters.map { support(observations, it) }
+        // Seed eligibility can leave only a few contexts in a voice's discovery centroid.
+        // Independently assigned speech supplies a second, frozen verification template.
+        // A candidate fragment's own observations never belong to this parent template, and
+        // these extra samples never alter discovery centroids or remembered voice signatures.
+        val verificationCenters = originalSupporters.mapIndexed { index, indices ->
+            if (indices.isEmpty()) consolidated[index].center else mean(indices.map { vectors[it]!! })
+        }
+        fun verificationScore(vector: FloatArray, groupIndex: Int): Float = maxOf(
+            dot(vector, consolidated[groupIndex].center), dot(vector, verificationCenters[groupIndex]))
         val independentSeeds = consolidated.map { item ->
             item.indices.any { left -> item.indices.any { right ->
                 observations[left].endMs <= observations[right].startMs
@@ -240,11 +249,11 @@ class SpeakerClusterer(
             }
             val centroidMatches = sourceIndices.map { observation ->
                 val vector = vectors[observation]!!
-                val candidate = established.maxByOrNull { dot(vector, consolidated[it].center) }
+                val candidate = established.maxByOrNull { verificationScore(vector, it) }
                     ?: return@map null
-                val score = dot(vector, consolidated[candidate].center)
+                val score = verificationScore(vector, candidate)
                 val runnerUp = consolidated.indices.filter { it != index && it != candidate }
-                    .maxOfOrNull { dot(vector, consolidated[it].center) } ?: -1f
+                    .maxOfOrNull { verificationScore(vector, it) } ?: -1f
                 val minimum = if (observations[observation].quality < .35f)
                     maxOf(assignmentThreshold, .80f) else assignmentThreshold
                 if (score >= minimum && score - runnerUp >= maxOf(margin, .12f)) candidate to score

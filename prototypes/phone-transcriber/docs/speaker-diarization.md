@@ -98,6 +98,12 @@ calibrated operating point for Russian phone recordings.
   a person solely through matching its own seeds, while retaining the stronger
   threshold for consolidating two established voices. Recovered observations
   cannot train centroids or voice templates.
+  The comparison can also use a frozen average of speech that already passed
+  strict attribution before recovery. This supplies additional phonetic evidence
+  when only a few windows were eligible to establish a voice. Both candidates and
+  competitors use the stronger of this temporary template and the seed centroid;
+  the fragment cannot contribute to its proposed parent's template. These
+  temporary comparisons do not replace discovery centroids or stored profiles.
 - Use the strongest covering context per speaker for each word, weighted by
   temporal proximity, similarity and quality. Overlapping windows no longer
   multiply one speaker's vote. Repair a short unknown run only when clear
@@ -296,6 +302,19 @@ alternating readers splitting into ten. Correct attribution was
 independent-example recovery passed its focused synthetic regression but did
 not improve these real-model cases. Passing that CI run therefore did not
 establish that the reported fragmentation was fixed.
+
+[CI 40303879173](https://github.com/pmixay/Ascent/actions/runs/40303879173)
+at `b946ea1` reduced the alternating case from ten labels to seven for six readers.
+The paired score improved from 212,620 to 235,420 correct milliseconds out of
+243,820 (87.20% to 96.55%); unknown time in the alternating case fell from 5.41%
+to 1.97%. Three of the four reproduced single-reader splits were corrected;
+reader 4372 still split. Six additional cases remove one participant's longer
+reference and retain only their brief replies: none lost attribution relative
+to the frozen baseline. The separate reader-disjoint evaluation remained at
+377,080/394,680 ms (95.54%). These are controlled development/evaluation
+measurements, not device or natural-conversation accuracy. The latest sparse
+regression now requires exactly one label per actual reader, in addition to
+the paired accuracy checks, so the original splitting cannot pass as unchanged.
 
 ### Recognition boundaries and timeline
 

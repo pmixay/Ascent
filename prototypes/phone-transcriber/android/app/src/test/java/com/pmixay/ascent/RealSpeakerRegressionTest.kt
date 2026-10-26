@@ -11,7 +11,7 @@ class RealSpeakerRegressionTest {
     private data class Clip(val id: String, val reader: String, val variant: String,
                             val durationMs: Long, val examples: List<Example>)
 
-    @Test fun sparseShortContextsDoNotIncreaseFragmentationAgainstFrozenBaseline() {
+    @Test fun sparseShortContextsKeepOneIdentityPerReaderAgainstFrozenBaseline() {
         val resource = requireNotNull(javaClass.getResourceAsStream("/speaker-embeddings.json"))
         val document = resource.bufferedReader().use { JSONObject(it.readText()) }
         val fragmentation = document.getJSONObject("fragmentation")
@@ -113,7 +113,7 @@ class RealSpeakerRegressionTest {
                     }
                     fragmentationDiagnostics(name, stable, origins, baseline, candidate)
                 }
-                if (newLabels > oldLabels || newScore.correctMs < oldScore.correctMs ||
+                if (newLabels != readers.distinct().size || newScore.correctMs < oldScore.correctMs ||
                     oldScore.perReaderAccuracy.any { (reader, accuracy) ->
                         newScore.perReaderAccuracy.getValue(reader) < accuracy
                     }) failures += diagnostic

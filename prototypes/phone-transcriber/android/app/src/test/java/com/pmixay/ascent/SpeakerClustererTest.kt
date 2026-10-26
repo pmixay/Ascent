@@ -313,6 +313,34 @@ class SpeakerClustererTest {
             result.assignments.map { it.speakerId })
     }
 
+    @Test fun independentlyAssignedSpeechVerifiesAModeMissingFromSparseSeeds() {
+        val a = floatArrayOf(.75f, sqrt(1f - .75f * .75f), 0f, 0f)
+        val b = floatArrayOf(.75f, 0f, a[1], 0f)
+        val seedCenter = SpeakerClusterer.normalized(FloatArray(4) { a[it] + b[it] })!!
+        val supportingMode = FloatArray(4) { seedCenter[it] * .95f }.also { it[3] = sqrt(1f - .95f * .95f) }
+        val seeds = listOf(SpeakerObservation(0, 1800, a, quality = .6f,
+            speech = listOf(SpeechSpan(0, 1060))),
+            SpeakerObservation(2000, 3800, b, quality = .6f, speech = listOf(SpeechSpan(2000, 3060))))
+        val corroboration = (0 until 3).map { index ->
+            val start = 4000 + index * 2000L
+            SpeakerObservation(start, start + 1800, supportingMode, quality = .44f, canSeed = false,
+                speech = listOf(SpeechSpan(start, start + 800)))
+        }
+        val fragment = floatArrayOf(.65f, 0f, 0f, sqrt(1f - .65f * .65f))
+        val samples = seeds + corroboration + listOf(
+            SpeakerObservation(11000, 12200, fragment, quality = .75f,
+                speech = listOf(SpeechSpan(11000, 11900))),
+            SpeakerObservation(14000, 15200, fragment, quality = .75f,
+                speech = listOf(SpeechSpan(14000, 14900))))
+        // F scores only .552 against the sparse seed centroid. The already strict-assigned
+        // supporting mode independently verifies it; the fragment cannot help verify itself.
+        val result = SpeakerClusterer().cluster(samples)
+        assertEquals(List(7) { "speaker_1" }, result.assignments.map { it.speakerId })
+        assertEquals(2, result.signatures.single().windowCount)
+        assertEquals(2120L, result.signatures.single().speechMs)
+        assertEquals(0f, result.signatures.single().vector[3], .001f)
+    }
+
     @Test fun isolatedVoiceExcursionDoesNotCreateAnotherPersonOrTeachItsVoiceprint() {
         val result = SpeakerClusterer(threshold = 0.72f).cluster(listOf(
             voice(0, 1f, 0f), voice(1800, 1f, 0f),
