@@ -33,13 +33,12 @@ download hashes or header inspection.
 
 ## Selection frozen before inference
 
-The algorithm candidate at `ffa5fa7` was selected on development results before
-reading validation predictions. Development word errors fell from 160 to 156,
-character errors from 254 to 230, joint word/speaker errors from 278 to 262,
-and extra participant labels from 17 to 15. Correct completed clip-time
-attribution increased from 2,799,686 to 2,802,287 of 2,866,068 ms; no development
-block regressed. The reserved recordings are the next acceptance check, not
-inputs to further parameter or model tuning.
+The algorithm candidate at `ffa5fa7` was selected using development results
+before reading the original reserved recordings. That check exposed a severe
+female/female speaker merge: completed clip-time attribution was 61.30% and
+cpWER was 77.94% on the three original reserved recordings. Those recordings
+are now diagnostic data, not an untouched validation set. The promising small
+development gains do not establish a usable diarization improvement.
 
 [manifest.json](manifest.json) pins the repository revision, complete metadata
 hash, per-file byte counts and SHA-256 hashes, selected speaker labels and model
@@ -61,15 +60,13 @@ Before baseline inference or score inspection, freeze the following allocation:
 | Role | Selected source recordings | Actors |
 | --- | --- | --- |
 | Development | `masha_dima_part1` | M, D |
-| Validation | `masha_sveta_part1`, `masha_sveta_part2`, `masha_dima_part2` | M, S, D |
+| Original diagnostic set | `masha_sveta_part1`, `masha_sveta_part2`, `masha_dima_part2` | M, S, D |
 
-Diagnose measured development failures and choose algorithm changes using only
-that subset. Keep the validation recordings reserved until a candidate is chosen;
-do not use their scores to choose thresholds or select fixes. Compare the same
-frozen baseline and chosen candidate on both subsets and report them separately.
-Keep all 1,134 payloads and the two-hour combined denominator, including failures.
-The existing six-reader regressions remain independent checks with unchanged
-acceptance thresholds.
+Development results and the original diagnostic set have both been inspected.
+Do not report the original set as held-out validation. The next evaluation must
+use a separately selected recording set and clearly state its limitations. Keep
+the existing six-reader regressions independent with unchanged acceptance
+thresholds.
 
 This split separates source recordings, not all identities: M and D appear in
 both subsets, while S is validation-only. The small number of actors and shared
@@ -82,8 +79,8 @@ and no model weights are trained.
 The baseline at `e9df416` passed
 [CI 40378549620](https://github.com/pmixay/Ascent/actions/runs/40378549620).
 [Diagnostic CI 40381522671](https://github.com/pmixay/Ascent/actions/runs/40381522671)
-at `3ae8975` also passed. Only development results have been inspected for
-selecting changes; validation results remain reserved.
+at `3ae8975` also passed. The original reserved recordings were subsequently inspected and failed; their
+results are documented above and are no longer held out.
 
 `masha_dima_part1` contributes 336 unique clips in ten blocks, 2,866.068 seconds
 of resampled source audio, 5,572 reference words and 29,095 reference characters.
@@ -112,8 +109,8 @@ established voices. Fragments that each satisfy the unchanged rules for the
 same parent no longer block one another solely through mutual similarity.
 Other rivals remain competitors; inferred labels neither corroborate further
 recovery nor train profiles. A genuinely new short, similar-sounding speaker
-can still be absorbed by this best-effort policy, so validation must measure
-both fragmentation and mistaken merging. Its results are pending.
+can still be absorbed by this best-effort policy. The original reserved set
+showed that this candidate does not solve female/female merging.
 
 ## Measurement and limitations
 
