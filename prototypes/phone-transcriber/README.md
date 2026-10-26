@@ -217,7 +217,12 @@ a local refresh. These use tiny metadata fixtures and do not run fake weights
 through the inference runtimes. A cached, checksum-verified CI fixture
 uses the real speaker model on 16 public Russian utterances from six readers,
 including reduced-gain, white-noise and synthetic channel variants. JVM tests apply the app's activity
-gates and clustering to these embeddings; the fixture audio and model never enter
+gates and clustering to these embeddings. Additional sparse-context cases compare
+the current grouping policy against a frozen test-only baseline, with short
+phrases from source utterances distinct from the longer voice references.
+Brief fragments require two independent original acoustic matches before
+rejoining a voice; recovered examples cannot teach remembered profiles.
+The fixture audio and model never enter
 the APK or downloadable artifacts. The separate model workflow checks actual ASR
 inference, prints reference-transcript WER/CER, and rejects chunk-policy changes
 that increase word errors in either the clean or channel comparison. These

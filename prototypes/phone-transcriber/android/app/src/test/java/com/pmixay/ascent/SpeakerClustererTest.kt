@@ -185,6 +185,77 @@ class SpeakerClustererTest {
         assertEquals(2, result.signatures.size)
     }
 
+    private fun broadVoiceSamples(overlappingSupport: Boolean = false): List<SpeakerObservation> {
+        // A and B are compatible modes (cosine .80). A brief F matches B at .75,
+        // but A at only .35. Repeated A windows dominate the global centroid, so
+        // ordinary AHC and centroid consolidation both leave F as a false person.
+        val modeA = floatArrayOf(1f, 0f, 0f)
+        val modeB = floatArrayOf(.8f, .6f, 0f)
+        val secondStart = if (overlappingSupport) 900L else 1800L
+        val mainStart = secondStart + 1800
+        return listOf(SpeakerObservation(0, 1800, modeB),
+            SpeakerObservation(secondStart, secondStart + 1800, modeB)) +
+            (0 until 6).map { SpeakerObservation(mainStart + it * 1800L,
+                mainStart + (it + 1) * 1800L, modeA) }
+    }
+
+    private fun returningMode(start: Long): SpeakerObservation {
+        val y = (.75f - .35f * .8f) / .6f
+        return SpeakerObservation(start, start + 1800, floatArrayOf(.35f, y,
+            sqrt(1f - .35f * .35f - y * y)))
+    }
+
+    @Test fun independentVoiceModesRecoverABriefFragmentWithoutTeachingIt() {
+        val samples = broadVoiceSamples() + returningMode(14400)
+        val result = SpeakerClusterer().cluster(samples)
+        assertEquals(List(9) { "speaker_1" }, result.assignments.map { it.speakerId })
+        assertEquals(.75f, result.assignments.last().similarity, .001f)
+        assertEquals(8, result.signatures.single().windowCount)
+        assertEquals(14400L, result.signatures.single().speechMs)
+        assertEquals(0f, result.signatures.single().vector[2], .001f)
+    }
+
+    @Test fun overlappingCopiesCannotCorroborateAnOtherwiseUnmatchedFragment() {
+        val samples = broadVoiceSamples(overlappingSupport = true) + returningMode(13500)
+        val result = SpeakerClusterer().cluster(samples)
+        assertEquals("speaker_2", result.assignments.last().speakerId)
+        assertEquals(2, result.assignments.map { it.speakerId }.distinct().size)
+    }
+
+    @Test fun recurringModesCannotBeCollapsedAsOneBoundedFragment() {
+        val samples = broadVoiceSamples() + listOf(returningMode(14400),
+            SpeakerObservation(16200, 18000, floatArrayOf(1f, 0f, 0f)), returningMode(18000))
+        val result = SpeakerClusterer().cluster(samples)
+        assertEquals("speaker_2", result.assignments[8].speakerId)
+        assertEquals("speaker_2", result.assignments[10].speakerId)
+    }
+
+    @Test fun everyFragmentWindowNeedsOriginalIndependentSupport() {
+        // F and G agree strongly with each other. Only F has two original matches;
+        // allowing F to corroborate G would recursively invent a broader identity.
+        val unsupported = floatArrayOf(.2f, .73f, sqrt(1f - .2f * .2f - .73f * .73f))
+        val samples = broadVoiceSamples() + listOf(returningMode(14400),
+            SpeakerObservation(15300, 17100, unsupported))
+        val result = SpeakerClusterer().cluster(samples)
+        assertEquals(listOf("speaker_2", "speaker_2"), result.assignments.takeLast(2).map { it.speakerId })
+    }
+
+    @Test fun competingIndependentVoiceModesKeepAThirdFragmentSeparate() {
+        val b = floatArrayOf(.75f, sqrt(1f - .75f * .75f), 0f, 0f, 0f)
+        val aY = (.8f - .35f * .75f) / b[1]
+        val a = floatArrayOf(.35f, aY, sqrt(1f - .35f * .35f - aY * aY), 0f, 0f)
+        val d = floatArrayOf(.75f, 0f, 0f, b[1], 0f)
+        val e = floatArrayOf(.35f, 0f, 0f, aY, a[2])
+        val vectors = listOf(b, b) + List(6) { a } + listOf(d, d) + List(6) { e } +
+            listOf(floatArrayOf(1f, 0f, 0f, 0f, 0f))
+        val samples = vectors.mapIndexed { index, vector ->
+            SpeakerObservation(index * 1800L, (index + 1) * 1800L, vector)
+        }
+        val result = SpeakerClusterer().cluster(samples)
+        assertEquals(List(8) { "speaker_1" } + List(8) { "speaker_2" } + "speaker_3",
+            result.assignments.map { it.speakerId })
+    }
+
     @Test fun isolatedVoiceExcursionDoesNotCreateAnotherPersonOrTeachItsVoiceprint() {
         val result = SpeakerClusterer(threshold = 0.72f).cluster(listOf(
             voice(0, 1f, 0f), voice(1800, 1f, 0f),

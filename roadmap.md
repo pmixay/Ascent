@@ -17,11 +17,14 @@ background update activity. Checks, transfer progress and resumable waiting stat
 appear together without disabling installed models during an update failure.
 
 Prototype speaker work adds short-speech context recovery, centroid consolidation,
-bounded recovery of degraded runs, and real-model regressions using six public
+bounded recovery of degraded runs, independently corroborated recovery of brief
+voice fragments, and real-model regressions using six public
 Russian readers with controlled gain/noise/channel changes. Consecutive known
 speaker phrases share one timeline element with seconds and estimated pause
 durations. ASR uses quiet seams and longer context, with reference-transcript
-measurements in model CI. This development fixture does not complete the natural
+measurements in model CI. A paired development regression compares short,
+pause-separated phrases against the previous grouping policy using different
+source utterances for longer references and short queries. These fixtures do not complete the natural
 conversation diarization, overlap, or supported-phone accuracy acceptance criteria.
 
 - [x] Support Android 12 and later with `minSdk 31`; choose distribution `targetSdk` separately against release-time requirements.

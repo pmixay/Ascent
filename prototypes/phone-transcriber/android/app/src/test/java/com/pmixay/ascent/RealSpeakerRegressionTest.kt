@@ -11,6 +11,117 @@ class RealSpeakerRegressionTest {
     private data class Clip(val id: String, val reader: String, val variant: String,
                             val durationMs: Long, val examples: List<Example>)
 
+    @Test fun sparseShortContextsDoNotIncreaseFragmentationAgainstFrozenBaseline() {
+        val resource = requireNotNull(javaClass.getResourceAsStream("/speaker-embeddings.json"))
+        val document = resource.bufferedReader().use { JSONObject(it.readText()) }
+        val fragmentation = document.getJSONObject("fragmentation")
+        assertEquals("f263faddccb6228d85dff5e798aac94dd5fd077bcbf0f01706cea3878ccbb345",
+            fragmentation.getString("source_manifest_sha256"))
+        val cases = fragmentation.getJSONArray("cases")
+        assertEquals(7, cases.length())
+        val expectedReaderMs = mapOf("reader_2671" to 34690L, "reader_2826" to 14680L,
+            "reader_3056" to 25860L, "reader_4372" to 12480L, "reader_4471" to 20700L,
+            "reader_5548" to 13500L)
+        val failures = mutableListOf<String>()
+        var baselineCorrectMs = 0L
+        var candidateCorrectMs = 0L
+        var totalMs = 0L
+        for (caseIndex in 0 until cases.length()) {
+            val case = cases.getJSONObject(caseIndex)
+            val name = case.getString("name")
+            val emissions = case.getJSONArray("emissions")
+            val words = (0 until emissions.length()).map { index -> emissions.getJSONObject(index).let {
+                TimedWord("emission", it.getLong("start_ms"), it.getLong("end_ms"))
+            } }
+            val references = case.getJSONArray("references")
+            val probes = (0 until references.length()).map { index -> references.getJSONObject(index).let {
+                TimedWord("reference", it.getLong("start_ms"), it.getLong("end_ms"))
+            } }
+            val readers = (0 until references.length()).map { references.getJSONObject(it).getString("speaker") }
+            val actualReaderMs = probes.indices.groupBy { readers[it] }.mapValues { (_, indices) ->
+                indices.sumOf { probes[it].endMs - probes[it].startMs }
+            }
+            assertEquals("Sparse-context reference coverage changed",
+                if (name == "alternating") expectedReaderMs else mapOf(name to expectedReaderMs.getValue(name)),
+                actualReaderMs)
+            val referenceSources = (0 until references.length()).filter {
+                references.getJSONObject(it).getString("turn_kind") == "reference"
+            }.map { references.getJSONObject(it).getString("source_id") }.toSet()
+            val querySources = (0 until references.length()).filter {
+                references.getJSONObject(it).getString("turn_kind") != "reference"
+            }.map { references.getJSONObject(it).getString("source_id") }.toSet()
+            assertTrue("Reference/query utterances must be disjoint", referenceSources.intersect(querySources).isEmpty())
+            val contexts = SpeakerSpeechSupport.contexts(words, case.getLong("duration_ms"))
+            val windows = case.getJSONArray("windows")
+            assertEquals("Sparse-emission context mirror diverged", contexts.size, windows.length())
+            assertTrue("Must exercise short app contexts", contexts.any { it.endMs - it.startMs == 1200L })
+            val observations = mutableListOf<SpeakerObservation>()
+            val regions = mutableListOf<Int>()
+            val file = File.createTempFile("ascent-public-fragmentation-", ".wav")
+            try {
+                requireNotNull(javaClass.getResourceAsStream("/" + case.getString("audio_file"))).use { input ->
+                    file.outputStream().use { output -> input.copyTo(output) }
+                }
+                PcmWave(file).use { wave ->
+                    assertEquals(case.getLong("duration_ms"), wave.durationMs)
+                    for ((index, context) in contexts.withIndex()) {
+                        val window = windows.getJSONObject(index)
+                        assertEquals(context.startMs, window.getLong("start_ms"))
+                        assertEquals(context.endMs, window.getLong("end_ms"))
+                        assertEquals(context.region, window.getInt("region"))
+                        val samples = wave.read(context.startMs * 16, ((context.endMs - context.startMs) * 16).toInt())
+                        val activity = SpeakerSpeechSupport.activity(samples, context.startMs)
+                        samples.fill(0f)
+                        val speechMs = activity.spans.sumOf { it.endMs - it.startMs }
+                        if (speechMs < 320 || activity.quality < .20f) continue
+                        val values = window.getJSONArray("embedding")
+                        assertEquals(192, values.length())
+                        observations += SpeakerObservation(context.startMs, context.endMs,
+                            FloatArray(values.length()) { values.getDouble(it).toFloat() },
+                            activity.quality, speechMs >= 800, activity.spans)
+                        regions += context.region
+                    }
+                }
+                val stable = SpeakerEvidence.stableSeeds(observations, regions)
+                val baseline = FragmentationBaselineClusterer().cluster(stable)
+                val candidate = SpeakerClusterer().cluster(stable)
+                fun score(result: SpeakerClustering): Pair<SpeakerAttributionScore, Int> {
+                    val predictions = SpeakerSpeechSupport.speakersForWords(probes, stable, result.assignments)
+                    val cells = probes.indices.map { index -> AttributionCell(readers[index], probes[index].startMs,
+                        probes[index].endMs, predictions[index]) }
+                    return SpeakerAttributionScorer.score(cells) to
+                        predictions.filter { it != SpeakerClusterer.UNKNOWN }.distinct().size
+                }
+                val (oldScore, oldLabels) = score(baseline)
+                val (newScore, newLabels) = score(candidate)
+                assertEquals(oldScore.totalMs, newScore.totalMs)
+                val diagnostic = "Russian sparse-context DEVELOPMENT $name: totalMs=${newScore.totalMs}, " +
+                    "referenceReaders=${readers.distinct().size}, contexts=${contexts.size}, " +
+                    "acceptedContexts=${observations.size}, baselineLabels=$oldLabels, candidateLabels=$newLabels, " +
+                    "baselineCorrectMs=${oldScore.correctMs}, candidateCorrectMs=${newScore.correctMs}, " +
+                    "baselineAccuracy=${oldScore.accuracy}, candidateAccuracy=${newScore.accuracy}, " +
+                    "baselineUnknown=${oldScore.unknownRate}, candidateUnknown=${newScore.unknownRate}"
+                println(diagnostic)
+                println("Russian sparse-context DEVELOPMENT $name per reader: " +
+                    "baseline=${oldScore.perReaderAccuracy}, candidate=${newScore.perReaderAccuracy}")
+                if (newLabels > oldLabels || newScore.correctMs < oldScore.correctMs ||
+                    oldScore.perReaderAccuracy.any { (reader, accuracy) ->
+                        newScore.perReaderAccuracy.getValue(reader) < accuracy
+                    }) failures += diagnostic
+                baselineCorrectMs += oldScore.correctMs
+                candidateCorrectMs += newScore.correctMs
+                totalMs += newScore.totalMs
+            } finally {
+                observations.forEach { it.vector.fill(0f) }
+                file.delete()
+            }
+        }
+        println("Russian sparse-context DEVELOPMENT paired: baselineCorrectMs=$baselineCorrectMs, " +
+            "candidateCorrectMs=$candidateCorrectMs, totalMs=$totalMs; " +
+            "correlated public excerpts with synthetic pauses, not phone or natural-conversation accuracy")
+        assertTrue(failures.joinToString("\n"), failures.isEmpty())
+    }
+
     @Test fun oneReaderKeepsOneLabelAcrossUtterancesGainAndNoise() {
         val failures = mutableListOf<String>()
         for ((reader, clips) in fixtures.groupBy { it.reader }) {

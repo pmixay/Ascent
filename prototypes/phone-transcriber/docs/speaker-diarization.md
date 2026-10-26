@@ -18,6 +18,15 @@ produce those symptoms in the previous batch pipeline:
   count to outweigh the closest acoustic evidence.
 
 These are source-level findings, not measured frequencies in the user's audio.
+The follow-up report of excessive speaker labels exposed another gap: a short
+component can survive discovery by matching itself, even when it resembles a
+less common acoustic mode of an established voice. The activity `quality` value
+measures energy occupancy and clipping, not certainty about speaker identity;
+a clear-sounding phonetic change can score highly. A single aggregate centroid
+can also obscure the different sounds made by the same person. The new regression
+work compares short, pause-separated phrases with a frozen copy of the grouping
+policy from `3fee6da`, using the same real model outputs for both policies.
+
 The PCM reader supplies normalized mono 16 kHz samples, and the
 [pinned sherpa extractor](https://github.com/k2-fsa/sherpa-onnx/blob/v2.0.0/sherpa-onnx/csrc/speaker-embedding-extractor-general-impl.h)
 uses model metadata for feature configuration and mean normalization. This
@@ -66,6 +75,18 @@ calibrated operating point for Russian phone recordings.
   speech can receive a label with sufficient acoustic evidence; establishing a
   voice still needs at least 800 ms in the extraction pass and the stronger
   cluster quality gate. Exceeding the speaker budget remains unknown.
+- Recover a brief, contiguous extra group when every anchor strongly matches
+  two nonoverlapping original examples of the same established voice. This
+  compares different acoustic modes within that voice instead of relying only
+  on its average centroid. The group must have less than three seconds of unique
+  speech within a three-second span; its parent needs at least three anchors,
+  three seconds of speech and twice the fragment's support. Both independent
+  matches must reach the centroid cutoff (normally 0.70), with a margin of 0.08
+  over other groups' centroids or independent examples. These are fixed original
+  examples: recovered groups cannot corroborate another recovery. Distinct or
+  recurring voices, duplicate overlapping examples and ambiguous parent choices
+  do not qualify. Apply the recovered label after temporal recovery, and exclude
+  the fragment from centroids and voice enrollment.
 - Use the strongest covering context per speaker for each word, weighted by
   temporal proximity, similarity and quality. Overlapping windows no longer
   multiply one speaker's vote. Repair a short unknown run only when clear

@@ -161,7 +161,54 @@ class SpeakerClusterer(
         val originalOwners = consolidated.flatMapIndexed { owner, item -> item.indices.map { it to owner } }.toMap()
         val anchorPositions = anchorOrder.withIndex().associate { it.value to it.index }
         val fragmentParents = mutableMapOf<Int, Int>()
+        val prototypeAssignments = mutableMapOf<Int, Pair<Int, Float>>()
+        // A broad voice can contain several phonetic modes. A brief returning mode may be
+        // far from its global centroid, while matching independent, original observations of
+        // that same voice. Require two nonoverlapping original contexts: overlapping windows
+        // from one acoustic event must not corroborate one another. Only bounded fragments
+        // can recover, and their parents are too large to themselves be recovered fragments.
+        fun independentSimilarity(vector: FloatArray, indices: List<Int>): Float {
+            val ranked = indices.map { it to dot(vector, vectors[it]!!) }.sortedByDescending { it.second }
+            for (position in ranked.indices) {
+                val current = observations[ranked[position].first]
+                if ((0 until position).any { earlier ->
+                    val other = observations[ranked[earlier].first]
+                    current.startMs >= other.endMs || other.startMs >= current.endMs
+                }) return ranked[position].second
+            }
+            return -1f
+        }
         for ((index, item) in consolidated.withIndex()) {
+            checkCancelled()
+            if (item.supportMs >= 3000) continue
+            val positions = item.indices.map { anchorPositions.getValue(it) }.sorted()
+            if (positions.last() - positions.first() + 1 != positions.size ||
+                item.indices.maxOf { observations[it].endMs } - item.indices.minOf { observations[it].startMs } > 3000)
+                continue
+            val matches = item.indices.map { observation ->
+                val vector = vectors[observation]!!
+                val independent = consolidated.map { independentSimilarity(vector, it.indices) }
+                val eligible = consolidated.indices.filter { parent ->
+                    parent != index && consolidated[parent].indices.size >= 3 &&
+                        consolidated[parent].supportMs >= maxOf(3000, item.supportMs * 2)
+                }
+                val parent = eligible.maxByOrNull { independent[it] } ?: return@map null
+                val score = independent[parent]
+                val runnerUp = consolidated.indices.filter { it != index && it != parent }.maxOfOrNull {
+                    maxOf(dot(vector, consolidated[it].center), independent[it])
+                } ?: -1f
+                if (score < maxOf(threshold, centroidThreshold) || score - runnerUp < margin) null
+                else parent to score
+            }
+            val parent = matches.firstOrNull()?.first ?: continue
+            if (matches.any { it == null || it.first != parent }) continue
+            fragmentParents[index] = parent
+            item.indices.zip(matches).forEach { (observation, match) ->
+                prototypeAssignments[observation] = match!!
+            }
+        }
+        for ((index, item) in consolidated.withIndex()) {
+            if (index in fragmentParents) continue
             if (item.supportMs >= 3000) continue
             val positions = item.indices.map { anchorPositions.getValue(it) }.sorted()
             if (positions.last() - positions.first() + 1 != positions.size) continue
@@ -246,6 +293,14 @@ class SpeakerClusterer(
             if (cleanGroups[groupIndex].indices.size < 2 || cleanGroups[groupIndex].supportMs < 2400) continue
             // Work from the original strict labels so recovery cannot propagate into later runs.
             run.forEach { assignments[it] = SpeakerAssignment(id, bestScores[it]) }
+        }
+        // Removing a fragment alone would turn the false speaker into an unknown. Apply only
+        // the independently corroborated attribution after temporal recovery, so it cannot
+        // become evidence for recovering another interval. Preserve its acoustic score; it
+        // never changes the parent's centroid or enrollment signature.
+        prototypeAssignments.forEach { (observation, match) ->
+            val parent = cleanGroups.indexOf(consolidated[match.first])
+            if (parent >= 0) assignments[observation] = SpeakerAssignment("speaker_${parent + 1}", match.second)
         }
         val signatures = cleanGroups.indices.mapNotNull { groupIndex ->
             val id = "speaker_${groupIndex + 1}"

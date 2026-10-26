@@ -15,7 +15,10 @@ A dedicated model panel keeps local readiness separate from update checks and
 download progress, so an offline or failed update does not hide usable models.
 Speaker attribution preserves short acoustic contexts, consolidates recurring
 voice fragments, and recovers bounded degraded runs only with matching voice
-evidence on both sides. Consecutive phrases by the same known speaker share one
+evidence on both sides. Brief extra labels can also rejoin an established voice
+when they match two independent original examples of that voice, with a clear
+margin over alternatives; recovered fragments never train voice memory.
+Consecutive phrases by the same known speaker share one
 timeline element, with elapsed seconds and timer-marked estimated pauses.
 Recognition prefers quiet chunk boundaries with additional context. CI includes
 six-reader Russian speech regressions and reference-transcript ASR measurements; natural conversation

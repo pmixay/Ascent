@@ -202,6 +202,78 @@ def conversation_fixtures(extractor, manifest, output_dir, np):
             "cases": cases}
 
 
+def fragmentation_fixtures(extractor, manifest, output_dir, np):
+    """Development-only short contexts from utterances distinct from the long reference.
+
+    Sparse synthetic emissions select acoustic windows; separate reference cells
+    score every source sample. Reusing excerpts across durations/conditions makes
+    these correlated regressions, not independent conversation examples.
+    """
+    by_reader = {}
+    for item in manifest["fixtures"]:
+        by_reader.setdefault(item["speaker"], []).append(item)
+    turns = {}
+    for reader, items in sorted(by_reader.items()):
+        if len(items) < 2:
+            raise ValueError("Fragmentation development needs distinct reference/query utterances")
+        reference = items[0]
+        turns[reader] = [(reference, load_fixture(reference, np), "reference")]
+        for item in items[1:]:
+            source = load_fixture(item, np)
+            conditions = dict(variants(source, item["id"], np))
+            for fraction, duration_ms in ((.25, 900), (.5, 1200), (.75, 1800)):
+                count = duration_ms * SAMPLE_RATE // 1000
+                if len(source) < count:
+                    raise ValueError("Source too short for fixed development excerpt")
+                start = max(0, min(len(source) - count, int(len(source) * fraction) - count // 2))
+                for condition in ("clean", "channel"):
+                    turns[reader].append((item, conditions[condition][start:start + count],
+                                          f"short-{duration_ms}-{condition}"))
+    scenarios = [(reader, items) for reader, items in turns.items()]
+    scenarios.append(("alternating", [items[index] for index in range(max(map(len, turns.values())))
+                                      for items in turns.values() if index < len(items)]))
+    cases = []
+    for name, scenario in scenarios:
+        # The initial padding permits a 900ms source excerpt to receive the same
+        # bounded 1.2-second context the app would use away from a recording edge.
+        pieces = [np.zeros(SAMPLE_RATE * 3 // 10, dtype=np.float32)]
+        position = len(pieces[0])
+        emissions = []
+        references = []
+        for index, (item, part, kind) in enumerate(scenario):
+            if index:
+                gap = np.zeros(SAMPLE_RATE * 13 // 10, dtype=np.float32)
+                pieces.append(gap)
+                position += len(gap)
+            start_ms = position * 1000 // SAMPLE_RATE
+            end_ms = (position + len(part)) * 1000 // SAMPLE_RATE
+            if kind == "reference":
+                emissions.append({"start_ms": start_ms, "end_ms": end_ms})
+            else:
+                # 240ms omitted at either edge models sparse CTC emissions without
+                # deleting acoustic samples or using the speaker label for extraction.
+                emissions.append({"start_ms": start_ms + 240, "end_ms": end_ms - 240})
+            for local in range(0, len(part), SAMPLE_RATE // 10):
+                references.append({"start_ms": (position + local) * 1000 // SAMPLE_RATE,
+                                   "end_ms": (position + min(local + SAMPLE_RATE // 10, len(part))) * 1000 // SAMPLE_RATE,
+                                   "speaker": item["speaker"], "turn_kind": kind,
+                                   "source_id": item["id"]})
+            pieces.append(part)
+            position += len(part)
+        pieces.append(np.zeros(SAMPLE_RATE * 3 // 10, dtype=np.float32))
+        filename = f"speaker-fragmentation-{name}.wav"
+        samples = write_pcm(output_dir / filename, np.concatenate(pieces), np)
+        duration_ms = len(samples) * 1000 // SAMPLE_RATE
+        contexts = probe_contexts(emissions, duration_ms)
+        cases.append({"name": name, "audio_file": filename, "duration_ms": duration_ms,
+                      "emissions": emissions, "references": references,
+                      "windows": embeddings(extractor, samples, np, contexts)})
+        print(f"Speaker fragmentation development {name}: {len(scenario)} turns, "
+              f"{len(contexts)} sparse-emission contexts", flush=True)
+    return {"scope": "Correlated development excerpts, distinct reference/query utterances; not phone accuracy",
+            "source_manifest_sha256": digest(FIXTURE_ROOT / "manifest.json"), "cases": cases}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, type=Path)
@@ -244,6 +316,7 @@ def main():
         raise ValueError("Evaluation readers must be disjoint from development readers")
     result = {"schema_version": 1, "model_sha256": MODEL_SHA256,
               "sample_rate": SAMPLE_RATE, "fixtures": fixtures,
+              "fragmentation": fragmentation_fixtures(extractor, manifest, args.output.parent, np),
               "evaluation": conversation_fixtures(extractor, evaluation, args.output.parent, np)}
     args.output.write_text(json.dumps(result, separators=(",", ":"), allow_nan=False) + "\n")
     print(f"Generated {len(fixtures)} public speech fixtures; no app or report artifact created.")
