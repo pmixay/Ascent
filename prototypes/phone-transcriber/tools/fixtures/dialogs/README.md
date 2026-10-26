@@ -16,6 +16,21 @@ The dataset's [OpenRAIL license](LICENSE-Dialogs.md) is retained here. This is
 evaluation only: no model training, voice enrollment or parameter tuning uses
 these recordings, and none are distributed in the APK or downloadable archive.
 
+## Input acquisition status
+
+On 26 October 2026, all 1,134 selected files were downloaded and verified against
+the pinned byte counts and SHA-256 hashes. Header-only inspection found
+638,011,076 bytes of mono, 44.1 kHz, 16-bit PCM WAV files with a combined duration
+of **7,233.119955 seconds (2 h 00 min 33.120 s)**. The largest per-file difference
+from the publisher's rounded duration was below 0.023 ms. Speaker D contributes
+1,756.203 seconds, M contributes 3,394.543 seconds, and S contributes 2,082.374
+seconds. Public input files are outside the Git checkout and are not artifacts.
+
+This confirms input acquisition only. Recognition inference, Android checks,
+WER/CER and speaker scores remain pending in GitHub CI: the saved credential was
+rejected when pushing the implementation. No accuracy result is claimed from
+download integrity or header inspection.
+
 ## Selection frozen before inference
 
 [manifest.json](manifest.json) pins the repository revision, complete metadata
