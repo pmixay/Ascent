@@ -371,7 +371,7 @@ class TwoHourSpeechEvaluationTest {
             "emptyRecognizedTurns=$emptyRecognizedTurns, inferredRecognizedWords=${completed.inferred.count { it }}")
     }
 
-    private fun characters(tokens: List<String>) = tokens.joinToString(" ").codePoints().toArray().map { it.toString() }
+    private fun characters(tokens: List<String>) = tokens.joinToString("").codePoints().toArray().map { it.toString() }
 
     private fun verifyRecognitionMirror(wave: PcmWave, windows: JSONArray, tokens: List<String>, expected: List<TimedWord>): List<TimedWord> {
         var start = 0L
