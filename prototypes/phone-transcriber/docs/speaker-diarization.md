@@ -192,6 +192,44 @@ each source clip, so it does not evaluate mixed boundaries or the ASR pass.
 These measurements guide development and must not be presented as held-out
 accuracy or diarization error rate.
 
+### Expanded baseline and the 75% target
+
+[Android CI 40292806122](https://github.com/pmixay/Ascent/actions/runs/40292806122)
+at `c4cd4f3` exercised the expanded 16-utterance development corpus. Its 460
+accepted windows had **97.17% correct assignment** after one-to-one label
+matching, including unknowns as errors. The run nevertheless failed correctly:
+reader 2826 acquired two labels, and the combined case found seven identities
+for six readers. This is evidence of remaining fragmentation, not completion.
+The other five single-reader cases retained one identity with no unknown windows.
+
+That older metric excludes windows rejected by the activity gate and gives
+overlapping windows separate weight. The requested target is strictly above 75%,
+so an additional fixed evaluation uses 12 source clips from six different
+readers, totaling 98.67 seconds. Reader IDs are disjoint from development; their
+absence from the upstream model's training data is unknown. The exact manifest
+hash, per-reader durations and clip selection are frozen before evaluating them.
+
+For each of clean, reduced-gain, 20 dB noise and synthetic channel conditions,
+the clips form a continuous sequence with variable pauses, returning voices
+and six 800 ms replies. Embedding windows can cross actual constructed speaker
+boundaries. Every source sample belongs to one nonoverlapping reference interval
+of at most 100 ms. Internal clip silence stays in the denominator; only known
+inserted silence is excluded. Missing evidence and unknown labels count as errors.
+The score uses a global one-to-one, maximum-duration mapping of anonymous labels
+to readers. It reports total, per-reader, macro and short-reply accuracy, with
+the short replies using that same full-session mapping. Overall and macro scores
+must exceed 75% for every condition and the pooled result.
+
+Python extraction intervals must exactly match Kotlin's context generation.
+The app's activity gate, stable-seed filtering, clustering and word-assignment
+code then process the continuous contexts. Reference probes replace ASR word
+timings in this test: it is **clip-time speaker-backend attribution**, not
+end-to-end transcription accuracy, speech-only DER, overlap separation or a
+measurement on phones. DER also includes speech-detection errors and overlap;
+see the [pyannote metric definition](https://pyannote.github.io/pyannote-metrics/reference.html#diarization).
+The existing stricter development checks remain required. Natural-conversation
+acceptance stays open until representative annotated sessions demonstrate it.
+
 ### Recognition boundaries and timeline
 
 The app previously cut ASR cores exactly every 20 seconds with 500 ms of context.
@@ -207,10 +245,15 @@ in this prototype.
 Model CI measures reference-normalized WER/CER on the downloaded development
 clips and compares the old/new chunk policies on concatenated speech. The
 comparison rejects an increase in word errors on either clean or channel audio.
-Host
-evaluation mirrors the Kotlin timing and ownership logic; it is not Android
-device accuracy validation. Fixed model weights are unchanged. No numerical
-improvement is claimed before inspecting the new CI measurements.
+Host evaluation mirrors the Kotlin timing and ownership logic; it is not Android
+device accuracy validation. Fixed model weights are unchanged.
+
+[Model CI 40292806058](https://github.com/pmixay/Ascent/actions/runs/40292806058)
+at `c4cd4f3` passed validation and publication. On the fixed concatenated
+215-word development sequence, WER fell from 9.30% to 6.51% in both clean and
+channel conditions (six fewer word errors in each). The isolated-clip WER was
+6.51% clean, 6.98% reduced gain, 7.91% noise and 6.98% channel. These measurements
+establish the controlled ASR comparison, not natural-dialogue or phone accuracy.
 
 The display groups consecutive phrases with the same known speaker ID into one
 timeline element, including across pauses and former 20-second element limits.

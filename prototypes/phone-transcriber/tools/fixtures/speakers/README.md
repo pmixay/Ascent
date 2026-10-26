@@ -79,3 +79,54 @@ development data, not a held-out accuracy benchmark. Sequentially arranging
 its clips does not create natural conversational ground truth. It does not
 measure ASR timestamp accuracy, overlap separation, real phone acoustics, or
 cross-conversation identity false-match rates.
+
+## Separate fixed speaker evaluation
+
+`evaluation_manifest.json` freezes 12 additional unchanged WAV files from six
+readers absent from the 16-clip development corpus: IDs 295 (Yakovlev Valery),
+8169 (tovarisch), 13587 (Kazbek), 8086 (Mark Chulsky), 9014 (Xenium5), and
+5397 (violin). Their 98.67 seconds total 3,157,968 bytes. Each has two clips,
+source split/row/path, original references, reader credit and exact hashes in the
+manifest. The same pinned RuLS release and license information above apply.
+The source split names are `train` and `validation`; this is reader-disjoint
+evaluation relative to this app's development corpus, **not** a claim that the
+audio was absent from the embedding model's original training data.
+
+The evaluation source list, sequence method and score were fixed before its
+first inference run. It remains a fixed evaluation corpus if results inform
+later changes; do not call later runs an untouched held-out benchmark or remove
+difficult clips to increase a score. The downloader restores both manifests by
+default; `--subset development` and `--subset evaluation` select one.
+
+For each of clean, reduced gain, noise and channel conditions, the generator
+creates one continuous synthetic sequence. Each reader's first clip becomes an
+initial long turn. The first 800 ms of each second clip becomes a short reply
+(reverse reader order); its remaining samples form a returning turn. All source
+samples appear exactly once per condition. Inserted gaps repeat a fixed
+0/100/1300/300/0/900 ms schedule. Embeddings are extracted from the continuous
+sequence, so windows can span silence and real joins between different voices;
+they are not isolated, pre-labelled reader embeddings stitched together.
+
+Reference cells cover all original clip time in nonoverlapping 100 ms intervals,
+including leading/trailing/internal silence and partial final cells. Only the
+known inserted gaps are excluded. The JVM requires the fixed source-manifest
+hash, exact per-reader duration totals and all four conditions, and checks every
+generated context against the app's `SpeakerSpeechSupport.contexts` result. It
+then uses the actual activity gate, stable-seed policy, clustering and
+`speakersForWords` voting. Rejected windows do not remove reference cells:
+missing/unknown labels remain errors. One global one-to-one speaker permutation
+maximizes matched duration; extra fragments cannot each count as the same reader.
+
+Both duration-weighted accuracy and mean per-reader accuracy must be **strictly
+greater than 75%** in every condition and pooled. Console output includes correct
+and total milliseconds, unknown rate, inferred speaker count, accepted contexts,
+per-reader scores, and short-reply accuracy under that same full-sequence
+permutation. The earlier development checks retain their 85% assignment gate
+and exact speaker counts.
+
+This measure is **speaker-backend clip-time attribution conditional on fixed
+timing**. Reference cells also provide placeholder timing probes to context
+selection; they are not recognized words or human word alignments. These are
+synthetic joins and short acoustic excerpts, not natural conversations or
+semantic replies. The score is neither speech-only DER nor end-to-end ASR,
+overlap handling or phone accuracy. CI produces no audio/report download artifact.

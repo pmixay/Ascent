@@ -118,6 +118,13 @@ The review prototype uses GigaAM Multilingual 220M CTC through ONNX Runtime and 
 
 Speaker separation is an early core function for retained text conversations. Process voices locally as frames arrive and store timestamped text turns under provisional labels such as `Speaker 1` and `Speaker 2`.
 
+The acceptance target is more than 75% correct speaker attribution overall,
+counting unknown and missing attribution as errors. Report the reference corpus,
+duration-weighted overall score, per-speaker and per-condition results, and the
+one-to-one mapping used for anonymous labels. Development and evaluation readers
+must be separate. Controlled audiobook sequences can establish a regression
+score; natural-conversation accuracy still needs representative annotated sessions.
+
 Diarization must operate within the bounded live processing window. Choose an incremental approach that does not require keeping an entire conversation's audio for later analysis. Once frames are discarded, audio-based reprocessing is unavailable.
 
 Support manual correction of text speaker assignments and naming. Later, suggest recurring-person matches with an unknown state and confirmation before uncertain identity merges.

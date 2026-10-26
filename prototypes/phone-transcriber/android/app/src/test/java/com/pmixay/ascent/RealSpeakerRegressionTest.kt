@@ -24,9 +24,134 @@ class RealSpeakerRegressionTest {
             println("Russian reader $reader: signatureEvidence=" + result.signatures.map {
                 "speechMs=${it.speechMs}, windows=${it.windowCount}, cohesion=${it.cohesion}"
             })
-            if (ids.size != 1 || unknownRate > 0.15) failures += diagnostic
+            if (ids.size != 1 || unknownRate > 0.15) {
+                var offset = 0
+                for (clip in clips) {
+                    val assignments = result.assignments.subList(offset, offset + clip.examples.size)
+                    println("Russian split detail ${clip.id}/${clip.variant}: " +
+                        assignments.groupingBy { it.speakerId }.eachCount())
+                    offset += clip.examples.size
+                }
+                for (left in result.signatures.indices) for (right in left + 1 until result.signatures.size) {
+                    val a = result.signatures[left]
+                    val b = result.signatures[right]
+                    println("Russian split centroid ${a.speakerId}/${b.speakerId}: " +
+                        SpeakerClusterer.dot(a.vector, b.vector))
+                }
+                developmentCentroidDiagnostics(examples, reader)
+                failures += diagnostic
+            }
         }
         assertTrue(failures.joinToString("\n"), failures.isEmpty())
+    }
+
+    @Test fun continuousReaderDisjointClipTimeAccuracyExceedsSeventyFivePercent() {
+        val resource = requireNotNull(javaClass.getResourceAsStream("/speaker-embeddings.json"))
+        val document = resource.bufferedReader().use { JSONObject(it.readText()) }
+        val evaluation = document.getJSONObject("evaluation")
+        assertEquals("fb7dc2c6875f36e9dd751c8d9b260ea6e620b302d99c8cc4f9d2c32e0daa699f",
+            evaluation.getString("source_manifest_sha256"))
+        // Frozen independently of the activity gate and clustering output. Every source
+        // sample is scored once per condition, including internal pauses and unknowns.
+        val expectedReaderMs = mapOf("reader_13587" to 24100L, "reader_295" to 21060L,
+            "reader_5397" to 9880L, "reader_8086" to 17870L, "reader_8169" to 15340L,
+            "reader_9014" to 10420L)
+        val cases = evaluation.getJSONArray("cases")
+        assertEquals(4, cases.length())
+        val conditions = mutableSetOf<String>()
+        val failures = mutableListOf<String>()
+        var totalMs = 0L
+        var correctMs = 0L
+        var unknownMs = 0L
+        var macroAccuracySum = 0.0
+        for (caseIndex in 0 until cases.length()) {
+            val case = cases.getJSONObject(caseIndex)
+            val condition = case.getString("condition")
+            assertTrue(conditions.add(condition))
+            val source = case.getJSONArray("probes")
+            val words = (0 until source.length()).map { index ->
+                val probe = source.getJSONObject(index)
+                TimedWord("probe", probe.getLong("start_ms"), probe.getLong("end_ms"))
+            }
+            val readers = (0 until source.length()).map { source.getJSONObject(it).getString("speaker") }
+            val turnKinds = (0 until source.length()).map { source.getJSONObject(it).getString("turn_kind") }
+            val actualReaderMs = words.indices.groupBy { readers[it] }.mapValues { (_, indices) ->
+                indices.sumOf { words[it].endMs - words[it].startMs }
+            }
+            assertEquals("Reference coverage changed", expectedReaderMs, actualReaderMs)
+            val contexts = SpeakerSpeechSupport.contexts(words, case.getLong("duration_ms"))
+            val windows = case.getJSONArray("windows")
+            assertEquals("Python context mirror diverged from app", contexts.size, windows.length())
+            val observations = mutableListOf<SpeakerObservation>()
+            val regions = mutableListOf<Int>()
+            val file = File.createTempFile("ascent-public-conversation-", ".wav")
+            try {
+                requireNotNull(javaClass.getResourceAsStream("/" + case.getString("audio_file"))).use { input ->
+                    file.outputStream().use { output -> input.copyTo(output) }
+                }
+                PcmWave(file).use { wave ->
+                    assertEquals(case.getLong("duration_ms"), wave.durationMs)
+                    for ((index, context) in contexts.withIndex()) {
+                        val window = windows.getJSONObject(index)
+                        assertEquals(context.startMs, window.getLong("start_ms"))
+                        assertEquals(context.endMs, window.getLong("end_ms"))
+                        assertEquals(context.region, window.getInt("region"))
+                        val samples = wave.read(context.startMs * 16, ((context.endMs - context.startMs) * 16).toInt())
+                        val activity = SpeakerSpeechSupport.activity(samples, context.startMs)
+                        samples.fill(0f)
+                        val speechMs = activity.spans.sumOf { it.endMs - it.startMs }
+                        if (speechMs < 320 || activity.quality < .20f) continue
+                        val values = window.getJSONArray("embedding")
+                        assertEquals(192, values.length())
+                        val vector = FloatArray(values.length()) { values.getDouble(it).toFloat() }
+                        assertTrue(vector.all { it.isFinite() })
+                        observations += SpeakerObservation(context.startMs, context.endMs, vector,
+                            activity.quality, speechMs >= 800, activity.spans)
+                        regions += context.region
+                    }
+                }
+                val stable = SpeakerEvidence.stableSeeds(observations, regions)
+                val result = SpeakerClusterer().cluster(stable)
+                val predictions = SpeakerSpeechSupport.speakersForWords(words, stable, result.assignments)
+                val cells = words.indices.map { index -> AttributionCell(readers[index], words[index].startMs,
+                    words[index].endMs, predictions[index]) }
+                val score = SpeakerAttributionScorer.score(cells)
+                assertEquals(98670L, score.totalMs)
+                val labels = predictions.filter { it != SpeakerClusterer.UNKNOWN }.distinct()
+                val shortCells = cells.indices.filter { turnKinds[it] == "short" }.map { cells[it] }
+                val shortMs = shortCells.sumOf { it.endMs - it.startMs }
+                assertEquals(4800L, shortMs)
+                // Reuse the full-session permutation; remapping only short replies could
+                // incorrectly count a transient extra identity as the correct speaker.
+                val shortCorrectMs = shortCells.filter { score.matching[it.reader] == it.predictedSpeakerId }
+                    .sumOf { it.endMs - it.startMs }
+                val diagnostic = "Russian fixed clip-time $condition: correctMs=${score.correctMs}, " +
+                    "totalMs=${score.totalMs}, accuracy=${score.accuracy}, macro=${score.macroAccuracy}, " +
+                    "unknown=${score.unknownRate}, speakers=${labels.size}, " +
+                    "contexts=${contexts.size}, acceptedContexts=${observations.size}, " +
+                    "shortReplyAccuracy=${shortCorrectMs.toDouble() / shortMs}"
+                println(diagnostic)
+                println("Russian fixed clip-time $condition per reader: ${score.perReaderAccuracy}")
+                if (score.accuracy <= .75 || score.macroAccuracy <= .75) failures += diagnostic
+                totalMs += score.totalMs
+                correctMs += score.correctMs
+                unknownMs += score.unknownMs
+                macroAccuracySum += score.macroAccuracy
+            } finally {
+                observations.forEach { it.vector.fill(0f) }
+                file.delete()
+            }
+        }
+        assertEquals(setOf("clean", "gain035", "noise20db", "channel"), conditions)
+        val pooledAccuracy = correctMs.toDouble() / totalMs
+        val pooledMacroAccuracy = macroAccuracySum / cases.length()
+        println("Russian fixed clip-time pooled: correctMs=$correctMs, totalMs=$totalMs, " +
+            "accuracy=$pooledAccuracy, macro=$pooledMacroAccuracy, unknown=${unknownMs.toDouble() / totalMs}")
+        println("Scope: continuous public synthetic sequences with reader-disjoint development/evaluation; " +
+            "100ms clip-time probes, not real ASR words, speech-only DER, phone or natural-conversation accuracy.")
+        assertTrue(failures.joinToString("\n"), failures.isEmpty())
+        assertTrue("Pooled clip-time accuracy must exceed 75%", pooledAccuracy > .75)
+        assertTrue("Macro clip-time accuracy must exceed 75%", pooledMacroAccuracy > .75)
     }
 
     @Test fun returningReadersStayDistinctAcrossDifferentUtterances() {
@@ -61,9 +186,47 @@ class RealSpeakerRegressionTest {
         val diagnostic = "Russian alternating readers: windows=${examples.size}, speakers=${ids.size}, " +
             "assignmentError=$errorRate, unknown=$unknownRate"
         println(diagnostic)
+        if (ids.size != readers.size || errorRate > .15 || unknownRate > .15) {
+            developmentCentroidDiagnostics(examples, "alternating")
+        }
         assertEquals(diagnostic, readers.size, ids.size)
         assertTrue(diagnostic, errorRate <= 0.15)
         assertTrue(diagnostic, unknownRate <= 0.15)
+    }
+
+    /** Bounded calibration on DEVELOPMENT clips only; these candidates never touch evaluation. */
+    private fun developmentCentroidDiagnostics(examples: List<Example>, scenario: String) {
+        for (cutoff in listOf(.65f, .70f, .75f)) {
+            val result = SpeakerClusterer(centroidThreshold = cutoff).cluster(examples.map { it.observation })
+            val predictions = result.assignments.map { it.speakerId }
+            // Unit-duration cells reproduce the existing window-count metric, including unknowns.
+            val score = SpeakerAttributionScorer.score(examples.mapIndexed { index, item ->
+                AttributionCell(item.reader, index.toLong(), index + 1L, predictions[index])
+            })
+            println("DEVELOPMENT centroid candidate $scenario cutoff=$cutoff: " +
+                "accuracy=${score.accuracy}, unknown=${score.unknownRate}, " +
+                "labels=${predictions.filter { it != SpeakerClusterer.UNKNOWN }.distinct().size}")
+            for ((reader, indices) in examples.indices.groupBy { examples[it].reader }) {
+                println("DEVELOPMENT candidate $scenario cutoff=$cutoff $reader: " +
+                    indices.groupingBy { predictions[it] }.eachCount())
+            }
+            if (cutoff != .75f) continue
+            // Assigned-window centers are diagnostics, not remembered speaker templates.
+            val centers = examples.indices.filter { predictions[it] != SpeakerClusterer.UNKNOWN }
+                .groupBy { predictions[it] }.mapValues { (_, indices) ->
+                    val sum = FloatArray(examples.first().observation.vector.size)
+                    for (index in indices) {
+                        val vector = requireNotNull(SpeakerClusterer.normalized(examples[index].observation.vector))
+                        for (dimension in sum.indices) sum[dimension] += vector[dimension]
+                    }
+                    requireNotNull(SpeakerClusterer.normalized(sum))
+                }.toList()
+            for (left in centers.indices) for (right in left + 1 until centers.size) {
+                println("DEVELOPMENT assigned-centroid pair $scenario " +
+                    "${centers[left].first}/${centers[right].first}: " +
+                    SpeakerClusterer.dot(centers[left].second, centers[right].second))
+            }
+        }
     }
 
     private fun arrange(clips: List<Clip>): List<Example> {

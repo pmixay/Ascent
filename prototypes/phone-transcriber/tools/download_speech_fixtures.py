@@ -30,7 +30,8 @@ def verify(data, item):
 
 def fetch(item, manifest):
     query = urllib.parse.urlencode({"dataset": manifest["dataset"], "config": "default",
-                                   "split": manifest["split"], "offset": item["source_row"], "length": 1})
+                                   "split": item.get("source_split", manifest["split"]),
+                                   "offset": item["source_row"], "length": 1})
     with urllib.request.urlopen("https://datasets-server.huggingface.co/rows?" + query, timeout=60) as response:
         document = json.loads(response.read(128_001))
     row = document["rows"][0]
@@ -55,14 +56,25 @@ def fetch(item, manifest):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=FIXTURE_ROOT)
+    parser.add_argument("--subset", choices=("all", "development", "evaluation"), default="all")
     args = parser.parse_args()
-    manifest = json.loads((FIXTURE_ROOT / "manifest.json").read_text(encoding="utf-8"))
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    manifests = []
+    if args.subset in ("all", "development"):
+        manifests.append("manifest.json")
+    if args.subset in ("all", "evaluation"):
+        manifests.append("evaluation_manifest.json")
+    for name in manifests:
+        manifest = json.loads((FIXTURE_ROOT / name).read_text(encoding="utf-8"))
+        download_manifest(manifest, args.output_dir)
+
+
+def download_manifest(manifest, output_dir):
     for item in manifest["fixtures"]:
         name = item["file"]
         if Path(name).name != name or not name.endswith(".wav") or not 0 < item["bytes"] <= MAX_AUDIO_BYTES:
             raise ValueError("Unsafe fixture manifest entry")
-        destination = args.output_dir / name
+        destination = output_dir / name
         if destination.exists():
             verify(destination.read_bytes(), item)
             print(f"Already verified: {item['id']}")

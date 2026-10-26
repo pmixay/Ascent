@@ -95,6 +95,7 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 
 - [ ] Reviewers can trace phrases and speaker turns to capture timestamps without audio playback.
 - [ ] Benchmarks report transcription errors, speaker assignment errors, latency, and phone resource use separately.
+- [ ] Exceed 75% overall speaker-attribution accuracy on representative annotated Russian sessions, with unknown/missing attribution counted as errors, one-to-one label mapping, and per-speaker/condition reporting. Keep constructed public-corpus regression scores separate from this natural-conversation acceptance criterion.
 - [ ] Preserve text, speaker, and boundary corrections distinctly from generated results.
 - [ ] Missing or unclear speech appears as a limitation, not invented dialogue.
 

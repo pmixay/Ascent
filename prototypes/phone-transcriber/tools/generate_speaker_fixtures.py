@@ -75,15 +75,20 @@ def write_pcm(path, samples, np):
     return pcm.astype(np.float32) / 32768.0
 
 
-def embeddings(extractor, samples, np):
-    width = min(len(samples), SAMPLE_RATE * 18 // 10)
-    step = SAMPLE_RATE * 9 // 10
-    starts = sorted(set(range(0, len(samples) - width + 1, step)) | {len(samples) - width})
+def embeddings(extractor, samples, np, contexts=None):
+    if contexts is None:
+        width = min(len(samples), SAMPLE_RATE * 18 // 10)
+        step = SAMPLE_RATE * 9 // 10
+        starts = sorted(set(range(0, len(samples) - width + 1, step)) | {len(samples) - width})
+        contexts = [{"start_ms": start * 1000 // SAMPLE_RATE,
+                     "end_ms": (start + width) * 1000 // SAMPLE_RATE} for start in starts]
     result = []
-    for start in starts:
+    for context in contexts:
+        start = context["start_ms"] * SAMPLE_RATE // 1000
+        end = context["end_ms"] * SAMPLE_RATE // 1000
         stream = extractor.create_stream()
         stream.accept_waveform(sample_rate=SAMPLE_RATE,
-                               waveform=np.ascontiguousarray(samples[start:start + width]))
+                               waveform=np.ascontiguousarray(samples[start:end]))
         stream.input_finished()
         if not extractor.is_ready(stream):
             raise RuntimeError("Speaker extractor is not ready for the public speech fixture")
@@ -91,10 +96,110 @@ def embeddings(extractor, samples, np):
         if (embedding.shape != (192,) or not np.isfinite(embedding).all()
                 or float(np.linalg.norm(embedding.astype(np.float64))) <= 1e-8):
             raise RuntimeError("Speaker extractor returned an invalid embedding")
-        result.append({"start_ms": start * 1000 // SAMPLE_RATE,
-                       "end_ms": (start + width) * 1000 // SAMPLE_RATE,
-                       "embedding": embedding.tolist()})
+        result.append({**context, "embedding": embedding.tolist()})
     return result
+
+
+def probe_contexts(probes, duration_ms):
+    """Mirror SpeakerSpeechSupport.contexts; JVM asserts every returned context."""
+    regions = []
+    for probe in probes:
+        start = min(duration_ms, max(0, probe["start_ms"]))
+        end = min(duration_ms, max(start, probe["end_ms"]))
+        if start == end:
+            continue
+        if regions and start - regions[-1][1] <= 500:
+            regions[-1][1] = max(regions[-1][1], end)
+        else:
+            regions.append([start, end])
+    result = []
+    for index, (region_start, region_end) in enumerate(regions):
+        lower = max(0, region_start - 600,
+                    regions[index - 1][1] + (region_start - regions[index - 1][1]) // 2 if index else 0)
+        upper = min(duration_ms, region_end + 600,
+                    region_end + (regions[index + 1][0] - region_end) // 2
+                    if index + 1 < len(regions) else duration_ms)
+        start = max(lower, region_start - 240)
+        end = min(upper, region_end + 240)
+        if end - start < 1200:
+            target = min(1200, upper - lower)
+            center = region_start + (region_end - region_start) // 2
+            start = min(upper - target, max(lower, center - target // 2))
+            end = start + target
+        if end - start < 320:
+            continue
+        if end - start <= 1800:
+            result.append({"start_ms": start, "end_ms": end, "region": index})
+        else:
+            position = start
+            while position + 1800 < end:
+                result.append({"start_ms": position, "end_ms": position + 1800, "region": index})
+                position += 900
+            final_start = end - 1800
+            if not result or result[-1]["start_ms"] != final_start:
+                result.append({"start_ms": final_start, "end_ms": end, "region": index})
+    return result
+
+
+def conversation_fixtures(extractor, manifest, output_dir, np):
+    """Continuous sequences from readers absent from the development fixtures.
+
+    All source samples appear exactly once per condition. Initial turns use the
+    first clip, short replies the first 800ms of the second clip, and returns its
+    remaining samples. No scores/embeddings determine this frozen arrangement.
+    Reference cells include internal clip silence; only inserted gaps are absent.
+    """
+    by_reader = {}
+    for item in manifest["fixtures"]:
+        by_reader.setdefault(item["speaker"], []).append(item)
+    if len(by_reader) != 6 or any(len(items) != 2 for items in by_reader.values()):
+        raise ValueError("Frozen evaluation requires six readers with two source clips each")
+    readers = sorted(by_reader)
+    cases = []
+    for condition in ("clean", "gain035", "noise20db", "channel"):
+        audio = {}
+        for item in manifest["fixtures"]:
+            source = load_fixture(item, np)
+            audio[item["id"]] = next(value for name, value in variants(source, item["id"], np)
+                                     if name == condition)
+        turns = []
+        for reader in readers:
+            item = by_reader[reader][0]
+            turns.append((item, 0, len(audio[item["id"]]), "long"))
+        for reader in reversed(readers):
+            item = by_reader[reader][1]
+            turns.append((item, 0, SAMPLE_RATE * 8 // 10, "short"))
+        for reader in readers:
+            item = by_reader[reader][1]
+            turns.append((item, SAMPLE_RATE * 8 // 10, len(audio[item["id"]]), "return"))
+        pieces = []
+        probes = []
+        position = 0
+        gap_ms = (0, 100, 1300, 300, 0, 900)
+        for index, (item, begin, finish, kind) in enumerate(turns):
+            if index:
+                gap = gap_ms[(index - 1) % len(gap_ms)] * SAMPLE_RATE // 1000
+                pieces.append(np.zeros(gap, dtype=np.float32))
+                position += gap
+            part = audio[item["id"]][begin:finish]
+            for local in range(0, len(part), SAMPLE_RATE // 10):
+                probes.append({"start_ms": (position + local) * 1000 // SAMPLE_RATE,
+                               "end_ms": (position + min(local + SAMPLE_RATE // 10, len(part))) * 1000 // SAMPLE_RATE,
+                               "speaker": item["speaker"], "turn_kind": kind})
+            pieces.append(part)
+            position += len(part)
+        filename = f"speaker-conversation-{condition}.wav"
+        samples = write_pcm(output_dir / filename, np.concatenate(pieces), np)
+        duration_ms = len(samples) * 1000 // SAMPLE_RATE
+        contexts = probe_contexts(probes, duration_ms)
+        windows = embeddings(extractor, samples, np, contexts)
+        cases.append({"condition": condition, "audio_file": filename, "duration_ms": duration_ms,
+                      "probes": probes, "windows": windows})
+        print(f"Speaker clip-time evaluation {condition}: {len(readers)} readers, "
+              f"{len(probes)} nonoverlapping reference cells, {len(windows)} continuous contexts", flush=True)
+    return {"scope": "Fixed reader-disjoint clip-time attribution; not speech DER or ASR word accuracy",
+            "source_manifest_sha256": digest(FIXTURE_ROOT / "evaluation_manifest.json"),
+            "cases": cases}
 
 
 def main():
@@ -132,8 +237,14 @@ def main():
                                        "windows": windows})
             print(f"Speaker fixture {item['id']} / {name}: {len(windows)} windows", flush=True)
         fixtures.append(output)
+    evaluation = json.loads((FIXTURE_ROOT / "evaluation_manifest.json").read_text())
+    if evaluation["schema_version"] != 1 or evaluation["sample_rate"] != SAMPLE_RATE:
+        raise ValueError("Unexpected evaluation fixture manifest")
+    if {item["speaker"] for item in manifest["fixtures"]} & {item["speaker"] for item in evaluation["fixtures"]}:
+        raise ValueError("Evaluation readers must be disjoint from development readers")
     result = {"schema_version": 1, "model_sha256": MODEL_SHA256,
-              "sample_rate": SAMPLE_RATE, "fixtures": fixtures}
+              "sample_rate": SAMPLE_RATE, "fixtures": fixtures,
+              "evaluation": conversation_fixtures(extractor, evaluation, args.output.parent, np)}
     args.output.write_text(json.dumps(result, separators=(",", ":"), allow_nan=False) + "\n")
     print(f"Generated {len(fixtures)} public speech fixtures; no app or report artifact created.")
 
