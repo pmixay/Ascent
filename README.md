@@ -27,12 +27,18 @@ receives a best-effort assignment with retained inferred provenance, including
 older saved conversations; these guesses cannot teach voice templates.
 Consecutive phrases by the same known speaker share one
 timeline element, with elapsed seconds and timer-marked estimated pauses.
-Recognition prefers quiet chunk boundaries with additional context. CI includes
-six-reader Russian speech regressions and reference-transcript ASR measurements.
+Recognition prefers quiet chunk boundaries with additional context and reconciles
+duplicated words only when both overlapping decodes support one occurrence.
+Speaker discovery reserves a bounded set of acoustically different examples
+before filling its time coverage; centroid merging checks independent internal
+agreement to avoid collapsing voices merely as more examples accumulate. CI
+includes six-reader Russian regressions and reference-transcript ASR measurements.
 A new CI evaluation freezes 1,134 public Russian Dialogs clips from three actors,
 with 7,233.107 seconds of source metadata duration and an enforced minimum of
 two hours after resampling. It measures ASR, speaker attribution and joint word
-errors on constructed dialogue sequences; its results are not yet measured.
+errors on constructed dialogue sequences. The measured development baseline is
+2.8715% WER, 0.8730% CER, 4.9892% joint cpWER and 97.6839% completed clip-time
+attribution; this last figure is not DER. Candidate comparisons are pending.
 Algorithm improvements use `masha_dima_part1` development errors; the other three
 selected recordings are reserved for validation of the chosen changes. This
 split separates recordings, with shared speakers M/D and validation-only S;

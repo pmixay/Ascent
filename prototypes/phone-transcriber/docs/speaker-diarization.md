@@ -57,10 +57,18 @@ calibrated operating point for Russian phone recordings.
   excluded from cluster training only when reliable, overlapping neighbors
   differ strongly and it matches both similarly, providing evidence of a
   mixed boundary. It can still receive an attribution.
-- Perform deterministic average-linkage clustering with at most 256 anchors
-  spread across the session. This bounds the pairwise score matrix and avoids
-  training only on the beginning of a long conversation.
+- Perform deterministic average-linkage clustering with at most 256 anchors.
+  When candidates exceed that budget, reserve up to 24 acoustically different
+  examples using farthest-first coverage and the existing discovery cutoff;
+  fill the remaining budget across the session by quality within time buckets.
+  This prevents periodic equal-quality turns from repeatedly selecting only
+  the same voice. Final anchors retain chronological order.
 - Consolidate compatible aggregate centroids after average-linkage discovery.
+  If both groups contain independent, nonoverlapping seed pairs, their center
+  agreement must also reach each group's mean internal pair agreement. This
+  prevents additional samples from denoising two distinct centroids into a false
+  merge. Pair sums/counts are accumulated without repeatedly recomputing pairs;
+  groups without independent support retain the existing consolidation policy.
   Suppress a bounded degraded fragment only when the same established voice
   surrounds it and acoustic similarity plus the runner-up margin support that
   voice. A single acoustic disturbance can affect several overlapping windows;
@@ -105,6 +113,17 @@ calibrated operating point for Russian phone recordings.
   competitors use the stronger of this temporary template and the seed centroid;
   the fragment cannot contribute to its proposed parent's template. These
   temporary comparisons do not replace discovery centroids or stored profiles.
+  Freeze each small group's preference among independently established voices
+  before considering rival fragments. If every original observation in two
+  small groups independently supports the same parent under the unchanged
+  cutoff and margin, those groups do not act as evidence for separate people
+  merely by competing with one another. Unsupported groups and groups preferring
+  another parent remain competitors. Recovered labels never enter this decision,
+  and the existing no-chain and voice-enrollment exclusions remain in force.
+  This policy has an open-set tradeoff: a genuine new speaker with only brief,
+  acoustically similar evidence can be assigned to an established voice. It
+  cannot establish identity from such evidence; measured comparisons and wider
+  natural-conversation validation remain necessary.
 - Use the strongest covering context per speaker for each word, weighted by
   temporal proximity, similarity and quality. Overlapping windows no longer
   multiply one speaker's vote. Repair a short unknown run only when clear
@@ -349,6 +368,15 @@ comparison rejects an increase in word errors on either clean or channel audio.
 Host evaluation mirrors the Kotlin timing and ownership logic; it is not Android
 device accuracy validation. Fixed model weights are unchanged.
 
+Development diagnostics also exposed duplicate words when adjacent contextual
+CTC decodes move the same emission across a core seam. The candidate stitcher
+reconciles matching, overlapping owned boundary words only when each decode
+contains exactly one matching occurrence in their shared audio. It preserves
+the union of their acoustic span. Repetitions, conflicts and nonoverlapping
+words remain unchanged. This changes text assembly without changing model
+weights, inference windows or acoustic context support. Candidate measurements
+are pending.
+
 [Model CI 40292806058](https://github.com/pmixay/Ascent/actions/runs/40292806058)
 at `c4cd4f3` passed validation and publication. On the fixed concatenated
 215-word development sequence, WER fell from 9.30% to 6.51% in both clean and
@@ -405,10 +433,24 @@ only inserted silence; unknown/missing strict evidence remains an error.
 
 Validated checkpoints cache inference, while the dedicated job always reruns
 scoring and rejects a skipped evaluation. Public audio, transcripts, embeddings
-and reports are not download artifacts. Results have not yet been measured or
-inspected for this new evaluation. These measurements cannot establish
-speech-only DER, overlap separation, phone speed or natural-conversation
-acceptance; those requirements remain open.
+and reports are not download artifacts.
+
+The inspected development baseline at `e9df416` passed
+[CI 40378549620](https://github.com/pmixay/Ascent/actions/runs/40378549620);
+[diagnostic CI 40381522671](https://github.com/pmixay/Ascent/actions/runs/40381522671)
+at `3ae8975` also passed. For the 336 `masha_dima_part1` clips in ten blocks,
+WER is 160/5,572 (2.8715%), CER is 254/29,095 (0.8730%), and joint cpWER is
+278/5,572 (4.9892%). Completed clip-time attribution is
+2,799,686/2,866,068 ms (97.6839%); strict attribution is 2,573,284 ms on the
+same denominator. Completion inferred 56 of 5,567 recognized words; the
+separate reference-probe diagnostic inferred 255,893 ms of clip time.
+
+The candidate adds bounded anchor diversity, an independent-cohesion guard for
+centroid merging, and conservative duplicate-word seam reconciliation. Its
+comparative measurements are pending. Validation recordings remain reserved
+until a candidate is selected. These measurements cannot establish speech-only
+DER, overlap separation, phone speed or natural-conversation acceptance;
+those requirements remain open.
 
 ### Remaining validation
 

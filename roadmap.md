@@ -32,6 +32,10 @@ conversation diarization, overlap, or supported-phone accuracy acceptance criter
 Completed and legacy transcripts receive participant labels for every phrase,
 with best-effort guesses recorded as inferred and excluded from voice learning.
 Strict evidence remains separate from the completed display labels.
+Candidate changes reserve acoustic diversity within the existing anchor budget,
+check independent within-group agreement before merging centroids, and reconcile
+unique overlapping duplicate words at ASR chunk seams. Their acceptance depends
+on measured development improvement and unchanged regression gates.
 
 The new CI dialogue evaluation freezes 1,134 unique public clips from three
 actors, totaling 7,233.107 metadata seconds. It requires at least two hours of
@@ -44,8 +48,10 @@ in validation. Preserve all existing six-reader regression gates and report
 baseline/candidate results separately for development and validation.
 Its original-order, constructed sequences of acted studio dialogue do not
 establish natural-conversation DER, overlap separation or phone performance.
-Results are not yet measured; see the
-[selection and limitations](prototypes/phone-transcriber/tools/fixtures/dialogs/README.md).
+The inspected development baseline is 2.8715% WER, 0.8730% CER, 4.9892% cpWER
+and 97.6839% completed clip-time attribution (not DER). Candidate comparisons
+remain pending and validation results remain reserved; see the
+[selection, baseline and limitations](prototypes/phone-transcriber/tools/fixtures/dialogs/README.md).
 
 - [x] Support Android 12 and later with `minSdk 31`; choose distribution `targetSdk` separately against release-time requirements.
 - [x] Support Wear OS 6.0, with the watch as primary microphone and continuous background capture in the first vertical slice.

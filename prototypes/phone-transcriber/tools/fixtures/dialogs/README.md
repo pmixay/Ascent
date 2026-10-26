@@ -27,12 +27,19 @@ from the publisher's rounded duration was below 0.023 ms. Speaker D contributes
 1,756.203 seconds, M contributes 3,394.543 seconds, and S contributes 2,082.374
 seconds. Public input files are outside the Git checkout and are not artifacts.
 
-This confirms input acquisition only. Recognition inference, Android checks,
-WER/CER and speaker scores remain pending in GitHub CI. GitHub authentication
-has been restored for the next run. No accuracy result is claimed from download
-integrity or header inspection.
+The acquisition checks establish input integrity separately from the measured
+GitHub CI recognition baseline below. No accuracy result is inferred from
+download hashes or header inspection.
 
 ## Selection frozen before inference
+
+The algorithm candidate at `ffa5fa7` was selected on development results before
+reading validation predictions. Development word errors fell from 160 to 156,
+character errors from 254 to 230, joint word/speaker errors from 278 to 262,
+and extra participant labels from 17 to 15. Correct completed clip-time
+attribution increased from 2,799,686 to 2,802,287 of 2,866,068 ms; no development
+block regressed. The reserved recordings are the next acceptance check, not
+inputs to further parameter or model tuning.
 
 [manifest.json](manifest.json) pins the repository revision, complete metadata
 hash, per-file byte counts and SHA-256 hashes, selected speaker labels and model
@@ -69,6 +76,44 @@ both subsets, while S is validation-only. The small number of actors and shared
 identities limit claims about generalization to unseen people. Upstream model
 training overlap remains unknown. No benchmark actor is added to voice memory,
 and no model weights are trained.
+
+## Measured development baseline
+
+The baseline at `e9df416` passed
+[CI 40378549620](https://github.com/pmixay/Ascent/actions/runs/40378549620).
+[Diagnostic CI 40381522671](https://github.com/pmixay/Ascent/actions/runs/40381522671)
+at `3ae8975` also passed. Only development results have been inspected for
+selecting changes; validation results remain reserved.
+
+`masha_dima_part1` contributes 336 unique clips in ten blocks, 2,866.068 seconds
+of resampled source audio, 5,572 reference words and 29,095 reference characters.
+
+| Development metric | Baseline count | Baseline rate |
+| --- | --- | --- |
+| Word error rate | 160 / 5,572 reference words | 2.8715% |
+| Character error rate | 254 / 29,095 reference characters | 0.8730% |
+| Joint speaker/transcription cpWER | 278 / 5,572 reference words | 4.9892% |
+| Completed clip-time attribution | 2,799,686 / 2,866,068 ms correct | 97.6839% |
+
+Strict acoustic attribution correctly labels 2,573,284 ms on the same source
+clip-time denominator. Final word assignments infer 56 of 5,567 recognized words;
+the separate reference-probe diagnostic infers 255,893 ms of clip time. These
+figures measure different populations and must not be conflated. Clip-time
+accuracy includes internal source silence and is **not DER**.
+
+The candidate reserves acoustic diversity within the existing bounded anchor
+budget, requires independently supported centroid agreement before merging,
+and reconciles unique overlapping duplicate words at CTC chunk seams. Model
+weights and operating cutoffs remain fixed. Candidate comparison results are
+pending; no improvement is claimed from the implementation alone.
+
+A further candidate freezes small fragments' independent preferences among
+established voices. Fragments that each satisfy the unchanged rules for the
+same parent no longer block one another solely through mutual similarity.
+Other rivals remain competitors; inferred labels neither corroborate further
+recovery nor train profiles. A genuinely new short, similar-sounding speaker
+can still be absorbed by this best-effort policy, so validation must measure
+both fragmentation and mistaken merging. Its results are pending.
 
 ## Measurement and limitations
 
