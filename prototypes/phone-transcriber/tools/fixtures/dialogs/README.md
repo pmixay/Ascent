@@ -187,3 +187,15 @@ longer held out. The CI test fails if strict or completed full-corpus attributio
 is at or below 75%. Console summaries carry the measurements; public recordings,
 transcripts, vectors and reports are not uploaded as download artifacts. Inspect
 the actual CI result before reporting this evaluation as run.
+
+## Local model rerun and ASR reproducibility
+
+On 26 October 2026, the same 1,134 source files were reverified and the local
+GigaAM and ERes2NetV2 payload hashes matched the pinned CI model hashes. Local
+inference completed all 7,232.648 seconds and 27 blocks. It measured WER
+457/15,740 (2.90%) and CER 767/81,890 (0.94%), compared with the previously
+cached CI ASR outputs at 438/15,740 (2.78%) and 642/81,890 (0.78%). This is a
+19-word and 125-character difference despite identical source and model hashes;
+the runtime-level cause is unresolved. The CI diarization measurements above
+score the application on its completed cached embeddings and are not a score of
+the later local ASR output. Do not present these ASR runs as bit-identical.
