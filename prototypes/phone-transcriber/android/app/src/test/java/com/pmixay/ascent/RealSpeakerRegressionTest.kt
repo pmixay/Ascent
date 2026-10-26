@@ -104,6 +104,15 @@ class RealSpeakerRegressionTest {
                 println(diagnostic)
                 println("Russian sparse-context DEVELOPMENT $name per reader: " +
                     "baseline=${oldScore.perReaderAccuracy}, candidate=${newScore.perReaderAccuracy}")
+                if (oldLabels > readers.distinct().size || newLabels > readers.distinct().size) {
+                    val origins = stable.map { observation ->
+                        val source = (0 until references.length()).map { references.getJSONObject(it) }
+                            .maxBy { (minOf(it.getLong("end_ms"), observation.endMs) -
+                                maxOf(it.getLong("start_ms"), observation.startMs)).coerceAtLeast(0) }
+                        "${source.getString("speaker")}/${source.getString("source_id")}/${source.getString("turn_kind")}"
+                    }
+                    fragmentationDiagnostics(name, stable, origins, baseline, candidate)
+                }
                 if (newLabels > oldLabels || newScore.correctMs < oldScore.correctMs ||
                     oldScore.perReaderAccuracy.any { (reader, accuracy) ->
                         newScore.perReaderAccuracy.getValue(reader) < accuracy
@@ -120,6 +129,67 @@ class RealSpeakerRegressionTest {
             "candidateCorrectMs=$candidateCorrectMs, totalMs=$totalMs; " +
             "correlated public excerpts with synthetic pauses, not phone or natural-conversation accuracy")
         assertTrue(failures.joinToString("\n"), failures.isEmpty())
+    }
+
+    /** DEVELOPMENT observations only; assigned-window centers are not discovery centroids. */
+    private fun fragmentationDiagnostics(name: String, observations: List<SpeakerObservation>, origins: List<String>,
+                                         baseline: SpeakerClustering, candidate: SpeakerClustering) {
+        fun number(value: Float) = String.format(java.util.Locale.ROOT, "%.3f", value)
+        fun support(indices: List<Int>): Long {
+            var end = Long.MIN_VALUE
+            var duration = 0L
+            for (span in indices.flatMap { observations[it].speech }.sortedBy { it.startMs }) {
+                duration += (span.endMs - maxOf(span.startMs, end)).coerceAtLeast(0)
+                end = maxOf(end, span.endMs)
+            }
+            return duration
+        }
+        val vectors = observations.map { requireNotNull(SpeakerClusterer.normalized(it.vector)) }
+        val groups = observations.indices.groupBy { baseline.assignments[it].speakerId }
+        val centers = groups.filterKeys { it != SpeakerClusterer.UNKNOWN }.mapValues { (_, indices) ->
+            val sum = FloatArray(vectors.first().size)
+            for (index in indices) for (dimension in sum.indices) sum[dimension] += vectors[index][dimension]
+            requireNotNull(SpeakerClusterer.normalized(sum))
+        }
+        for ((label, indices) in groups) {
+            val seedIndices = indices.filter { observations[it].canSeed && observations[it].quality >= .55f &&
+                support(listOf(it)) >= 640 }
+            val qualities = indices.map { observations[it].quality }
+            println("DEVELOPMENT fragment group $name $label: windows=${indices.size}, " +
+                "supportMs=${support(indices)}, seedWindows=${seedIndices.size}, seedSupportMs=${support(seedIndices)}, " +
+                "span=${indices.minOf { observations[it].startMs }}..${indices.maxOf { observations[it].endMs }}, " +
+                "quality=${number(qualities.min())}..${number(qualities.max())}, " +
+                "origins=${indices.groupingBy { origins[it] }.eachCount()}, " +
+                "candidate=${indices.groupingBy { candidate.assignments[it].speakerId }.eachCount()}")
+            val center = centers[label] ?: continue
+            val peers = centers.filterKeys { it != label }.entries
+                .sortedByDescending { SpeakerClusterer.dot(center, it.value) }.take(3)
+            for ((peer, peerCenter) in peers) {
+                val anchors = groups.getValue(peer).filter { observations[it].canSeed &&
+                    observations[it].quality >= .55f && support(listOf(it)) >= 640 }
+                val evidence = indices.map { index ->
+                    val ranked = anchors.map { it to SpeakerClusterer.dot(vectors[index], vectors[it]) }
+                        .sortedByDescending { it.second }
+                    val first = ranked.firstOrNull()
+                    val second = first?.let { best -> ranked.drop(1).firstOrNull { other ->
+                        observations[other.first].endMs <= observations[best.first].startMs ||
+                            observations[other.first].startMs >= observations[best.first].endMs
+                    } }
+                    "$index:${first?.let { number(it.second) } ?: "none"}/" +
+                        (second?.let { number(it.second) } ?: "none")
+                }
+                println("DEVELOPMENT fragment peer $name $label->$peer: " +
+                    "assignedCenterCos=${number(SpeakerClusterer.dot(center, peerCenter))}, " +
+                    "independentTop2=$evidence")
+            }
+            if (indices.size <= 6 || support(indices) < 6000) {
+                println("DEVELOPMENT fragment windows $name $label: " + indices.map { index ->
+                    val item = observations[index]
+                    "$index:${item.startMs}..${item.endMs},speech=${support(listOf(index))}," +
+                        "quality=${number(item.quality)},seed=${item.canSeed},${origins[index]}"
+                })
+            }
+        }
     }
 
     @Test fun oneReaderKeepsOneLabelAcrossUtterancesGainAndNoise() {

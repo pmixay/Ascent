@@ -271,6 +271,25 @@ dedicated development material and subsequent independent validation.
 
 ### Recognition boundaries and timeline
 
+### Sparse-context development regression
+
+An additional fixed development sequence uses 0.9-, 1.2- and 1.8-second excerpts
+with synthetic pauses and sparse emission intervals. Longer voice references
+come from different source utterances than the excerpts. Both clean and channel
+variants are scored using all source time, including unknown attribution. The
+same excerpts occur in single-reader and alternating-reader cases, so the
+243,820 ms pooled denominator contains correlated examples.
+
+[CI 40300835163](https://github.com/pmixay/Ascent/actions/runs/40300835163)
+at `e7a73ff` reproduced four single readers splitting into two labels and six
+alternating readers splitting into ten. Correct attribution was
+212,620/243,820 ms (87.20%), unchanged from the frozen `3fee6da` policy. The first
+independent-example recovery passed its focused synthetic regression but did
+not improve these real-model cases. Passing that CI run therefore did not
+establish that the reported fragmentation was fixed.
+
+### Recognition boundaries and timeline
+
 The app previously cut ASR cores exactly every 20 seconds with 500 ms of context.
 It now searches the final two seconds of each nonfinal core for at least 200 ms
 of low energy and places the seam in the latest qualifying interval. If none
