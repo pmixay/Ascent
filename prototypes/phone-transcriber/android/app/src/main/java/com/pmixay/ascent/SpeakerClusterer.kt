@@ -19,7 +19,8 @@ data class SpeakerAssignment(val speakerId: String, val similarity: Float)
 data class SpeakerClustering(val assignments: List<SpeakerAssignment>, val signatures: List<VoiceSignature>)
 
 /**
- * Bounded average-linkage discovery, centroid consolidation and evidence-gated reassignment.
+ * P-pruned spectral discovery with bounded average-linkage fallback, centroid consolidation
+ * and evidence-gated reassignment.
  * Discovery and labeling are different decisions: a short phrase can match an established voice
  * without being allowed to establish a new voice or teach a remembered profile.
  * These cosine thresholds are initial operating points, not calibrated Russian accuracy claims.
@@ -79,14 +80,16 @@ class SpeakerClusterer(
         val anchors = selectAnchors(candidates, observations, vectors)
         val count = anchors.size
         val scores = Array(count) { FloatArray(count) }
-        val members = Array(count) { mutableListOf(anchors[it]) }
-        val active = BooleanArray(count) { true }
         for (a in 0 until count) for (b in a + 1 until count) {
             val score = dot(vectors[anchors[a]]!!, vectors[anchors[b]]!!)
             scores[a][b] = score
             scores[b][a] = score
         }
-        while (true) {
+        val spectralMembers = spectralPartition(anchors, vectors)
+        val members = spectralMembers?.map { it.toMutableList() }?.toMutableList()
+            ?: MutableList(count) { mutableListOf(anchors[it]) }
+        val active = BooleanArray(members.size) { true }
+        while (spectralMembers == null) {
             checkCancelled()
             var first = -1
             var second = -1
@@ -154,15 +157,14 @@ class SpeakerClusterer(
             }
         }.toMutableList()
 
-        // Average linkage compares individual noisy embeddings. Two fragments of the same voice
-        // can fail that comparison even when their denoised, normalized centroids agree. This is
-        // a separate centroid pass, as in the upstream 3D-Speaker clustering backend; it does not
-        // lower the discovery threshold or force small clusters into the largest speaker.
+        // Spectral partitions and average-linkage fallback groups can still fragment one voice.
+        // Consolidate only when independently supported group centroids agree.
         while (consolidated.size > 1) {
             checkCancelled()
             var first = -1
             var second = -1
-            var best = maxOf(threshold, centroidThreshold)
+            var best = if (spectralMembers != null) maxOf(0.82f, centroidThreshold)
+                else maxOf(threshold, centroidThreshold)
             for (a in consolidated.indices) for (b in a + 1 until consolidated.size) {
                 if (consolidated[a].indices.size == 1 && consolidated[b].indices.size == 1) continue
                 val score = dot(consolidated[a].center, consolidated[b].center)
@@ -464,6 +466,136 @@ class SpeakerClusterer(
         }
         return SpeakerClustering(assignments, signatures)
     }
+
+    /** P-pruned, symmetric cosine graph followed by an eigengap-selected spectral partition. */
+    private fun spectralPartition(anchors: List<Int>, vectors: List<FloatArray?>): List<List<Int>>? {
+        val size = anchors.size
+        if (size < 12) return null
+        val neighbors = minOf(6, size - 1)
+        val affinity = Array(size) { DoubleArray(size) }
+        for (row in 0 until size) {
+            checkCancelled()
+            val ranked = (0 until size).filter { it != row }
+                .map { it to dot(vectors[anchors[row]]!!, vectors[anchors[it]]!!).coerceAtLeast(0f) }
+                .sortedWith(compareByDescending<Pair<Int, Float>> { it.second }.thenBy { it.first })
+            for ((column, score) in ranked.take(neighbors)) {
+                val weight = score.toDouble()
+                affinity[row][column] = maxOf(affinity[row][column], weight)
+                affinity[column][row] = maxOf(affinity[column][row], weight)
+            }
+        }
+        val degree = DoubleArray(size) { row -> affinity[row].sum() }
+        if (degree.any { it <= 1e-9 }) return null
+        val normalized = Array(size) { row -> DoubleArray(size) { column ->
+            affinity[row][column] / sqrt(degree[row] * degree[column])
+        } }
+        val (eigenvalues, eigenvectors) = symmetricEigen(normalized) ?: return null
+        val order = eigenvalues.indices.sortedByDescending { eigenvalues[it] }
+        val sortedValues = order.map { eigenvalues[it] }
+        val maxClusters = minOf(maxSpeakers, size / 3)
+        if (maxClusters < 2) return null
+        val candidates = (2..maxClusters).sortedByDescending { count ->
+            sortedValues[count - 1] - sortedValues[count]
+        }
+        for (clusterCount in candidates) {
+            checkCancelled()
+            val gap = sortedValues[clusterCount - 1] - sortedValues[clusterCount]
+            if (gap < 0.025) break
+            val coordinates = Array(size) { row ->
+                DoubleArray(clusterCount) { column -> eigenvectors[row][order[column]] }
+            }
+            for (row in 0 until size) {
+                val norm = sqrt(coordinates[row].sumOf { it * it })
+                if (norm <= 1e-9) continue
+                for (column in coordinates[row].indices) coordinates[row][column] /= norm
+            }
+            val labels = spectralKMeans(coordinates, clusterCount) ?: continue
+            val counts = IntArray(clusterCount)
+            labels.forEach { counts[it]++ }
+            if ((counts.minOrNull() ?: 0) < 3) continue
+            return (0 until clusterCount).map { label ->
+                labels.indices.filter { labels[it] == label }.map { anchors[it] }
+            }
+        }
+        return null
+    }
+
+    /** Cyclic Jacobi diagonalization for the small symmetric anchor graph. */
+    private fun symmetricEigen(matrix: Array<DoubleArray>): Pair<DoubleArray, Array<DoubleArray>>? {
+        val size = matrix.size
+        val values = Array(size) { matrix[it].copyOf() }
+        val vectors = Array(size) { row -> DoubleArray(size) { column -> if (row == column) 1.0 else 0.0 } }
+        for (sweep in 0 until 24) {
+            checkCancelled()
+            var largest = 0.0
+            for (p in 0 until size - 1) for (q in p + 1 until size) {
+                val cross = values[p][q]
+                largest = maxOf(largest, abs(cross))
+                if (abs(cross) < 1e-10) continue
+                val diagonalP = values[p][p]
+                val diagonalQ = values[q][q]
+                val tau = (diagonalQ - diagonalP) / (2.0 * cross)
+                val t = if (tau >= 0) 1.0 / (tau + sqrt(1 + tau * tau))
+                    else -1.0 / (-tau + sqrt(1 + tau * tau))
+                val cosine = 1.0 / sqrt(1 + t * t)
+                val sine = t * cosine
+                for (row in 0 until size) if (row != p && row != q) {
+                    val oldP = values[row][p]
+                    val oldQ = values[row][q]
+                    values[row][p] = cosine * oldP - sine * oldQ
+                    values[p][row] = values[row][p]
+                    values[row][q] = sine * oldP + cosine * oldQ
+                    values[q][row] = values[row][q]
+                }
+                values[p][p] = diagonalP - t * cross
+                values[q][q] = diagonalQ + t * cross
+                values[p][q] = 0.0
+                values[q][p] = 0.0
+                for (row in 0 until size) {
+                    val oldP = vectors[row][p]
+                    val oldQ = vectors[row][q]
+                    vectors[row][p] = cosine * oldP - sine * oldQ
+                    vectors[row][q] = sine * oldP + cosine * oldQ
+                }
+            }
+            if (largest < 1e-8) break
+        }
+        val eigenvalues = DoubleArray(size) { values[it][it] }
+        if (eigenvalues.any { !it.isFinite() } || vectors.any { row -> row.any { !it.isFinite() } }) return null
+        return eigenvalues to vectors
+    }
+
+    /** Deterministic farthest-first initialization avoids random session labels. */
+    private fun spectralKMeans(points: Array<DoubleArray>, clusters: Int): IntArray? {
+        val selected = mutableListOf(0)
+        while (selected.size < clusters) {
+            val next = points.indices.filter { it !in selected }.maxByOrNull { candidate ->
+                selected.minOf { prior -> squaredDistance(points[candidate], points[prior]) }
+            } ?: return null
+            selected += next
+        }
+        var centers = selected.map { points[it].copyOf() }.toMutableList()
+        var labels = IntArray(points.size)
+        repeat(80) {
+            val updated = IntArray(points.size) { row -> centers.indices.minByOrNull { cluster ->
+                squaredDistance(points[row], centers[cluster])
+            } ?: 0 }
+            val nextCenters = MutableList(clusters) { cluster ->
+                val members = points.indices.filter { updated[it] == cluster }
+                if (members.isEmpty()) centers[cluster].copyOf() else DoubleArray(points.first().size) { column ->
+                    members.sumOf { points[it][column] } / members.size
+                }
+            }
+            val stable = updated.contentEquals(labels)
+            labels = updated
+            centers = nextCenters
+            if (stable) return labels
+        }
+        return labels
+    }
+
+    private fun squaredDistance(first: DoubleArray, second: DoubleArray): Double =
+        first.indices.sumOf { index -> val difference = first[index] - second[index]; difference * difference }
 
     private fun selectAnchors(candidates: List<Int>, observations: List<SpeakerObservation>, vectors: List<FloatArray?>): List<Int> {
         if (candidates.size <= maxAnchors) return candidates
