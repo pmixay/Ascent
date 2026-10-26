@@ -1,4 +1,4 @@
-"""Integrity and accounting checks; actual speech inference runs in the CI evaluation job."""
+"""Integrity and accounting checks; model inference runs locally; CI scores a completed cache."""
 import hashlib
 import io
 import json

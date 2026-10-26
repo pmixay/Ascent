@@ -447,10 +447,15 @@ separate reference-probe diagnostic inferred 255,893 ms of clip time.
 
 Candidate `ffa5fa7` added bounded anchor diversity, an independent-cohesion guard
 for centroid merging, and conservative duplicate-word seam reconciliation. It
-did not fix the female/female merge on the original diagnostic set. The current
-complete-linkage experiment left female/female attribution at 61.3% and failed
-three six-reader regressions; it has been reverted. No improvement is claimed. These measurements cannot establish speech-only
-DER, overlap separation, phone speed or natural-conversation acceptance;
+did not fix the female/female merge on the original diagnostic set. The spectral
+graph candidate at `409bb5f` raised that set to 93.86% completed attribution and
+13.11% cpWER. This set has been inspected and
+is not independent validation. A p-pruned cosine graph and eigengap partition
+operate on sessions with at least 160 anchors; smaller sessions use the prior
+linkage path. CI 40391014542 passed the six-reader regressions and strict and
+completed >75% corpus gates. Full-corpus strict attribution is 89.90%, completed
+attribution 95.31%, and cpWER 10.26%. These measurements cannot establish
+speech-only DER, overlap separation, phone speed or natural-conversation acceptance;
 those requirements remain open.
 
 ### Remaining validation

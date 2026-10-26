@@ -114,8 +114,10 @@ showed that this candidate does not solve female/female merging.
 
 ## Measurement and limitations
 
-CI downloads and verifies every selected recording and the exact production
-GigaAM/ERes2NetV2 model revision. It mixes source channels to mono, resamples to
+The local evaluator downloads and verifies every selected recording and the
+exact production GigaAM/ERes2NetV2 model revision. GitHub CI never runs inference;
+it restores the completed cache and scores the current Android attribution code.
+The evaluator mixes source channels to mono, resamples to
 16 kHz using SciPy's polyphase filter, quantizes to PCM16, and removes at most
 15 resampled tail samples per source to obtain exact millisecond boundaries.
 Original utterances remain intact and in their original numeric order.
@@ -148,7 +150,7 @@ diversity. Publisher train/validation/test labels do not determine this frozen
 application selection or its development/validation split. Model weights are
 not trained on this selection; upstream training exclusion cannot be established.
 
-The **Evaluate two hours of labeled Russian dialogue** job scores a previously
+The **Score cached two-hour Russian speech evaluation** job scores a previously
 completed inference cache on pushes. Model inference for algorithm improvement
 runs on the development machine; Android builds and application tests remain CI
 only. In CI, the harness scores the actual application attribution code. For
@@ -173,8 +175,15 @@ pins, evaluator code and audio hashes. Valid checkpoints resume inference
 without changing the evaluation denominator. Hash-verified sources and weights
 remain in the local evaluation cache; public recordings, transcripts, vectors
 and reports are not GitHub download artifacts. CI only restores completed
-recognition inputs and fails if that cache is missing.
-The scorer always runs against the current application code. Console summaries carry
-the aggregate measurements; public recordings, transcripts, vectors and reports
-are not uploaded as download artifacts. A completed CI result must be inspected
-before reporting this evaluation as run.
+recognition inputs and fails if that cache is missing. The scorer always runs
+against the current application code. On CI 40391014542 at
+`409bb5f`, the fixed corpus measured 438/15,740 word errors (WER 2.78%),
+642/81,890 character errors (CER 0.78%), 1,615/15,740 joint cpWER errors
+(10.26%), 6,502,041/7,232,648 ms strict attribution (89.90%) and
+6,893,230/7,232,648 ms completed attribution (95.31%). Actor completed attribution was 96.27% for D, 94.73% for M and 96.18% for S.
+The original diagnostic recordings measured 93.86% completed attribution and
+13.11% cpWER after spectral partitioning; the set has been inspected and is no
+longer held out. The CI test fails if strict or completed full-corpus attribution
+is at or below 75%. Console summaries carry the measurements; public recordings,
+transcripts, vectors and reports are not uploaded as download artifacts. Inspect
+the actual CI result before reporting this evaluation as run.

@@ -33,16 +33,20 @@ Speaker discovery reserves a bounded set of acoustically different examples
 before filling its time coverage; centroid merging checks independent internal
 agreement to avoid collapsing voices merely as more examples accumulate. CI
 includes six-reader Russian regressions and reference-transcript ASR measurements.
-A CI evaluation freezes 1,134 public Russian Dialogs clips from three actors,
-with 7,233.107 seconds of source metadata duration. It measures ASR, speaker
-attribution and joint word errors on constructed dialogue sequences. The initial
-development baseline is 2.8715% WER, 0.8730% CER, 4.9892% joint cpWER and 97.6839%
-completed clip-time attribution; this last figure is not DER. The original
-reserved recordings exposed a female/female merge: candidate cpWER was 77.94% and
-completed clip-time attribution 61.30%. They are diagnostic data now, not a
-held-out validation set. A complete-linkage experiment left the original female/female set at 61.3%
-completed attribution and failed three six-reader regressions. It has been
-reverted; no improvement is claimed. Six-reader regression gates remain unchanged.
+The fixed evaluation covers 1,134 public Russian Dialogs clips from three actors
+and 7,233.107 seconds of source audio in constructed dialogue sequences. The
+initial development baseline was 2.8715% WER, 0.8730% CER, 4.9892% joint cpWER
+and 97.6839% completed clip-time attribution (not DER). It exposed a severe
+female/female merge on the original reserved recordings: 61.30% completed
+attribution and 77.94% cpWER. A p-pruned spectral graph candidate now scores
+89.90% strict and 95.31% completed attribution across the full corpus; the
+original diagnostic subset scores 90.48% strict and 93.86% completed. WER/CER
+remain 2.78%/0.78%, and overall cpWER is 10.26%. Unknown and missing speaker
+labels count as errors. Actor completed attribution was 96.27% for D, 94.73%
+for M and 96.18% for S. The original reserved recordings have informed the fix,
+so they are diagnostic data, not an untouched validation set. GitHub CI passed
+Android regressions, emulator runtime verification and both >75% speaker accuracy
+gates at [run 40391014542](https://github.com/pmixay/Ascent/actions/runs/40391014542).
 Natural conversation and phone accuracy remain unmeasured. See the
 [speaker evaluation scope](prototypes/phone-transcriber/docs/speaker-diarization.md).
 

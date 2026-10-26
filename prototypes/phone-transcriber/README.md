@@ -134,7 +134,7 @@ triggers. The base repository had no workflow to reuse.
    optimization output and absence of model weights. Its only download artifact
    is `debug-<8-character commit>.zip`, containing only `ascent.apk`. Test and lint
    diagnostics remain in the workflow console; report artifacts are not uploaded.
-   Its additional **Evaluate two hours of labeled Russian dialogue** job scores a
+   Its additional **Score cached two-hour Russian speech evaluation** job scores a
    previously completed inference cache against the application attribution code.
    Model inference for algorithm improvement runs on the development machine; CI
    fails on a missing cache rather than downloading speech or starting models.
@@ -267,22 +267,23 @@ embeddings. Inference checkpoints resume only after integrity checks; scoring
 runs on every evaluation job using the completed inference cache. Audio, transcripts,
 vectors and reports are not download artifacts.
 
-The inspected development baseline covers `masha_dima_part1`: 336 clips,
+The initial development baseline covers `masha_dima_part1`: 336 clips,
 2,866.068 source seconds and 5,572 reference words. It measures 2.8715% WER,
-0.8730% CER, 4.9892% cpWER and 97.6839% completed clip-time attribution.
-[Baseline CI](https://github.com/pmixay/Ascent/actions/runs/40378549620) and the
-[development diagnostic run](https://github.com/pmixay/Ascent/actions/runs/40381522671)
-passed. The three originally reserved recordings were inspected and exposed a severe female/female merge (61.30% completed clip-time attribution). They are diagnostic data now, not held-out validation; M and D also occur across the original split.
+0.8730% CER, 4.9892% cpWER and 97.6839% completed clip-time attribution. The
+originally reserved M/S recordings exposed a severe merge (61.30% completed
+attribution, 77.94% cpWER) and are diagnostic data now, not held-out validation.
 
-Candidate `ffa5fa7` reserves acoustic diversity within the existing 256-anchor
-budget, checks independent within-group agreement before centroid merging, and
-reconciles unique duplicated CTC words across overlapping chunk decodes. The
-original reserved set showed that these changes do not fix female/female merging.
-A complete-linkage discovery experiment left female/female attribution at
-61.3% and failed three six-reader regressions; it has been reverted. This
-corpus does not establish natural-conversation DER, cross-session identity,
-overlap handling or supported-phone performance. See the linked evaluation
-record for exact denominators and scope.
+Candidate `409bb5f` uses a six-neighbor pruned cosine graph and eigengap-selected
+spectral partitioning for sessions with at least 160 anchors. Shorter or weakly
+separated sessions retain the previous average-linkage path; spectral partitions
+use a higher centroid merge floor. The >2-hour CI score is 89.90% strict and
+95.31% completed clip-time attribution, 10.26% cpWER, 2.78% WER and 0.78% CER.
+On the original diagnostic recordings, completed attribution is 93.86%, up from
+61.30%. The original six-reader regression gates pass. These are measured results
+on the fixed acted-dialogue selection, not an untouched speaker validation set.
+Natural-conversation DER, cross-session identity, overlap handling and supported-
+phone performance remain unmeasured. See the linked evaluation record for exact
+denominators and scope.
 
 ## Model and runtime references
 
