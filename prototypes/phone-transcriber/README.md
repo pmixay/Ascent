@@ -220,8 +220,8 @@ including reduced-gain, white-noise and synthetic channel variants. JVM tests ap
 gates and clustering to these embeddings. Additional sparse-context cases compare
 the current grouping policy against a frozen test-only baseline, with short
 phrases from source utterances distinct from the longer voice references.
-Brief fragments require two independent original acoustic matches before
-rejoining a voice; recovered examples cannot teach remembered profiles.
+Reconciliation requires an independently supported parent voice and sufficient
+acoustic separation from alternatives; recovered examples cannot teach remembered profiles.
 The fixture audio and model never enter
 the APK or downloadable artifacts. The separate model workflow checks actual ASR
 inference, prints reference-transcript WER/CER, and rejects chunk-policy changes

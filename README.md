@@ -15,7 +15,7 @@ A dedicated model panel keeps local readiness separate from update checks and
 download progress, so an offline or failed update does not hide usable models.
 Speaker attribution preserves short acoustic contexts, consolidates recurring
 voice fragments, and recovers bounded degraded runs only with matching voice
-evidence on both sides. Brief extra labels can also rejoin an established voice
+evidence on both sides. Smaller recurring groups can also rejoin an established voice
 when they match two independent original examples of that voice, with a clear
 margin over alternatives; recovered fragments never train voice memory.
 Consecutive phrases by the same known speaker share one

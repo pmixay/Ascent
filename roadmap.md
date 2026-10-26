@@ -17,7 +17,7 @@ background update activity. Checks, transfer progress and resumable waiting stat
 appear together without disabling installed models during an update failure.
 
 Prototype speaker work adds short-speech context recovery, centroid consolidation,
-bounded recovery of degraded runs, independently corroborated recovery of brief
+bounded recovery of degraded runs, independently corroborated recovery of recurring
 voice fragments, and real-model regressions using six public
 Russian readers with controlled gain/noise/channel changes. Consecutive known
 speaker phrases share one timeline element with seconds and estimated pause

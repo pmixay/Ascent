@@ -75,18 +75,29 @@ calibrated operating point for Russian phone recordings.
   speech can receive a label with sufficient acoustic evidence; establishing a
   voice still needs at least 800 ms in the extraction pass and the stronger
   cluster quality gate. Exceeding the speaker budget remains unknown.
-- Recover a brief, contiguous extra group when every anchor strongly matches
+- Reconcile a smaller extra group when every anchor strongly matches
   two nonoverlapping original examples of the same established voice. This
   compares different acoustic modes within that voice instead of relying only
-  on its average centroid. The group must have less than three seconds of unique
-  speech within a three-second span; its parent needs at least three anchors,
-  three seconds of speech and twice the fragment's support. Both independent
+  on its average centroid. Its parent needs at least three anchors,
+  three seconds of speech and twice the fragment's unique speech support. Both independent
   matches must reach the centroid cutoff (normally 0.70), with a margin of 0.08
   over other groups' centroids or independent examples. These are fixed original
-  examples: recovered groups cannot corroborate another recovery. Distinct or
-  recurring voices, duplicate overlapping examples and ambiguous parent choices
-  do not qualify. Apply the recovered label after temporal recovery, and exclude
+  examples: recovered groups cannot corroborate another recovery. Recurrence
+  alone does not establish a new person; the same phonetic variation can recur.
+  Duplicate overlapping examples and ambiguous parent choices do not qualify.
+  Apply the recovered label after temporal recovery, and exclude
   the fragment from centroids and voice enrollment.
+- Before accepting a small group as another person, check its original members
+  against established voices with the ordinary assignment cutoff (0.60) and a
+  stronger competing-voice margin (0.12). This path requires less than three
+  seconds of unique source support, two nonoverlapping original parent seeds,
+  and at least four seconds of independently assigned parent speech, also at
+  least twice the source support. Every source member must support the same
+  parent. All support is measured before recovery, and proposed parents cannot
+  themselves be recovered groups. This prevents a small component from becoming
+  a person solely through matching its own seeds, while retaining the stronger
+  threshold for consolidating two established voices. Recovered observations
+  cannot train centroids or voice templates.
 - Use the strongest covering context per speaker for each word, weighted by
   temporal proximity, similarity and quality. Overlapping windows no longer
   multiply one speaker's vote. Repair a short unknown run only when clear
@@ -268,8 +279,6 @@ score was only 33.33%. Long turns dominate overall duration: passing the
 aggregate target does not establish reliable short replies. The 1.8-second
 contexts can mix neighboring voices around rapid changes; improving that needs
 dedicated development material and subsequent independent validation.
-
-### Recognition boundaries and timeline
 
 ### Sparse-context development regression
 

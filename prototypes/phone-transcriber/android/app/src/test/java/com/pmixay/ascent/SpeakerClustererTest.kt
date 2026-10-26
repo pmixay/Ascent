@@ -222,12 +222,13 @@ class SpeakerClustererTest {
         assertEquals(2, result.assignments.map { it.speakerId }.distinct().size)
     }
 
-    @Test fun recurringModesCannotBeCollapsedAsOneBoundedFragment() {
+    @Test fun independentlyCorroboratedModesKeepOneIdentityAcrossSeparateTurns() {
         val samples = broadVoiceSamples() + listOf(returningMode(14400),
             SpeakerObservation(16200, 18000, floatArrayOf(1f, 0f, 0f)), returningMode(18000))
         val result = SpeakerClusterer().cluster(samples)
-        assertEquals("speaker_2", result.assignments[8].speakerId)
-        assertEquals("speaker_2", result.assignments[10].speakerId)
+        assertEquals(List(11) { "speaker_1" }, result.assignments.map { it.speakerId })
+        assertEquals(9, result.signatures.single().windowCount)
+        assertEquals(16200L, result.signatures.single().speechMs)
     }
 
     @Test fun everyFragmentWindowNeedsOriginalIndependentSupport() {
@@ -253,6 +254,62 @@ class SpeakerClustererTest {
         }
         val result = SpeakerClusterer().cluster(samples)
         assertEquals(List(8) { "speaker_1" } + List(8) { "speaker_2" } + "speaker_3",
+            result.assignments.map { it.speakerId })
+    }
+
+    @Test fun aShortSelfConfirmingComponentUsesIndependentEstablishedVoiceEvidence() {
+        val observations = (0 until 4).map { index ->
+            val vector = FloatArray(192).also { it[0] = .8f; it[index + 1] = .6f }
+            SpeakerObservation(index * 2000L, index * 2000L + 1800, vector)
+        }
+        val fragment = FloatArray(192).also { it[0] = .67f; it[20] = sqrt(1f - .67f * .67f) }
+        // Raw cross-similarity .536 misses discovery; the independent denoised centroid
+        // matches at .627. Two copies of this short excerpt must not self-confirm a person.
+        val samples = observations + listOf(SpeakerObservation(9000, 9900, fragment),
+            SpeakerObservation(13000, 13900, fragment))
+        val result = SpeakerClusterer().cluster(samples)
+        assertEquals(List(6) { "speaker_1" }, result.assignments.map { it.speakerId })
+        assertEquals(4, result.signatures.single().windowCount)
+        assertEquals(7200L, result.signatures.single().speechMs)
+        assertEquals(0f, result.signatures.single().vector[20], .001f)
+    }
+
+    @Test fun originalStrictSpeechCanEstablishAParentWithOnlyTwoIndependentSeeds() {
+        val a = floatArrayOf(.75f, sqrt(1f - .75f * .75f), 0f, 0f)
+        val b = floatArrayOf(.75f, 0f, a[1], 0f)
+        val center = SpeakerClusterer.normalized(FloatArray(4) { a[it] + b[it] })!!
+        val seeds = listOf(SpeakerObservation(0, 1800, a, quality = .6f,
+            speech = listOf(SpeechSpan(0, 1060))),
+            SpeakerObservation(2000, 3800, b, quality = .6f, speech = listOf(SpeechSpan(2000, 3060))))
+        val corroboration = (0 until 3).map { index ->
+            val start = 4000 + index * 2000L
+            SpeakerObservation(start, start + 1800, center, quality = .44f, canSeed = false,
+                speech = listOf(SpeechSpan(start, start + 800)))
+        }
+        val fragment = floatArrayOf(.72f, 0f, 0f, sqrt(1f - .72f * .72f))
+        val samples = seeds + corroboration + listOf(
+            SpeakerObservation(11000, 12200, fragment, quality = .75f,
+                speech = listOf(SpeechSpan(11000, 11900))),
+            SpeakerObservation(14000, 15200, fragment, quality = .75f,
+                speech = listOf(SpeechSpan(14000, 14900))))
+        val result = SpeakerClusterer().cluster(samples)
+        assertEquals(List(7) { "speaker_1" }, result.assignments.map { it.speakerId })
+        assertEquals(2, result.signatures.single().windowCount)
+        assertEquals(2120L, result.signatures.single().speechMs)
+    }
+
+    @Test fun aSmallComponentCannotChooseBetweenSimilarEstablishedVoices() {
+        val observations = (0 until 8).map { index ->
+            val vector = FloatArray(192).also { it[if (index < 4) 0 else 1] = .8f; it[index + 2] = .6f }
+            SpeakerObservation(index * 2000L, index * 2000L + 1800, vector)
+        }
+        val fragment = FloatArray(192).also {
+            it[0] = .67f; it[1] = .67f; it[20] = sqrt(1f - 2 * .67f * .67f)
+        }
+        val samples = observations + listOf(SpeakerObservation(18000, 18900, fragment),
+            SpeakerObservation(22000, 22900, fragment))
+        val result = SpeakerClusterer().cluster(samples)
+        assertEquals(List(4) { "speaker_1" } + List(4) { "speaker_2" } + List(2) { "speaker_3" },
             result.assignments.map { it.speakerId })
     }
 

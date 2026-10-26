@@ -154,19 +154,43 @@ class SpeakerClusterer(
             consolidated.removeAt(second)
         }
 
-        // Overlapping contexts from one brief degraded passage share their acoustic evidence.
-        // They must not establish a new person merely by agreeing with one another. Recover only
-        // one bounded, contiguous passage with acoustic support for the SAME established voice
-        // on both sides. Clear, recurring, distant and one-sided voices remain independent.
         val originalOwners = consolidated.flatMapIndexed { owner, item -> item.indices.map { it to owner } }.toMap()
         val anchorPositions = anchorOrder.withIndex().associate { it.value to it.index }
         val fragmentParents = mutableMapOf<Int, Int>()
         val prototypeAssignments = mutableMapOf<Int, Pair<Int, Float>>()
-        // A broad voice can contain several phonetic modes. A brief returning mode may be
+        val prototypeParents = mutableMapOf<Int, Int>()
+        val proposedAssignments = mutableMapOf<Int, Pair<Int, Float>>()
+        // Measure established voices before any recovery. Weak/non-seeding observations may
+        // supply duration only when they already pass the ordinary acoustic assignment rules.
+        // This does not retrain the original centroid or recursively add recovered evidence.
+        val originalSupporters = List(consolidated.size) { mutableListOf<Int>() }
+        observations.indices.forEach { index ->
+            val item = observations[index]
+            val vector = vectors[index]
+            if (vector == null || vector.size != dimension || !item.quality.isFinite() ||
+                item.quality < .20f || support(observations, listOf(index)) < 320 || index in mixedBoundaries)
+                return@forEach
+            val ranked = consolidated.indices.map { it to dot(vector, consolidated[it].center) }
+                .sortedByDescending { it.second }
+            val best = ranked.firstOrNull() ?: return@forEach
+            if (originalOwners[index] != null && originalOwners[index] != best.first) return@forEach
+            val minimum = if (item.quality < .35f) maxOf(assignmentThreshold, .80f) else assignmentThreshold
+            val separation = if (item.quality < .35f) maxOf(margin, .12f) else margin
+            if (best.second >= minimum && best.second - (ranked.getOrNull(1)?.second ?: -1f) >= separation)
+                originalSupporters[best.first].add(index)
+        }
+        val originalSupportMs = originalSupporters.map { support(observations, it) }
+        val independentSeeds = consolidated.map { item ->
+            item.indices.any { left -> item.indices.any { right ->
+                observations[left].endMs <= observations[right].startMs
+            } }
+        }
+        // A broad voice can contain several phonetic modes. A returning mode may be
         // far from its global centroid, while matching independent, original observations of
         // that same voice. Require two nonoverlapping original contexts: overlapping windows
-        // from one acoustic event must not corroborate one another. Only bounded fragments
-        // can recover, and their parents are too large to themselves be recovered fragments.
+        // from one acoustic event must not corroborate one another. The established parent
+        // must have at least twice the unique speech support. Recurrence alone does not prove
+        // another person: a voice's phonetic/channel variation can recur throughout a session.
         fun independentSimilarity(vector: FloatArray, indices: List<Int>): Float {
             val ranked = indices.map { it to dot(vector, vectors[it]!!) }.sortedByDescending { it.second }
             for (position in ranked.indices) {
@@ -180,11 +204,6 @@ class SpeakerClusterer(
         }
         for ((index, item) in consolidated.withIndex()) {
             checkCancelled()
-            if (item.supportMs >= 3000) continue
-            val positions = item.indices.map { anchorPositions.getValue(it) }.sorted()
-            if (positions.last() - positions.first() + 1 != positions.size ||
-                item.indices.maxOf { observations[it].endMs } - item.indices.minOf { observations[it].startMs } > 3000)
-                continue
             val matches = item.indices.map { observation ->
                 val vector = vectors[observation]!!
                 val independent = consolidated.map { independentSimilarity(vector, it.indices) }
@@ -200,15 +219,57 @@ class SpeakerClusterer(
                 if (score < maxOf(threshold, centroidThreshold) || score - runnerUp < margin) null
                 else parent to score
             }
-            val parent = matches.firstOrNull()?.first ?: continue
-            if (matches.any { it == null || it.first != parent }) continue
-            fragmentParents[index] = parent
-            item.indices.zip(matches).forEach { (observation, match) ->
-                prototypeAssignments[observation] = match!!
+            val parent = matches.firstOrNull()?.first
+            if (parent != null && matches.all { it != null && it.first == parent }) {
+                prototypeParents[index] = parent
+                item.indices.zip(matches).forEach { (observation, match) ->
+                    proposedAssignments[observation] = match!!
+                }
+                continue
+            }
+            // A tiny component can win only because it compares to its own seeds. Before
+            // declaring another person, test whether ALL its observations independently pass
+            // the existing assignment cutoff against an established voice, excluding itself.
+            // This is asymmetric: a well-supported second person never enters this path.
+            val sourceIndices = (item.indices + originalSupporters[index]).distinct()
+            val sourceSupport = support(observations, sourceIndices)
+            if (sourceSupport >= 3000) continue
+            val established = consolidated.indices.filter { candidate ->
+                candidate != index && independentSeeds[candidate] &&
+                    originalSupportMs[candidate] >= maxOf(4000, sourceSupport * 2)
+            }
+            val centroidMatches = sourceIndices.map { observation ->
+                val vector = vectors[observation]!!
+                val candidate = established.maxByOrNull { dot(vector, consolidated[it].center) }
+                    ?: return@map null
+                val score = dot(vector, consolidated[candidate].center)
+                val runnerUp = consolidated.indices.filter { it != index && it != candidate }
+                    .maxOfOrNull { dot(vector, consolidated[it].center) } ?: -1f
+                val minimum = if (observations[observation].quality < .35f)
+                    maxOf(assignmentThreshold, .80f) else assignmentThreshold
+                if (score >= minimum && score - runnerUp >= maxOf(margin, .12f)) candidate to score
+                else null
+            }
+            val centroidParent = centroidMatches.firstOrNull()?.first ?: continue
+            if (centroidMatches.any { it == null || it.first != centroidParent }) continue
+            prototypeParents[index] = centroidParent
+            sourceIndices.zip(centroidMatches).forEach { (observation, match) ->
+                proposedAssignments[observation] = match!!
             }
         }
+        // Freeze all proposals before applying any. A proposed fragment cannot corroborate a
+        // second recovery, even if it would otherwise be large enough to act as a parent.
+        prototypeParents.filterValues { it !in prototypeParents }.forEach { (index, parent) ->
+            fragmentParents[index] = parent
+            proposedAssignments.filterKeys { it in consolidated[index].indices || it in originalSupporters[index] }
+                .forEach { (observation, match) -> prototypeAssignments[observation] = match }
+        }
+        val establishedParents = fragmentParents.values.toSet()
+        // Without the stronger independent-prototype evidence above, recover only a brief,
+        // degraded contiguous passage with the same established voice on both sides. Clear,
+        // recurring, distant and one-sided voices cannot be removed by temporal continuity.
         for ((index, item) in consolidated.withIndex()) {
-            if (index in fragmentParents) continue
+            if (index in fragmentParents || index in establishedParents) continue
             if (item.supportMs >= 3000) continue
             val positions = item.indices.map { anchorPositions.getValue(it) }.sorted()
             if (positions.last() - positions.first() + 1 != positions.size) continue
@@ -218,7 +279,7 @@ class SpeakerClusterer(
             val before = anchorOrder.getOrNull(positions.first() - 1) ?: continue
             val after = anchorOrder.getOrNull(positions.last() + 1) ?: continue
             val parent = originalOwners[before] ?: continue
-            if (parent == index || originalOwners[after] != parent) continue
+            if (parent == index || originalOwners[after] != parent || parent in fragmentParents) continue
             val established = consolidated[parent]
             if (established.indices.size < 3 || established.supportMs < 3000) continue
             // A clear short reply is evidence for another voice, even inside someone else's
@@ -240,7 +301,7 @@ class SpeakerClusterer(
             fragmentParents[index] = parent
         }
         // A recovered fragment may be labeled, but must not influence the centroid or enrollment.
-        val recoveredFragments = fragmentParents.keys.flatMap { consolidated[it].indices }.toSet()
+        val recoveredFragments = fragmentParents.keys.flatMap { consolidated[it].indices }.toSet() + prototypeAssignments.keys
         val cleanGroups = consolidated.filterIndexed { index, _ -> index !in fragmentParents }
             .sortedWith(compareByDescending<Group> { it.supportMs }.thenBy { observations[it.indices.first()].startMs })
             .take(maxSpeakers)

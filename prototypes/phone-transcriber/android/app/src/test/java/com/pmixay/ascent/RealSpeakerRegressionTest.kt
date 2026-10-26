@@ -117,6 +117,9 @@ class RealSpeakerRegressionTest {
                     oldScore.perReaderAccuracy.any { (reader, accuracy) ->
                         newScore.perReaderAccuracy.getValue(reader) < accuracy
                     }) failures += diagnostic
+                if (name == "alternating") {
+                    failures += shortOnlyParticipantDiagnostics(observations, regions, references)
+                }
                 baselineCorrectMs += oldScore.correctMs
                 candidateCorrectMs += newScore.correctMs
                 totalMs += newScore.totalMs
@@ -129,6 +132,54 @@ class RealSpeakerRegressionTest {
             "candidateCorrectMs=$candidateCorrectMs, totalMs=$totalMs; " +
             "correlated public excerpts with synthetic pauses, not phone or natural-conversation accuracy")
         assertTrue(failures.joinToString("\n"), failures.isEmpty())
+    }
+
+    /** Remove one reader's long reference, leaving real brief replies as their only evidence. */
+    private fun shortOnlyParticipantDiagnostics(observations: List<SpeakerObservation>, regions: List<Int>,
+                                              references: org.json.JSONArray): List<String> {
+        val source = (0 until references.length()).map { references.getJSONObject(it) }
+        val failures = mutableListOf<String>()
+        for (shortOnlyReader in source.map { it.getString("speaker") }.distinct()) {
+            val removed = source.filter { it.getString("speaker") == shortOnlyReader &&
+                it.getString("turn_kind") == "reference" }
+            assertTrue("Each brief-only case must remove a reference", removed.isNotEmpty())
+            val retainedIndices = observations.indices.filter { index -> removed.none { reference ->
+                observations[index].startMs < reference.getLong("end_ms") &&
+                    observations[index].endMs > reference.getLong("start_ms")
+            } }
+            // All source turns have 1.3-second gaps, so extraction windows never cross
+            // a removed turn. Preserve original positions and recompute the seed policy.
+            assertTrue(retainedIndices.size < observations.size)
+            val stable = SpeakerEvidence.stableSeeds(retainedIndices.map { observations[it] },
+                retainedIndices.map { regions[it] })
+            val retainedReferences = source.filterNot { it.getString("speaker") == shortOnlyReader &&
+                it.getString("turn_kind") == "reference" }
+            val words = retainedReferences.map { TimedWord("probe", it.getLong("start_ms"), it.getLong("end_ms")) }
+            fun score(result: SpeakerClustering): Pair<SpeakerAttributionScore, Int> {
+                val predictions = SpeakerSpeechSupport.speakersForWords(words, stable, result.assignments)
+                return SpeakerAttributionScorer.score(words.indices.map { index ->
+                    AttributionCell(retainedReferences[index].getString("speaker"), words[index].startMs,
+                        words[index].endMs, predictions[index])
+                }) to predictions.filter { it != SpeakerClusterer.UNKNOWN }.distinct().size
+            }
+            val (baseline, baselineLabels) = score(FragmentationBaselineClusterer().cluster(stable))
+            val (candidate, candidateLabels) = score(SpeakerClusterer().cluster(stable))
+            assertEquals(baseline.totalMs, candidate.totalMs)
+            val diagnostic = "Russian brief-only DEVELOPMENT $shortOnlyReader: totalMs=${candidate.totalMs}, " +
+                "baselineLabels=$baselineLabels, candidateLabels=$candidateLabels, " +
+                "baselineCorrectMs=${baseline.correctMs}, candidateCorrectMs=${candidate.correctMs}, " +
+                "baselineBriefAccuracy=${baseline.perReaderAccuracy.getValue(shortOnlyReader)}, " +
+                "candidateBriefAccuracy=${candidate.perReaderAccuracy.getValue(shortOnlyReader)}"
+            println(diagnostic)
+            println("Russian brief-only DEVELOPMENT $shortOnlyReader per reader: " +
+                "baseline=${baseline.perReaderAccuracy}, candidate=${candidate.perReaderAccuracy}")
+            if (candidate.correctMs < baseline.correctMs ||
+                candidate.perReaderAccuracy.getValue(shortOnlyReader) <= 0.0 ||
+                baseline.perReaderAccuracy.any { (reader, accuracy) ->
+                    candidate.perReaderAccuracy.getValue(reader) < accuracy
+                }) failures += diagnostic
+        }
+        return failures
     }
 
     /** DEVELOPMENT observations only; assigned-window centers are not discovery centroids. */
