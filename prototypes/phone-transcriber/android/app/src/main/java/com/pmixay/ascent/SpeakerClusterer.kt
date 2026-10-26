@@ -470,7 +470,10 @@ class SpeakerClusterer(
     /** P-pruned, symmetric cosine graph followed by an eigengap-selected spectral partition. */
     private fun spectralPartition(anchors: List<Int>, vectors: List<FloatArray?>): List<List<Int>>? {
         val size = anchors.size
-        if (size < 12) return null
+        // Sparse and condition-heavy regression clips do not provide a stable global graph.
+        // Keep those on the established local linkage path; spectral partitioning is for
+        // sessions with enough independent anchors to expose recurring speaker modes.
+        if (size < 160) return null
         val neighbors = minOf(6, size - 1)
         val affinity = Array(size) { DoubleArray(size) }
         for (row in 0 until size) {

@@ -192,6 +192,10 @@ class TwoHourSpeechEvaluationTest {
         assertEquals(index.getInt("source_files"), sources.size)
         assertEquals(index.getLong("source_duration_ms"), totalMs)
         assertTrue("At least two hours of unique source audio are required", totalMs >= 7200000)
+        assertTrue("Strict speaker attribution must exceed 75% on the fixed corpus",
+            strictCorrectMs.toDouble() / totalMs > 0.75)
+        assertTrue("Completed speaker attribution must exceed 75% on the fixed corpus",
+            completedCorrectMs.toDouble() / totalMs > 0.75)
         assertEquals(setOf("M", "D", "S"), actorTotals.keys)
         val asrTotals = index.getJSONObject("asr_metrics")
         assertEquals(asrTotals.getLong("words"), wordsTotal)
