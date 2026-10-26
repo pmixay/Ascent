@@ -30,7 +30,7 @@ class SpeakerClusterer(
     private val maxSpeakers: Int = 12,
     private val maxAnchors: Int = 256,
     private val assignmentThreshold: Float = maxOf(threshold, 0.60f),
-    private val centroidThreshold: Float = 0.75f,
+    private val centroidThreshold: Float = 0.70f,
 ) {
     init {
         require(threshold in 0f..1f && margin in 0f..1f &&

@@ -143,6 +143,48 @@ class SpeakerClustererTest {
         assertEquals(2, result.signatures.size)
     }
 
+    @Test fun clearVoiceFragmentsCanConsolidateWithoutLoweringRawDiscovery() {
+        // Within-fragment cosine .60, cross-fragment .50: raw discovery should form
+        // two groups. Their normalized centroids agree at .50 / .70 = .714, exposing
+        // the overly strict .75 centroid cutoff without relying on low-quality repair.
+        val observations = (0 until 8).map { index ->
+            val vector = FloatArray(192)
+            vector[0] = sqrt(.55f)
+            vector[1] = if (index < 4) sqrt(.05f) else -sqrt(.05f)
+            vector[index + 2] = sqrt(.40f)
+            SpeakerObservation(index * 2000L, index * 2000L + 1800, vector)
+        }
+        val other = FloatArray(192).also { it[100] = 1f }
+        val samples = observations + listOf(SpeakerObservation(18000, 19800, other),
+            SpeakerObservation(21000, 22800, other))
+        val previous = SpeakerClusterer(centroidThreshold = .75f).cluster(samples)
+        assertEquals(3, previous.assignments.map { it.speakerId }.distinct().size)
+        val result = SpeakerClusterer().cluster(samples)
+        assertEquals(List(8) { "speaker_1" }, result.assignments.take(8).map { it.speakerId })
+        assertEquals(List(2) { "speaker_2" }, result.assignments.takeLast(2).map { it.speakerId })
+        // A useful conversation label is still not sufficient evidence for enrollment.
+        assertTrue(result.signatures.none { it.speakerId == "speaker_1" })
+    }
+
+    @Test fun similarDistinctEstablishedVoicesRemainSeparateAfterCentroidConsolidation() {
+        // Distinct identity directions with cosine .72 plus independent per-window
+        // variation. Raw across-voice cosine .5202 is below discovery, and centroid
+        // cosine .657 must not merge the two well-supported voices.
+        val observations = (0 until 8).map { index ->
+            val vector = FloatArray(192)
+            if (index % 2 == 0) vector[0] = .85f else {
+                vector[0] = .85f * .72f
+                vector[1] = .85f * sqrt(1f - .72f * .72f)
+            }
+            vector[index + 2] = sqrt(1f - .85f * .85f)
+            SpeakerObservation(index * 3000L, index * 3000L + 1800, vector)
+        }
+        val result = SpeakerClusterer().cluster(observations)
+        assertEquals((0 until 8).map { if (it % 2 == 0) "speaker_1" else "speaker_2" },
+            result.assignments.map { it.speakerId })
+        assertEquals(2, result.signatures.size)
+    }
+
     @Test fun isolatedVoiceExcursionDoesNotCreateAnotherPersonOrTeachItsVoiceprint() {
         val result = SpeakerClusterer(threshold = 0.72f).cluster(listOf(
             voice(0, 1f, 0f), voice(1800, 1f, 0f),

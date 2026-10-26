@@ -118,7 +118,7 @@ matching, not authentication or proof of a person's real identity.
 ## Calibration and limits
 
 Cluster discovery now uses cosine 0.55, while ordinary assignment requires
-0.60 with a runner-up margin of 0.08. Centroid consolidation requires 0.75.
+0.60 with a runner-up margin of 0.08. Centroid consolidation requires 0.70.
 These decisions have separate thresholds because individual short-window
 embeddings and aggregate voice centroids have different variability. A
 low-occupancy short reply still requires similarity 0.80 and margin 0.12.
@@ -202,6 +202,16 @@ reader 2826 acquired two labels, and the combined case found seven identities
 for six readers. This is evidence of remaining fragmentation, not completion.
 The other five single-reader cases retained one identity with no unknown windows.
 
+[Development diagnostics in CI 40293770070](https://github.com/pmixay/Ascent/actions/runs/40293770070)
+at `7f38ec2` compared centroid cutoffs 0.65, 0.70 and 0.75 on those development
+clips only. Both 0.65 and 0.70 restored one label for reader 2826 and six labels
+with 100% assignment for the combined case. The selected default is 0.70, the
+highest candidate that fixed the split; discovery and assignment thresholds
+remain unchanged. The split's assigned-window centroids had cosine 0.734,
+whereas the other combined-case centroid pairs were at most 0.435. Separate
+synthetic regressions protect similar distinct voices and clear same-voice
+fragments. No evaluation-reader result was used to select this cutoff.
+
 That older metric excludes windows rejected by the activity gate and gives
 overlapping windows separate weight. The requested target is strictly above 75%,
 so an additional fixed evaluation uses 12 source clips from six different
@@ -229,6 +239,14 @@ measurement on phones. DER also includes speech-detection errors and overlap;
 see the [pyannote metric definition](https://pyannote.github.io/pyannote-metrics/reference.html#diarization).
 The existing stricter development checks remain required. Natural-conversation
 acceptance stays open until representative annotated sessions demonstrate it.
+
+The initial fixed evaluation at `7f38ec2`, before the development-selected
+centroid update, measured 94.86% pooled clip-time accuracy (94.72% per-reader
+mean), with condition scores from 93.89% to 95.26%. Its separate 800 ms reply
+score was only 33.33%. Long turns dominate overall duration: passing the
+aggregate target does not establish reliable short replies. The 1.8-second
+contexts can mix neighboring voices around rapid changes; improving that needs
+dedicated development material and subsequent independent validation.
 
 ### Recognition boundaries and timeline
 
