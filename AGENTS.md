@@ -6,6 +6,14 @@ Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for del
 
 The current user request publishes the phone transcription prototype for review under `prototypes/phone-transcriber/`, with the corrected Ascent name. Stopping listening automatically transcribes a temporary WAV and deletes it after processing or failure; abandoned audio is removed on the next launch after process death. Multiple conversations and confirmed voice templates use encrypted local storage and source-based seven-day retention filtering. There is no Wear OS app. Temporary audio still reaches disk, and expiry cleanup cannot run while the app process is stopped, so this does not establish the production no-persistence or full retention guarantees. Preserve the production requirements below and do not mark their acceptance work complete or extend the prototype exception into production.
 
+The user authorizes downloading at least two hours of labeled public multi-speaker
+speech for evaluation. Licensed public benchmark audio may be cached in GitHub CI;
+never substitute application recordings or upload evaluation files as artifacts.
+Freeze source selection and report unique source duration, annotation quality,
+transcription errors, speaker errors and inferred assignments. Reassembled dialogue
+turns must be identified as constructed sequences, not original continuous recordings.
+Run evaluation and model inference in CI, consistent with the build-only rule below.
+
 ## 1. Build only through GitHub CI
 
 - **Do not build on the local machine.** GitHub CI performs builds. The requested initial workflows are **Ascent Android CI** (`.github/workflows/android.yml`, job **Build and validate Android app**) and **Ascent Model Export** (`.github/workflows/model-pack.yml`, job **Export and validate offline models**); the fetched base repository had no workflows.
@@ -26,6 +34,14 @@ selection determines readiness; network update activity is secondary. Observe
 selection changes independently of progress, and publish transfer state only
 while that operation owns the transfer lock. Stale saved success never proves
 that model files still exist.
+
+During audio processing show one stable loading indicator. The model panel shows
+the latest successfully checked revision and elapsed time since that successful
+check; failed update attempts do not erase it or falsely advance the timestamp.
+Retain initial download progress. Completed transcripts use participant labels
+for every word, including best-effort assignments when evidence is insufficient.
+Keep inferred attribution distinguishable internally and exclude it from voice
+enrollment evidence; absence of an unidentified-speaker label is not confidence.
 
 - Support Android 12+ phones and Wear OS 6.0 watches. Keep minimum OS support separate from release-time target SDK requirements.
 - Continuous background listening through the watch microphone belongs in the first release and first capture milestone. The user explicitly enables a visible listening session; pause, stop, interruptions, and connection state must be accurate.

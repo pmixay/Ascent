@@ -114,6 +114,14 @@ internal object SpeakerSpeechSupport {
     }
 
     private fun voteForWord(word: TimedWord, windows: List<SpeakerObservation>, labels: List<SpeakerAssignment>): WordVote {
+        val ranked = candidatesForWord(word, windows, labels)
+        val best = ranked.firstOrNull() ?: return WordVote(SpeakerClusterer.UNKNOWN, 0.0)
+        val runner = ranked.getOrNull(1)?.second ?: 0.0
+        return WordVote(best.first, if (best.second > 0) (best.second - runner) / best.second else 0.0)
+    }
+
+    /** Local evidence before abstention, also used by the explicit best-effort assignment pass. */
+    fun candidatesForWord(word: TimedWord, windows: List<SpeakerObservation>, labels: List<SpeakerAssignment>): List<Pair<String, Double>> {
         require(windows.size == labels.size)
         val midpoint = (word.startMs + word.endMs) / 2
         val votes = mutableMapOf<String, Double>()
@@ -129,9 +137,6 @@ internal object SpeakerSpeechSupport {
             // window are not independent votes and must not overpower a closer voice.
             votes[assignment.speakerId] = maxOf(votes[assignment.speakerId] ?: 0.0, vote)
         }
-        val ranked = votes.entries.sortedByDescending { it.value }
-        val best = ranked.firstOrNull() ?: return WordVote(SpeakerClusterer.UNKNOWN, 0.0)
-        val runner = ranked.getOrNull(1)?.value ?: 0.0
-        return WordVote(best.key, if (best.value > 0) (best.value - runner) / best.value else 0.0)
+        return votes.entries.sortedByDescending { it.value }.map { it.key to it.value }
     }
 }

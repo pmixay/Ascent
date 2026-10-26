@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -74,6 +75,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import kotlin.math.min
 import kotlin.math.pow
+import kotlinx.coroutines.delay
 
 private val Ink = Color(0xFF252216)
 private val Secondary = Color(0xFF716951)
@@ -112,7 +114,7 @@ internal fun ConversationScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             spacedItem("wordmark") { AscentWordmark(Modifier.widthIn(max = 620.dp).fillMaxWidth()) }
-            spacedItem("capture") {
+            if (!state.processingAudio) spacedItem("capture") {
                 GlassCard {
                     Text(if (state.recording) "СЛУШАЮ" else "НОВЫЙ РАЗГОВОР", modifier = Modifier.fillMaxWidth(),
                         fontSize = 11.sp, letterSpacing = 1.8.sp, textAlign = TextAlign.Center, color = Secondary)
@@ -204,7 +206,8 @@ private fun ConversationStatus(state: ConversationState) {
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), color = Amber, strokeWidth = 2.dp)
         else Box(Modifier.size(8.dp).background(if (state.recording) Amber else Secondary, CircleShape))
-        Text(state.status, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        Text(if (state.processingAudio) PROCESSING_AUDIO_STATUS else state.status,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("conversation-status"),
             fontSize = 14.sp, lineHeight = 20.sp, color = Ink)
     }
 }
@@ -212,8 +215,14 @@ private fun ConversationStatus(state: ConversationState) {
 @Composable
 private fun ModelsStatus(state: ConversationState) {
     val ready = state.modelDirectory != null
+    val nowMs by produceState(System.currentTimeMillis(), state.modelLastCheckedAtMs) {
+        while (true) {
+            value = System.currentTimeMillis()
+            delay(15_000)
+        }
+    }
     val availability = when {
-        ready -> "Готовы"
+        ready -> modelVersionLabel(state.modelVersionStatus)
         !state.modelsChecked -> "Проверяю готовность"
         state.modelPhase == ModelTransferPhase.ERROR -> "Подготовка приостановлена"
         state.modelPhase == ModelTransferPhase.WAITING -> "Ожидаю продолжения"
@@ -223,9 +232,8 @@ private fun ModelsStatus(state: ConversationState) {
         ModelTransferPhase.DOWNLOADING, ModelTransferPhase.VERIFYING,
         ModelTransferPhase.WAITING, ModelTransferPhase.ERROR,
     )
-    val active = !state.modelsChecked || state.modelPhase in setOf(
-        ModelTransferPhase.CHECKING, ModelTransferPhase.DOWNLOADING, ModelTransferPhase.VERIFYING,
-    )
+    val active = (!ready && (!state.modelsChecked || state.modelPhase == ModelTransferPhase.CHECKING)) ||
+        state.downloadingModels
     val completed = state.modelDownloadBytes.coerceIn(0, state.modelDownloadTotal.coerceAtLeast(0))
     val fraction = if (retainedProgress) (completed.toDouble() / state.modelDownloadTotal).toFloat() else 0f
     Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().testTag("model-status-panel")
@@ -240,7 +248,10 @@ private fun ModelsStatus(state: ConversationState) {
                     fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, color = Ink)
             }
         }
-        if (!ready || state.modelPhase !in setOf(ModelTransferPhase.READY, ModelTransferPhase.IDLE)) {
+        if (ready) {
+            Text(modelCheckAgeLabel(state.modelLastCheckedAtMs, nowMs),
+                modifier = Modifier.testTag("model-check-age"), fontSize = 14.sp, lineHeight = 21.sp, color = Ink)
+        } else {
             Text(state.modelStatus, fontSize = 14.sp, lineHeight = 21.sp, color = Ink)
         }
         if (retainedProgress || active) {

@@ -6,7 +6,7 @@ See [README.md](README.md) and [AGENTS.md](AGENTS.md). Use existing GitHub CI ex
 
 Specification version: 0.5
 
-Updated: 24 October 2026
+Updated: 26 October 2026
 
 The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. Stopping listening automatically transcribes and deletes its temporary WAV. It retains multiple encrypted text conversations and confirmed voice templates with source-based seven-day filtering, but still writes temporary audio and has no watch app. Cleanup after process death waits for the next launch; this is not the production no-persistence guarantee. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) push-only workflows; their actual run results must be checked. The compact prototype uses R8 optimization, automatically downloads compressed, resumable model chunks through the fixed catalog with an activity-started foreground service, fast connection recovery and WorkManager fallback, and publishes only the ARM64 APK as `debug-<8-character commit>.zip`. Model controls are status-only. Emulator APKs, reports and model weights are not Android download artifacts.
 
@@ -15,6 +15,9 @@ The separate [phone transcription prototype](prototypes/phone-transcriber/README
 The prototype model panel reports validated local readiness independently of
 background update activity. Checks, transfer progress and resumable waiting states
 appear together without disabling installed models during an update failure.
+The panel retains the last successful catalog comparison and elapsed check age;
+failed attempts cannot claim a fresh check or falsely mark a newer revision as
+installed. Stopping listening shows one stable audio-processing loading status.
 
 Prototype speaker work adds short-speech context recovery, centroid consolidation,
 bounded recovery of degraded runs, independently corroborated recovery of recurring
@@ -26,6 +29,18 @@ measurements in model CI. A paired development regression compares short,
 pause-separated phrases against the previous grouping policy using different
 source utterances for longer references and short queries. These fixtures do not complete the natural
 conversation diarization, overlap, or supported-phone accuracy acceptance criteria.
+Completed and legacy transcripts receive participant labels for every phrase,
+with best-effort guesses recorded as inferred and excluded from voice learning.
+Strict evidence remains separate from the completed display labels.
+
+The new CI dialogue evaluation freezes 1,134 unique public clips from three
+actors, totaling 7,233.107 metadata seconds. It requires at least two hours of
+verified resampled source audio and reports WER/CER, joint speaker-attributed
+word errors, strict/completed clip-time attribution and inferred coverage.
+Its original-order, constructed sequences of acted studio dialogue do not
+establish natural-conversation DER, overlap separation or phone performance.
+Results are not yet measured; see the
+[selection and limitations](prototypes/phone-transcriber/tools/fixtures/dialogs/README.md).
 
 - [x] Support Android 12 and later with `minSdk 31`; choose distribution `targetSdk` separately against release-time requirements.
 - [x] Support Wear OS 6.0, with the watch as primary microphone and continuous background capture in the first vertical slice.

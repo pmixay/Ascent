@@ -206,6 +206,7 @@ internal class ModelDownloader(
     private val shouldYield: () -> Boolean = { false },
     private val beforeRequest: () -> Unit = {},
     private val retryRequest: (IOException, Int) -> Boolean = { _, _ -> false },
+    private val onCatalogChecked: (ModelCatalog) -> Unit = {},
 ) : Closeable {
     private var temporary: File? = null
     private var installed: File? = null
@@ -215,6 +216,9 @@ internal class ModelDownloader(
         check(temporary == null && installed == null) { "Загрузка уже запущена" }
         check(root.isDirectory || root.mkdirs()) { "Не удалось подготовить хранилище моделей" }
         val catalog = ModelCatalog.parse(readSmall("catalog.json", MAX_CATALOG_BYTES))
+        // A compatible server response establishes the latest known revision even when
+        // the following payload download is interrupted. Failures before parsing do not.
+        onCatalogChecked(catalog)
         if (currentDirectory?.isDirectory == true &&
             fileHash(File(currentDirectory, "manifest.json")) == catalog.manifestSha256) {
             // Installed immutable files were fully verified before selection. Routine

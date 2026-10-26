@@ -1,6 +1,7 @@
 package com.pmixay.ascent
 
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
@@ -97,6 +98,57 @@ class ConversationStoreTest {
             }
             assertTrue(legacy.isFile)
             assertFalse(File(root, "conversations.enc").exists())
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun encryptedLegacyUnknownIsAssignedWithoutChangingCaptureTimeOrTranscript() {
+        val root = root()
+        try {
+            val original = conversation()
+            val json = ConversationStore.conversationJson(original)
+            json.getJSONArray("segments").put(JSONObject().put("speakerId", UNKNOWN_SPEAKER)
+                .put("speakerKnown", false).put("speakerName", "Говорящий не определён")
+                .put("startMs", 1200).put("endMs", 1800).put("text", "Сохранить каждое слово"))
+            val encrypted = EncryptedJsonFile(File(root, "conversations.enc")) { key }
+            encrypted.write(JSONObject().put("schemaVersion", 1).put("conversations", JSONArray().put(json)))
+            val store = ConversationStore(root, { key }, { now })
+            val migrated = store.load().single()
+            assertEquals(original.startedAtMs, migrated.startedAtMs)
+            assertEquals(original.durationMs, migrated.durationMs)
+            assertEquals(original.speakerNames, migrated.speakerNames)
+            assertEquals(TranscriptSegment("speaker_1", 1200, 1800, "Сохранить каждое слово", true), migrated.segments.last())
+            assertEquals(1, migrated.participantCount)
+            assertEquals("Анна", migrated.speakerName(migrated.segments.last().speakerId))
+            assertEquals(listOf(migrated), store.load())
+            val saved = encrypted.read()!!.getJSONArray("conversations").getJSONObject(0)
+                .getJSONArray("segments").getJSONObject(1)
+            assertEquals("speaker_1", saved.getString("speakerId"))
+            assertTrue(saved.getBoolean("speakerInferred"))
+            assertFalse(saved.getBoolean("speakerKnown"))
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun allUnknownHistoryAndExportUseOneParticipantAndRetainInferenceMetadata() {
+        val root = root()
+        try {
+            val original = conversation().copy(segments = listOf(
+                TranscriptSegment(UNKNOWN_SPEAKER, 100, 500, "Первая фраза"),
+                TranscriptSegment(UNKNOWN_SPEAKER, 2000, 2500, "Вторая фраза")), speakerNames = emptyMap())
+            val json = ConversationStore.conversationJson(original)
+            val items = json.getJSONArray("segments")
+            assertEquals(2, items.length())
+            for (index in 0 until items.length()) {
+                assertEquals("speaker_1", items.getJSONObject(index).getString("speakerId"))
+                assertEquals("Участник 1", items.getJSONObject(index).getString("speakerName"))
+                assertTrue(items.getJSONObject(index).getBoolean("speakerInferred"))
+            }
+            val store = ConversationStore(root, { key }, { now })
+            val assigned = store.save(listOf(original)).single()
+            assertEquals(listOf(assigned), store.load())
+            assertEquals(original.startedAtMs, assigned.startedAtMs)
+            assertEquals(List(2) { "speaker_1" }, assigned.segments.map { it.speakerId })
+            assertTrue(assigned.segments.all { it.speakerInferred })
+            assertEquals(List(2) { UNKNOWN_SPEAKER }, original.segments.map { it.speakerId })
         } finally { root.deleteRecursively() }
     }
 }

@@ -38,14 +38,22 @@ class SpeakerClusterer(
         require(maxSpeakers > 0 && maxAnchors in 1..512)
     }
 
-    fun cluster(observations: List<SpeakerObservation>): SpeakerClustering {
+    fun cluster(observations: List<SpeakerObservation>): SpeakerClustering = cluster(observations, false)
+
+    /** Display-only fallback when no strict voice exists. Never export enrollment signatures. */
+    internal fun clusterShortEvidence(observations: List<SpeakerObservation>): SpeakerClustering =
+        cluster(observations, true)
+
+    private fun cluster(observations: List<SpeakerObservation>, shortEvidence: Boolean): SpeakerClustering {
         val vectors = observations.map { normalized(it.vector) }
         val dimension = vectors.firstOrNull { it != null }?.size
+        val minimumSeedMs = if (shortEvidence) 320 else 640
+        val minimumQuality = if (shortEvidence) .20f else .55f
         val usable = observations.indices.filter {
             val item = observations[it]
-            vectors[it]?.size == dimension && vectors[it] != null && item.canSeed &&
-                item.endMs - item.startMs >= 640 && item.quality.isFinite() && item.quality >= 0.55f &&
-                support(observations, listOf(it)) >= 640
+            vectors[it]?.size == dimension && vectors[it] != null && (item.canSeed || shortEvidence) &&
+                item.endMs - item.startMs >= minimumSeedMs && item.quality.isFinite() && item.quality >= minimumQuality &&
+                support(observations, listOf(it)) >= minimumSeedMs
         }.sortedWith(compareBy({ observations[it].startMs }, { observations[it].endMs }, { it }))
         // Reject a genuinely mixed temporal boundary before agglomeration: after merging it
         // into a voice, no centroid-only pass can remove its contamination. The neighboring
@@ -372,6 +380,7 @@ class SpeakerClusterer(
             val parent = cleanGroups.indexOf(consolidated[match.first])
             if (parent >= 0) assignments[observation] = SpeakerAssignment("speaker_${parent + 1}", match.second)
         }
+        if (shortEvidence) return SpeakerClustering(assignments, emptyList())
         val signatures = cleanGroups.indices.mapNotNull { groupIndex ->
             val id = "speaker_${groupIndex + 1}"
             val trusted = observations.indices.filter {

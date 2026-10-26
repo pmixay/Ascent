@@ -31,10 +31,11 @@ import java.util.Locale
 import java.util.UUID
 
 internal const val UNKNOWN_SPEAKER = "speaker_unknown"
-internal const val UNKNOWN_SPEAKER_NAME = "Говорящий не определён"
+internal const val PROCESSING_AUDIO_STATUS = "Обработка аудио…"
 
 data class ConversationState(
     val busy: Boolean = false,
+    val processingAudio: Boolean = false,
     val historyReady: Boolean = false,
     val recording: Boolean = false,
     val status: String = "Готово к разговору",
@@ -48,6 +49,8 @@ data class ConversationState(
     val downloadingModels: Boolean = false,
     val modelDownloadBytes: Long = 0,
     val modelDownloadTotal: Long = 0,
+    val modelVersionStatus: ModelVersionStatus = ModelVersionStatus.UNCHECKED,
+    val modelLastCheckedAtMs: Long = 0,
     val conversations: List<SavedConversation> = emptyList(),
     val expandedConversationIds: Set<String> = emptySet(),
 )
@@ -74,7 +77,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 mutableState.update { it.copy(modelDirectory = models.directory, modelsChecked = true,
                     modelPhase = models.phase, modelStatus = models.message,
                     downloadingModels = models.downloading, modelDownloadBytes = models.completedBytes,
-                    modelDownloadTotal = models.totalBytes) }
+                    modelDownloadTotal = models.totalBytes, modelVersionStatus = models.versionStatus,
+                    modelLastCheckedAtMs = models.lastCheckedAtMs) }
             }
         }
         viewModelScope.launch {
@@ -151,7 +155,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         pendingAudio = null
         active.requestStop()
         meterJob?.cancel()
-        mutableState.update { it.copy(recording = false, busy = true, level = 0f, status = "Обрабатываю разговор…") }
+        mutableState.update { it.copy(recording = false, busy = true, processingAudio = true,
+            level = 0f, status = PROCESSING_AUDIO_STATUS) }
         // Enter the try/finally immediately so clearing the ViewModel cannot skip recorder cleanup.
         viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             var saved = false
@@ -160,9 +165,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 currentCoroutineContext().ensureActive()
                 val result = runInterruptible(Dispatchers.Default) {
                     ModelSelection.acquire(app).use { lease ->
-                        TranscriptionEngine(lease.directory).transcribeWithSpeakers(file) { message ->
-                            mutableState.update { it.copy(status = message) }
-                        }
+                        TranscriptionEngine(lease.directory).transcribeWithSpeakers(file) { }
                     }
                 }
                 val durationMs = (file.length() - 44).coerceAtLeast(0) * 1000 / (AudioRecorder.SAMPLE_RATE * 2)
@@ -190,14 +193,18 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 }
                 reportError(error)
             } finally {
-                withContext(NonCancellable + Dispatchers.IO) {
-                    if (!saved) voices.discard(id)
-                    if (audio.exists() && !audio.delete()) {
-                        mutableState.update { it.copy(status = "Не удалось удалить временное аудио") }
+                try {
+                    withContext(NonCancellable + Dispatchers.IO) {
+                        if (!saved) voices.discard(id)
+                        if (audio.exists() && !audio.delete()) {
+                            mutableState.update { it.copy(status = "Не удалось удалить временное аудио") }
+                        }
                     }
+                } finally {
+                    // Resuming from the IO dispatcher can deliver cancellation after cleanup.
+                    mutableState.update { it.copy(busy = false, processingAudio = false, recording = false, level = 0f,
+                        waveform = List(52) { 0f }) }
                 }
-                mutableState.update { it.copy(busy = false, recording = false, level = 0f,
-                    waveform = List(52) { 0f }) }
             }
         }
     }

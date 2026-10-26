@@ -7,6 +7,8 @@ appear as collapsible timelines with linked dots, names and timestamps inside
 warm amber glass surfaces. The header reads `Ascent.` with a square period;
 listening and model status have separate elements. A dedicated glass model panel
 contains readiness, update status, downloaded bytes, and download progress.
+After stop, one stable loading indicator accompanies the audio-processing
+status; intermediate recognition stages do not create competing loading states.
 Consecutive phrases from the same known speaker occupy one element even across
 pauses or processing boundaries. Elapsed times include decimal seconds; timer
 icons mark estimated pauses while the underlying phrase timestamps remain intact.
@@ -57,13 +59,20 @@ milestones is complete merely because this source or an APK exists.
   Recovered fragments cannot teach voice templates. Naming a sufficiently clear current
   speaker enrolls an encrypted voice template for later strong matches. Automatic
   predictions never teach their own templates. See [speaker research](docs/speaker-diarization.md).
+- Participant labels for every completed phrase, including best-effort assignments
+  when strict evidence is insufficient. Inferred provenance remains in stored
+  segments and JSON exports; these guesses cannot train voice templates. Older
+  unidentified phrases receive a stable participant label without changing their
+  text or timestamps or reconstructing audio.
 - Multiple encrypted text conversations, collapsible connected timelines,
   participant renaming and explicit per-conversation TXT/JSON export.
 - Automatic compressed model downloads from the fixed Ascent HTTPS catalog,
   continued by a foreground service after ordinary app closure, with an ongoing
   progress notification and prompt reconnect retries. WorkManager provides
   recovery and daily update fallback. The model panel keeps installed readiness
-  separate from update checks, download progress, network waits, and update errors.
+  separate from update checks and download progress. Usable models show their last
+  successfully checked revision status and relative check age, retaining both
+  through later network failures. A newer catalog revision shows an available update.
   There are no model installation or reinstall controls.
 - Internet permission is used for model downloads. Speech recognition and speaker
   processing remain on device; conversation audio is never uploaded.
@@ -125,6 +134,9 @@ triggers. The base repository had no workflow to reuse.
    optimization output and absence of model weights. Its only download artifact
    is `debug-<8-character commit>.zip`, containing only `ascent.apk`. Test and lint
    diagnostics remain in the workflow console; report artifacts are not uploaded.
+   Its additional **Evaluate two hours of labeled Russian dialogue** job downloads
+   the frozen public Dialogs selection, runs the deployed models, and scores the
+   application's attribution code. Results for this new evaluation are pending.
 2. **Ascent Model Export**, with job **Export and validate offline models**, runs
    on relevant model/export/server changes on `main` and the current prototype
    branch. It exports pinned official GigaAM and speaker weights, requires
@@ -187,6 +199,15 @@ compatible update is checked, downloaded, or waiting for a connection. Download
 bytes and percentage appear inside that panel, including retained partial progress
 while paused. Listening remains available with the installed revision.
 
+Successful compatible catalog responses persist their advertised manifest hash
+and check time. The panel says the latest version is installed only when that
+hash matches the validated local selection, and shows elapsed time such as three
+minutes since the check. A newer advertised hash remains an available update
+until verified activation. Failed checks preserve the last known status and age;
+with no successful check, usable models show readiness without a latest-version
+claim. Operational failures remain available to the transfer service while the
+usable-model panel avoids an update-error headline.
+
 Selection changes are observed independently of transfer status and rechecked on
 foreground entry and transfer completion. Progress notifications do not repeatedly
 rescan the installed model directory. Only the transfer holding the shared download
@@ -207,13 +228,16 @@ model-download validation, transient request recovery, partial progress, cancell
 HTTP retry classification and invalid inputs. Model-status policy tests cover
 first installation, installed models during update checks or failures, offline
 waiting, interrupted owners, stale completion records, and bounded progress.
+They also cover successful versus failed catalog timestamps, newer revisions
+before activation and relative check-age formatting.
 Server tests check immutable
 publication, compressed chunk integrity, smoke-report requirements and failure cleanup. The
 emulator tests cover optimized app startup, native library loading and foreground
 transfer lifecycle with controlled fake data. Android preference/Flow regressions
 check selection changes without transfer publications, failed-update readiness,
 observation restart, selection removal, and rejection of missing payloads after
-a local refresh. These use tiny metadata fixtures and do not run fake weights
+a local refresh, plus retained successful check metadata after failure/restart
+and revision comparison after selection changes. These use tiny metadata fixtures and do not run fake weights
 through the inference runtimes. A cached, checksum-verified CI fixture
 uses the real speaker model on 16 public Russian utterances from six readers,
 including reduced-gain, white-noise and synthetic channel variants. JVM tests apply the app's activity
@@ -228,6 +252,21 @@ inference, prints reference-transcript WER/CER, and rejects chunk-policy changes
 that increase word errors in either the clean or channel comparison. These
 controlled regressions do not substitute for a Russian conversation
 accuracy benchmark. See [fixture provenance](tools/fixtures/speakers/README.md).
+
+The new [Dialogs evaluation](tools/fixtures/dialogs/README.md) freezes 1,134
+distinct public audio payloads from three actors, totaling 7,233.107 metadata
+seconds. CI verifies every source hash and requires at least two hours of actual
+resampled source audio. Approximately five-minute sequences retain source turn
+order with inserted 100 ms gaps. These are constructed acted dialogues, not
+original continuous conversations. The job reports WER/CER, joint
+speaker-attributed word errors (cpWER), strict and completed clip-time attribution,
+per-actor results, extra/missing labels and inferred assignments. Kotlin checks
+the host CTC/context mirrors and runs the production attribution policy on real
+embeddings. Inference checkpoints resume only after integrity checks; scoring
+runs on every evaluation job even when inference is cached. Audio, transcripts,
+vectors and reports are not download artifacts. This evaluation has not yet
+produced inspected results and does not establish natural-conversation DER,
+cross-session identity, overlap handling or supported-phone performance.
 
 ## Model and runtime references
 

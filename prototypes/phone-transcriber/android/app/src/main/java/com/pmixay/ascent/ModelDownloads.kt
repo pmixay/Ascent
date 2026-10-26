@@ -36,6 +36,8 @@ internal data class ModelTransferState(
     val directory: File?, val message: String, val downloading: Boolean = false,
     val completedBytes: Long = 0, val totalBytes: Long = 0,
     val phase: ModelTransferPhase = ModelTransferPhase.IDLE,
+    val versionStatus: ModelVersionStatus = ModelVersionStatus.UNCHECKED,
+    val lastCheckedAtMs: Long = 0,
 )
 
 /** A lease protects the selected revision until both inference passes release it. */
@@ -115,7 +117,8 @@ internal object ModelDownloads {
     @Volatile var transferRunner: ModelTransferRunner = ModelTransferRunner { context, control, progress ->
         ModelDownloader(ModelSelection.root(context), source = control.source,
             currentDirectory = ModelSelection.current(context), shouldYield = control.shouldYield,
-            beforeRequest = control.beforeRequest, retryRequest = control.retryRequest).use { operation ->
+            beforeRequest = control.beforeRequest, retryRequest = control.retryRequest,
+            onCatalogChecked = { catalogChecked(context, it) }).use { operation ->
             val directory = operation.download(progress)
             ModelSelection.select(context, directory)
             operation.commit()
@@ -206,6 +209,14 @@ internal object ModelDownloads {
             }.apply()
     }
 
+    internal fun catalogChecked(context: Context, catalog: ModelCatalog, checkedAtMs: Long = System.currentTimeMillis()) {
+        require(checkedAtMs > 0 && catalog.manifestSha256.matches(Regex("[0-9a-f]{64}")))
+        // Publish the revision and timestamp atomically, independently of transfer progress.
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("latestManifestSha256", catalog.manifestSha256)
+            .putLong("lastCheckedAtMs", checkedAtMs).apply()
+    }
+
     private fun preferenceChanges(context: Context, name: String, key: String? = null): Flow<Unit> = callbackFlow {
         val preferences = context.getSharedPreferences(name, Context.MODE_PRIVATE)
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
@@ -216,9 +227,15 @@ internal object ModelDownloads {
         awaitClose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
     }.conflate()
 
-    private fun selection(context: Context): Flow<File?> = combine(
+    private data class SelectedModel(val directory: File?, val manifestSha256: String?)
+
+    private fun selection(context: Context): Flow<SelectedModel> = combine(
         preferenceChanges(context, "ascent", "modelPath"), selectionRefresh,
-    ) { _, _ -> Unit }.conflate().map { ModelSelection.current(context) }
+    ) { _, _ -> Unit }.conflate().map {
+        val directory = ModelSelection.current(context)
+        val revision = directory?.let { runCatching { File(it, "manifest.json").inputStream().use(::sha256) }.getOrNull() }
+        SelectedModel(directory, revision)
+    }
         .distinctUntilChanged().flowOn(Dispatchers.IO)
 
     private fun persisted(context: Context): Flow<ModelTransferRecord> = preferenceChanges(context, PREFS).map {
@@ -235,12 +252,13 @@ internal object ModelDownloads {
             else -> ModelTransferPhase.IDLE
         }
         ModelTransferRecord(phase, values["message"] as? String ?: "",
-            values["completed"] as? Long ?: 0, values["total"] as? Long ?: 0)
+            values["completed"] as? Long ?: 0, values["total"] as? Long ?: 0,
+            values["lastCheckedAtMs"] as? Long ?: 0, values["latestManifestSha256"] as? String)
     }.distinctUntilChanged().flowOn(Dispatchers.IO)
 
     fun observe(context: Context): Flow<ModelTransferState> = combine(
         selection(context), persisted(context), transferActive,
-    ) { directory, saved, active -> resolveModelTransfer(directory, saved, active) }
+    ) { selected, saved, active -> resolveModelTransfer(selected.directory, saved, active, selected.manifestSha256) }
         .distinctUntilChanged().flowOn(Dispatchers.IO)
 }
 

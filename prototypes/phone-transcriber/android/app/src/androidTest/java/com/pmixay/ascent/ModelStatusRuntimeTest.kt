@@ -107,6 +107,47 @@ class ModelStatusRuntimeTest {
         ModelSelection.acquire(context).use { assertEquals(installed, it.directory) }
     }
 
+    @Test fun lastSuccessfulCatalogCheckSurvivesFailureAndObservationRestart() {
+        val installed = fixture()
+        ModelSelection.select(context, installed)
+        val manifest = File(installed, "manifest.json")
+        val catalog = ModelCatalog(manifest.inputStream().use(::sha256), manifest.length())
+        ModelDownloads.catalogChecked(context, catalog, checkedAtMs = 1_000_000)
+        observe { updates ->
+            val checked = updates.next { it.versionStatus == ModelVersionStatus.CURRENT }
+            assertEquals(1_000_000L, checked.lastCheckedAtMs)
+            ModelDownloads.publish(context, "Не удалось проверить обновление", "error")
+            val failed = updates.next { it.phase == ModelTransferPhase.ERROR }
+            assertEquals(ModelVersionStatus.CURRENT, failed.versionStatus)
+            assertEquals(1_000_000L, failed.lastCheckedAtMs)
+        }
+        observe { updates ->
+            val restored = updates.next { it.directory == installed }
+            assertEquals(ModelVersionStatus.CURRENT, restored.versionStatus)
+            assertEquals(1_000_000L, restored.lastCheckedAtMs)
+            assertEquals("Проверено 3 мин назад", modelCheckAgeLabel(restored.lastCheckedAtMs, 1_180_000))
+        }
+    }
+
+    @Test fun newerCatalogIsNotCurrentUntilVerifiedSelectionChanges() = observe { updates ->
+        updates.next { it.directory == null }
+        val installed = fixture()
+        val newer = fixture(asrBytes = byteArrayOf(8, 7, 6, 5))
+        ModelSelection.select(context, installed)
+        updates.next { it.directory == installed }
+        val manifest = File(newer, "manifest.json")
+        ModelDownloads.catalogChecked(context,
+            ModelCatalog(manifest.inputStream().use(::sha256), manifest.length()), checkedAtMs = 2_000_000)
+        val available = updates.next { it.versionStatus == ModelVersionStatus.UPDATE_AVAILABLE }
+        assertEquals(installed, available.directory)
+        ModelDownloads.publish(context, "Ожидаю соединение", "waiting")
+        assertEquals(ModelVersionStatus.UPDATE_AVAILABLE,
+            updates.next { it.phase == ModelTransferPhase.WAITING }.versionStatus)
+        ModelSelection.select(context, newer)
+        val current = updates.next { it.directory == newer && it.versionStatus == ModelVersionStatus.CURRENT }
+        assertEquals(2_000_000L, current.lastCheckedAtMs)
+    }
+
     @Test fun restartingObservationDoesNotReviveAnOwnerlessSavedDownload() {
         val installed = fixture()
         ModelSelection.select(context, installed)
@@ -243,12 +284,12 @@ class ModelStatusRuntimeTest {
         }
 
     /** Valid metadata and tiny payloads exercise selection only, never ONNX inference. */
-    private fun fixture(target: Context = context): File {
+    private fun fixture(target: Context = context, asrBytes: ByteArray = byteArrayOf(1, 2, 3)): File {
         val directory = File(ModelSelection.root(target), "gigaam-status-test-${UUID.randomUUID()}")
         assertTrue(directory.mkdir())
         fixtures += directory
         val payloads = linkedMapOf(
-            "asr.onnx" to byteArrayOf(1, 2, 3),
+            "asr.onnx" to asrBytes,
             "speaker.onnx" to byteArrayOf(4, 5, 6),
             "tokens.json" to JSONArray(listOf("а", " ")).toString().toByteArray(),
             "LICENSE-asr.txt" to "ASR test license".toByteArray(),

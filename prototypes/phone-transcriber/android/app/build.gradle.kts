@@ -72,3 +72,12 @@ dependencies {
     androidTestImplementation(libs.errorprone.annotations)
     androidTestImplementation(libs.work.testing)
 }
+
+// The long evaluation reads verified resources outside the regular JVM source set.
+// Always score them in its dedicated job; compile/dependency caches remain enabled.
+if (providers.environmentVariable("ASCENT_DIALOG_EVALUATION").isPresent) {
+    tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+        outputs.upToDateWhen { false }
+        outputs.doNotCacheIf("External two-hour evaluation must be scored on this run") { true }
+    }
+}

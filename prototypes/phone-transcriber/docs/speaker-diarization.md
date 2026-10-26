@@ -74,7 +74,8 @@ calibrated operating point for Russian phone recordings.
 - Separate assigning a short reply from teaching a voice: 320 ms of usable
   speech can receive a label with sufficient acoustic evidence; establishing a
   voice still needs at least 800 ms in the extraction pass and the stronger
-  cluster quality gate. Exceeding the speaker budget remains unknown.
+  cluster quality gate. Exceeding the speaker budget remains unknown in the
+  strict internal evidence, before final participant completion.
 - Reconcile a smaller extra group when every anchor strongly matches
   two nonoverlapping original examples of the same established voice. This
   compares different acoustic modes within that voice instead of relying only
@@ -108,7 +109,18 @@ calibrated operating point for Russian phone recordings.
   temporal proximity, similarity and quality. Overlapping windows no longer
   multiply one speaker's vote. Repair a short unknown run only when clear
   labels on both sides agree and each ambiguous word already favors that
-  voice. Exact ties, conflicting neighbors and missing coverage remain unknown.
+  voice. Exact ties, conflicting neighbors and missing coverage remain unknown
+  in this strict evidence pass.
+- Complete every recognized word with a participant label in a separate final
+  pass. Preserve strict assignments; fill unresolved words from frozen local
+  acoustic evidence, then nearest existing temporal anchors, with one stable
+  participant when no evidence exists. Short conversations without a strict seed
+  use a bounded short-evidence discovery policy. Every fallback stays marked as
+  inferred and cannot corroborate another fallback or teach a remembered voice.
+  Stored legacy unknown/blank labels are completed from original attributed
+  phrases without changing text, times or source capture time. JSON export
+  retains inferred provenance. Removing the unidentified display state does not
+  establish correct speaker recognition.
 - Export only stable, high-confidence voice signatures for the separate local
   voice-memory component. Count the union of active frame intervals, so
   overlapping windows cannot inflate the amount of enrollment evidence.
@@ -178,8 +190,11 @@ voices not represented by those readers; that tradeoff needs broader evaluation.
 
 Current CTC word timestamps are estimates, and ASR errors can affect the regions
 used for embeddings. Short replies, similar voices, background speech, distant
-microphones, and rapid turn changes can remain unknown. This implementation does
+microphones, and rapid turn changes can lack reliable voice evidence. This implementation does
 not separate simultaneously speaking people or provide an overlap detector.
+Those cases can still lack strict evidence internally; the completed transcript
+now supplies best-effort participant labels and retains inferred provenance
+instead of displaying an unidentified speaker.
 
 Synthetic regression tests cover returning voices, noisy 192-dimensional voice
 variation, extraction order, mixed boundaries, clear short replies, weak
@@ -344,10 +359,49 @@ establish the controlled ASR comparison, not natural-dialogue or phone accuracy.
 The display groups consecutive phrases with the same known speaker ID into one
 timeline element, including across pauses and former 20-second element limits.
 It retains stored phrases for export, shows decimal elapsed seconds, and marks
-gaps above 700 ms with a timer icon and duration. Unknown speaker IDs remain
-separate because absence of attribution cannot establish a shared voice.
+gaps above 700 ms with a timer icon and duration. Final participant completion
+also normalizes legacy unknown IDs before display; shared fallback labels remain
+best-effort attribution rather than proof of a shared voice.
 Pause durations are estimates between CTC-derived phrase times, not verified
 silence; the interface says that reply and pause timings are approximate.
+After listening stops, processing has one stable loading status. The separate
+model panel retains its last successful catalog comparison and relative check
+age through failed update attempts; an advertised newer revision remains an
+available update until activation, and initial downloads retain their progress.
+
+### Frozen two-hour dialogue evaluation
+
+The new Android CI job uses the
+[frozen Dialogs selection](../tools/fixtures/dialogs/README.md): 1,134 distinct
+public audio payloads, three actors and 7,233.107 seconds of publisher metadata
+duration. Every source checksum and annotation file is pinned before inference.
+CI verifies at least 7,200 seconds of actual resampled source audio, excluding
+inserted gaps. It runs the deployed GigaAM and ERes2NetV2 revisions without
+training, enrollment or threshold tuning on these recordings.
+
+Source clips retain their numeric turn order in approximately five-minute blocks
+with 100 ms inserted gaps. The source is expressive acted studio dialogue;
+original continuous pauses and overlap cannot be reconstructed. Three actors
+give limited identity diversity, and their absence from upstream model training
+is unknown. This is a separate evaluation selection, not natural meeting audio.
+
+ASR WER/CER score all reference and recognized text, including deletions and
+empty hypotheses. Joint cpWER concatenates words per speaker and uses one-to-one
+label matching, penalizing extra or missing speaker streams. Kotlin verifies
+the host chunk, CTC and embedding-context mirrors before running production
+clustering and completion on actual recognized words. Separate clip-time probes
+report strict and completed attribution, per-actor scores, inferred coverage and
+speaker-count errors. Their denominator includes source clip silence and excludes
+only inserted silence; unknown/missing strict evidence remains an error.
+
+Validated checkpoints cache inference, while the dedicated job always reruns
+scoring and rejects a skipped evaluation. Public audio, transcripts, embeddings
+and reports are not download artifacts. Results have not yet been measured or
+inspected for this new evaluation. These measurements cannot establish
+speech-only DER, overlap separation, phone speed or natural-conversation
+acceptance; those requirements remain open.
+
+### Remaining validation
 
 Voice-memory tests cover explicit enrollment, encrypted restart, short/invalid
 evidence rejection, runner-up and conflicting-speaker ambiguity, absence of

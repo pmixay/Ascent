@@ -264,10 +264,46 @@ class ModelDownloaderTest {
                 installed = it.download {}; it.commit()
             }
             val requested = mutableListOf<String>()
-            ModelDownloader(root, source(fixture, requested), { Long.MAX_VALUE }, installed).use {
+            val checked = mutableListOf<ModelCatalog>()
+            ModelDownloader(root, source(fixture, requested), { Long.MAX_VALUE }, installed,
+                onCatalogChecked = { checked += it }).use {
                 assertEquals(installed, it.download {}); it.commit()
             }
             assertEquals(listOf("catalog.json"), requested)
+            assertEquals(listOf(ModelCatalog.parse(fixture.files.getValue("catalog.json"))), checked)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun validCatalogCheckIsReportedEvenWhenTheFollowingUpdateDownloadFails() {
+        val root = Files.createTempDirectory("model-check").toFile()
+        try {
+            val fixture = fixture()
+            val checked = mutableListOf<ModelCatalog>()
+            val failing = ModelSource { path ->
+                if (path != "catalog.json") throw IOException("Network unavailable")
+                val bytes = fixture.files.getValue(path)
+                ModelResponse(bytes.inputStream(), bytes.size.toLong())
+            }
+            ModelDownloader(root, failing, { Long.MAX_VALUE }, onCatalogChecked = { checked += it }).use {
+                assertThrows(IOException::class.java) { it.download {} }
+            }
+            assertEquals(listOf(ModelCatalog.parse(fixture.files.getValue("catalog.json"))), checked)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun failedOrIncompatibleCatalogCannotReportASuccessfulCheck() {
+        val root = Files.createTempDirectory("model-check").toFile()
+        try {
+            val checked = mutableListOf<ModelCatalog>()
+            val invalid = fixture().files.getValue("catalog.json").decodeToString()
+                .replace(ModelSpec.MODEL_ID, "different-model").toByteArray()
+            for (source in listOf(ModelSource { throw IOException("Offline") },
+                ModelSource { ModelResponse(invalid.inputStream(), invalid.size.toLong()) })) {
+                ModelDownloader(root, source, { Long.MAX_VALUE }, onCatalogChecked = { checked += it }).use {
+                    assertThrows(Exception::class.java) { it.download {} }
+                }
+            }
+            assertTrue(checked.isEmpty())
         } finally { root.deleteRecursively() }
     }
 

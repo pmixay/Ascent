@@ -25,8 +25,7 @@ data class SavedConversation(
     val segments: List<TranscriptSegment>,
     val speakerNames: Map<String, String>,
 ) {
-    fun speakerName(id: String): String = if (id == UNKNOWN_SPEAKER) UNKNOWN_SPEAKER_NAME
-        else speakerNames[id] ?: "Участник"
+    fun speakerName(id: String): String = speakerNames[id] ?: "Участник"
     val participantCount: Int get() = segments.map { it.speakerId }.distinct().count { it != UNKNOWN_SPEAKER }
 }
 
@@ -147,20 +146,35 @@ internal class ConversationStore(
     companion object {
         fun retained(conversations: List<SavedConversation>, nowMs: Long): List<SavedConversation> = conversations
             .filter { it.startedAtMs > nowMs - HISTORY_RETENTION_MS && it.startedAtMs <= nowMs }
+            .map(::assignedParticipants)
             .sortedByDescending { it.startedAtMs }
 
-        fun conversationJson(conversation: SavedConversation): JSONObject = JSONObject().apply {
-            put("id", conversation.id)
-            put("startedAtMs", conversation.startedAtMs)
-            put("durationMs", conversation.durationMs)
-            put("speakers", JSONArray().apply { conversation.speakerNames.forEach { (id, name) ->
-                if (id != UNKNOWN_SPEAKER) put(JSONObject().put("id", id).put("name", name))
-            } })
-            put("segments", JSONArray().apply { conversation.segments.forEach { segment ->
-                put(JSONObject().put("speakerId", segment.speakerId).put("speakerName", conversation.speakerName(segment.speakerId))
-                    .put("speakerKnown", segment.speakerId != UNKNOWN_SPEAKER).put("startMs", segment.startMs)
-                    .put("endMs", segment.endMs).put("text", segment.text))
-            } })
+        fun conversationJson(source: SavedConversation): JSONObject {
+            val conversation = assignedParticipants(source)
+            return JSONObject().apply {
+                put("id", conversation.id)
+                put("startedAtMs", conversation.startedAtMs)
+                put("durationMs", conversation.durationMs)
+                put("speakers", JSONArray().apply { conversation.speakerNames.forEach { (id, name) ->
+                    if (id != UNKNOWN_SPEAKER) put(JSONObject().put("id", id).put("name", name))
+                } })
+                put("segments", JSONArray().apply { conversation.segments.forEach { segment ->
+                    put(JSONObject().put("speakerId", segment.speakerId).put("speakerName", conversation.speakerName(segment.speakerId))
+                        .put("speakerKnown", !segment.speakerInferred).put("speakerInferred", segment.speakerInferred)
+                        .put("startMs", segment.startMs)
+                        .put("endMs", segment.endMs).put("text", segment.text))
+                } })
+            }
+        }
+
+        private fun assignedParticipants(conversation: SavedConversation): SavedConversation {
+            val segments = SpeakerAttribution.completeStored(conversation.segments)
+            if (segments === conversation.segments) return conversation
+            val ids = segments.map { it.speakerId }.distinct()
+            val names = ids.mapIndexed { index, id ->
+                id to (conversation.speakerNames[id] ?: "Участник ${index + 1}")
+            }.toMap()
+            return conversation.copy(segments = segments, speakerNames = names)
         }
 
         private fun decodeConversation(json: JSONObject): SavedConversation {
@@ -177,7 +191,8 @@ internal class ConversationStore(
                 val start = it.getLong("startMs")
                 val end = it.getLong("endMs")
                 require(start >= 0 && end >= start)
-                TranscriptSegment(it.getString("speakerId"), start, end, it.getString("text"))
+                TranscriptSegment(it.getString("speakerId"), start, end, it.getString("text"),
+                    it.optBoolean("speakerInferred", false))
             } }
         }
         private fun names(json: JSONObject): Map<String, String> {

@@ -6,6 +6,60 @@ import org.junit.Test
 
 class ModelStatusPolicyTest {
     private val installed = File("/validated/model-revision")
+    private val revision = "a".repeat(64)
+
+    @Test fun currentVersionSurvivesFailedUpdatesWithoutAdvancingTheSuccessfulCheck() {
+        for (phase in listOf(ModelTransferPhase.CHECKING, ModelTransferPhase.WAITING, ModelTransferPhase.ERROR)) {
+            val state = resolveModelTransfer(installed, ModelTransferRecord(phase,
+                message = "Не удалось проверить обновление", lastCheckedAtMs = 1_000_000,
+                latestManifestSha256 = revision), active = phase == ModelTransferPhase.CHECKING,
+                installedManifestSha256 = revision)
+            assertEquals(ModelVersionStatus.CURRENT, state.versionStatus)
+            assertEquals(1_000_000L, state.lastCheckedAtMs)
+            assertEquals("Последняя версия", modelVersionLabel(state.versionStatus))
+            assertEquals("Проверено 3 мин назад", modelCheckAgeLabel(state.lastCheckedAtMs, 1_180_000))
+        }
+    }
+
+    @Test fun catalogRevisionDoesNotBecomeInstalledUntilSelectionMatches() {
+        val checked = ModelTransferRecord(ModelTransferPhase.DOWNLOADING, lastCheckedAtMs = 1000,
+            latestManifestSha256 = "b".repeat(64))
+        val downloading = resolveModelTransfer(installed, checked, active = true, installedManifestSha256 = revision)
+        assertEquals(ModelVersionStatus.UPDATE_AVAILABLE, downloading.versionStatus)
+        assertEquals("Доступна новая версия", modelVersionLabel(downloading.versionStatus))
+        val activated = resolveModelTransfer(installed, checked, active = true, installedManifestSha256 = "b".repeat(64))
+        assertEquals(ModelVersionStatus.CURRENT, activated.versionStatus)
+        assertEquals(1000L, activated.lastCheckedAtMs)
+    }
+
+    @Test fun installedModelsWithoutSuccessfulCheckNeverClaimToBeLatest() {
+        val state = resolveModelTransfer(installed, ModelTransferRecord(ModelTransferPhase.READY),
+            active = false, installedManifestSha256 = revision)
+        assertEquals(ModelVersionStatus.UNCHECKED, state.versionStatus)
+        assertEquals("Готовы к работе", modelVersionLabel(state.versionStatus))
+        assertEquals("Проверка ещё не выполнена", modelCheckAgeLabel(state.lastCheckedAtMs, 1_000_000))
+    }
+
+    @Test fun missingFilesAndMalformedSavedChecksCannotClaimLatestVersion() {
+        val record = ModelTransferRecord(ModelTransferPhase.READY, lastCheckedAtMs = 1000,
+            latestManifestSha256 = revision)
+        assertEquals(ModelVersionStatus.UNCHECKED,
+            resolveModelTransfer(null, record, active = false, installedManifestSha256 = revision).versionStatus)
+        for (invalid in listOf(record.copy(lastCheckedAtMs = -1), record.copy(latestManifestSha256 = "not-a-revision"))) {
+            val state = resolveModelTransfer(installed, invalid, active = false, installedManifestSha256 = revision)
+            assertEquals(ModelVersionStatus.UNCHECKED, state.versionStatus)
+            assertEquals(0L, state.lastCheckedAtMs)
+        }
+    }
+
+    @Test fun successfulCheckAgeHandlesMinuteHourDayBoundariesAndClockRollback() {
+        assertEquals("Проверено только что", modelCheckAgeLabel(1000, 500))
+        assertEquals("Проверено только что", modelCheckAgeLabel(1000, 60_999))
+        assertEquals("Проверено 1 мин назад", modelCheckAgeLabel(1000, 61_000))
+        assertEquals("Проверено 59 мин назад", modelCheckAgeLabel(1000, 3_600_999))
+        assertEquals("Проверено 1 ч назад", modelCheckAgeLabel(1000, 3_601_000))
+        assertEquals("Проверено 1 дн. назад", modelCheckAgeLabel(1000, 86_401_000))
+    }
 
     @Test fun firstLaunchDoesNotClaimReadinessBeforeValidation() {
         val state = resolveModelTransfer(null, ModelTransferRecord(), active = false)

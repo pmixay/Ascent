@@ -13,16 +13,28 @@ after ordinary app closure, with prompt request retries and verified resume. The
 shows model status; no weights or manual model archive belong in the APK flow.
 A dedicated model panel keeps local readiness separate from update checks and
 download progress, so an offline or failed update does not hide usable models.
+It shows the latest successfully checked revision status and elapsed check age;
+failed checks neither erase that status nor advance its timestamp. A newer
+advertised revision appears as an available update until activation. Audio
+processing uses one stable loading status after listening stops.
 Speaker attribution preserves short acoustic contexts, consolidates recurring
 voice fragments, and recovers bounded degraded runs only with matching voice
 evidence on both sides. Smaller recurring groups can also rejoin an established voice
 when they match two independent original examples of that voice, with a clear
 margin over alternatives; recovered fragments never train voice memory.
+Every completed transcript now has participant labels. Insufficient evidence
+receives a best-effort assignment with retained inferred provenance, including
+older saved conversations; these guesses cannot teach voice templates.
 Consecutive phrases by the same known speaker share one
 timeline element, with elapsed seconds and timer-marked estimated pauses.
 Recognition prefers quiet chunk boundaries with additional context. CI includes
-six-reader Russian speech regressions and reference-transcript ASR measurements; natural conversation
-accuracy remains unmeasured. See the [speaker evaluation scope](prototypes/phone-transcriber/docs/speaker-diarization.md).
+six-reader Russian speech regressions and reference-transcript ASR measurements.
+A new CI evaluation freezes 1,134 public Russian Dialogs clips from three actors,
+with 7,233.107 seconds of source metadata duration and an enforced minimum of
+two hours after resampling. It measures ASR, speaker attribution and joint word
+errors on constructed dialogue sequences; its results are not yet measured.
+Natural conversation and phone accuracy remain unmeasured. See the
+[speaker evaluation scope](prototypes/phone-transcriber/docs/speaker-diarization.md).
 
 Russian speech memory for Android and Wear OS.
 
@@ -35,7 +47,7 @@ Ascent turns everyday speech and relevant sounds into a searchable seven-day his
 
 Specification version: 0.5
 
-Updated: 24 October 2026
+Updated: 26 October 2026
 
 Status: product and implementation plan. These are requirements, not claims that the software or its protections are already implemented.
 

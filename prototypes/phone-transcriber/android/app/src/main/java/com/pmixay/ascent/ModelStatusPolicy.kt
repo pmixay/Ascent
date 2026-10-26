@@ -4,12 +4,15 @@ import java.io.File
 
 /** Transfer activity is independent of whether an installed revision can perform inference. */
 enum class ModelTransferPhase { IDLE, CHECKING, DOWNLOADING, VERIFYING, WAITING, ERROR, READY }
+enum class ModelVersionStatus { UNCHECKED, CURRENT, UPDATE_AVAILABLE }
 
 internal data class ModelTransferRecord(
     val phase: ModelTransferPhase = ModelTransferPhase.IDLE,
     val message: String = "",
     val completedBytes: Long = 0,
     val totalBytes: Long = 0,
+    val lastCheckedAtMs: Long = 0,
+    val latestManifestSha256: String? = null,
 )
 
 /** The caller supplies a validated selection; saved transfer success is never evidence of readiness. */
@@ -17,15 +20,23 @@ internal fun resolveModelTransfer(
     directory: File?,
     record: ModelTransferRecord,
     active: Boolean,
+    installedManifestSha256: String? = null,
 ): ModelTransferState {
     val available = directory != null
     val total = record.totalBytes.coerceAtLeast(0)
     val completed = if (total > 0) record.completedBytes.coerceIn(0, total) else 0
+    val checkedAt = record.lastCheckedAtMs.coerceAtLeast(0)
+    val latest = record.latestManifestSha256?.takeIf { checkedAt > 0 && it.matches(Regex("[0-9a-f]{64}")) }
+    val version = when {
+        !available || latest == null || installedManifestSha256 == null -> ModelVersionStatus.UNCHECKED
+        latest == installedManifestSha256 -> ModelVersionStatus.CURRENT
+        else -> ModelVersionStatus.UPDATE_AVAILABLE
+    }
 
     fun state(phase: ModelTransferPhase, message: String, progress: Boolean = false, running: Boolean = false) =
         ModelTransferState(directory = directory, message = message, downloading = running,
             completedBytes = if (progress) completed else 0, totalBytes = if (progress) total else 0,
-            phase = phase)
+            phase = phase, versionStatus = version, lastCheckedAtMs = if (latest != null) checkedAt else 0)
 
     fun ready() = state(ModelTransferPhase.READY, "Модели готовы")
     fun waiting(progress: Boolean = false): ModelTransferState {
@@ -73,5 +84,23 @@ internal fun resolveModelTransfer(
                 else -> "Не удалось подготовить модели. Проверка повторится автоматически."
             }, progress = true)
         }
+    }
+}
+
+/** A failed update attempt never changes the latest successful comparison or its age. */
+internal fun modelVersionLabel(status: ModelVersionStatus): String = when (status) {
+    ModelVersionStatus.CURRENT -> "Последняя версия"
+    ModelVersionStatus.UPDATE_AVAILABLE -> "Доступна новая версия"
+    ModelVersionStatus.UNCHECKED -> "Готовы к работе"
+}
+
+internal fun modelCheckAgeLabel(checkedAtMs: Long, nowMs: Long): String {
+    if (checkedAtMs <= 0) return "Проверка ещё не выполнена"
+    val minutes = (nowMs - checkedAtMs).coerceAtLeast(0) / 60_000
+    return when {
+        minutes < 1 -> "Проверено только что"
+        minutes < 60 -> "Проверено $minutes мин назад"
+        minutes < 1440 -> "Проверено ${minutes / 60} ч назад"
+        else -> "Проверено ${minutes / 1440} дн. назад"
     }
 }
