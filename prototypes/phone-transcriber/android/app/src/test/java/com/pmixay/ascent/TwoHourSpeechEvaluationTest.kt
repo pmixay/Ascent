@@ -26,6 +26,7 @@ class TwoHourSpeechEvaluationTest {
         val sessions = index.getJSONArray("sessions")
         val sources = mutableSetOf<String>()
         val actorTotals = sortedMapOf<String, LongArray>()
+        val subsetTotals = sortedMapOf<String, MutableMap<String, Long>>()
         var totalMs = 0L
         var strictCorrectMs = 0L
         var completedCorrectMs = 0L
@@ -120,6 +121,11 @@ class TwoHourSpeechEvaluationTest {
                 })
                 val strictScore = score(strictLabels)
                 val fullScore = score(completeProbes.speakerIds)
+                if (id.startsWith("masha_dima_part1")) {
+                    AsrErrorDiagnostics.printDevelopment(document, tokens)
+                    printDevelopmentSpeakerDiagnostics(id, references, stable, clustered.assignments,
+                        words, completed, probes, completeProbes.speakerIds, fullScore.matching)
+                }
                 assertEquals(sourceMs, fullScore.totalMs)
                 val sessionInferred = probes.indices.filter { completeProbes.inferred[it] }
                     .sumOf { probes[it].endMs - probes[it].startMs }
@@ -155,6 +161,18 @@ class TwoHourSpeechEvaluationTest {
                 jointErrors += joint.errors
                 predictedWords += words.size
                 inferredWords += completed.inferred.count { it }
+                val subset = if (id.startsWith("masha_dima_part1")) "development" else "validation"
+                val tally = subsetTotals.getOrPut(subset) { linkedMapOf() }
+                val values = linkedMapOf("sourceMs" to sourceMs, "uniqueFiles" to references.length().toLong(),
+                    "sessions" to 1L, "referenceWords" to joint.referenceWords.toLong(),
+                    "wordErrors" to asr.getLong("word_errors"), "referenceChars" to asr.getLong("chars"),
+                    "charErrors" to asr.getLong("char_errors"), "cpWordErrors" to joint.errors.toLong(),
+                    "strictCorrectMs" to strictScore.correctMs, "completedCorrectMs" to fullScore.correctMs,
+                    "inferredMs" to sessionInferred, "recognizedWords" to words.size.toLong(),
+                    "inferredRecognizedWords" to completed.inferred.count { it }.toLong(),
+                    "extraSpeakerLabels" to maxOf(0, labels - actualReaders).toLong(),
+                    "missingSpeakerLabels" to maxOf(0, actualReaders - labels).toLong())
+                values.forEach { (key, value) -> tally[key] = tally.getOrDefault(key, 0L) + value }
             } finally { observations.forEach { it.vector.fill(0f) } }
         }
         assertEquals(1134, sources.size)
@@ -179,10 +197,108 @@ class TwoHourSpeechEvaluationTest {
         actorTotals.forEach { (actor, t) -> println("DIALOG EVALUATION actor=$actor: sourceMs=${t[0]}, " +
             "correctMs=${t[1]}, completedAccuracy=${t[1].toDouble() / t[0]}, strictAccuracy=${t[2].toDouble() / t[0]}, " +
             "inferredClipTime=${t[3].toDouble() / t[0]}") }
+        subsetTotals.forEach { (subset, tally) ->
+            fun rate(numerator: String, denominator: String) = tally.getValue(numerator).toDouble() / tally.getValue(denominator)
+            println("DIALOG EVALUATION SUBSET $subset: ${tally.entries.joinToString { "${it.key}=${it.value}" }}, " +
+                "WER=${rate("wordErrors", "referenceWords")}, CER=${rate("charErrors", "referenceChars")}, " +
+                "cpWER=${rate("cpWordErrors", "referenceWords")}, " +
+                "strictSpeakerAccuracy=${rate("strictCorrectMs", "sourceMs")}, " +
+                "completedSpeakerAccuracy=${rate("completedCorrectMs", "sourceMs")}, " +
+                "inferredClipTime=${rate("inferredMs", "sourceMs")}")
+        }
         println("Scope: fixed acted Russian dialogue clips in original order with synthetic gaps; " +
             "clip-time speaker backend probes and end-to-end cpWER, not natural-conversation DER or phone accuracy. " +
             "Reference boundaries never select inference windows. Unknown/missing evidence remains in the denominator. " +
             "Inferred assignments are scored, not treated as confirmed identities. No weights or profiles were trained.")
+    }
+
+    /** Reference labels diagnose completed predictions only; they never enter production inference. */
+    private fun printDevelopmentSpeakerDiagnostics(
+        id: String,
+        references: JSONArray,
+        windows: List<SpeakerObservation>,
+        assignments: List<SpeakerAssignment>,
+        words: List<TimedWord>,
+        completed: CompletedSpeakerAttribution,
+        probes: List<TimedWord>,
+        probeLabels: List<String>,
+        matching: Map<String, String>,
+    ) {
+        data class Reference(val speaker: String, val startMs: Long, val endMs: Long)
+        val turns = (0 until references.length()).map { index -> references.getJSONObject(index).let {
+            Reference(it.getString("speaker"), it.getLong("start_ms"), it.getLong("end_ms"))
+        } }
+        fun union(spans: List<SpeechSpan>): List<SpeechSpan> {
+            val result = mutableListOf<SpeechSpan>()
+            for (span in spans.sortedBy { it.startMs }) {
+                val previous = result.lastOrNull()
+                if (previous != null && span.startMs <= previous.endMs)
+                    result[result.lastIndex] = previous.copy(endMs = maxOf(previous.endMs, span.endMs))
+                else result += span
+            }
+            return result
+        }
+        fun overlap(spans: List<SpeechSpan>): Map<String, Long> = turns.groupBy { it.speaker }.mapValues { (_, values) ->
+            values.sumOf { turn -> spans.sumOf { span ->
+                (minOf(turn.endMs, span.endMs) - maxOf(turn.startMs, span.startMs)).coerceAtLeast(0)
+            } }
+        }
+        fun quality(value: Float) = when {
+            value < .35f -> "low"
+            value < .55f -> "medium"
+            value < .75f -> "high"
+            else -> "veryHigh"
+        }
+        // Overlap weighting here is a diagnostic of each context, not a new accuracy denominator.
+        // A context can span two real voices even when its energy occupancy is very high.
+        val referenceSupport = windows.map { overlap(union(it.speech)) }
+        for ((bucket, indices) in windows.indices.groupBy { "seed=${windows[it].canSeed},quality=${quality(windows[it].quality)}" }.toSortedMap()) {
+            val supportedMs = indices.sumOf { referenceSupport[it].values.sum() }
+            val dominantMs = indices.sumOf { referenceSupport[it].values.maxOrNull() ?: 0 }
+            val mixed = indices.count { index ->
+                val support = referenceSupport[index].values.sum()
+                support > 0 && (referenceSupport[index].values.maxOrNull() ?: 0).toDouble() / support < .95
+            }
+            val unknown = indices.count { assignments[it].speakerId == SpeakerClusterer.UNKNOWN }
+            println("DIALOG DEVELOPMENT WINDOWS $id $bucket: count=${indices.size}, mixed=$mixed, " +
+                "unknown=$unknown, overlappingContextSupportMs=$supportedMs, " +
+                "dominantReferencePurity=${if (supportedMs == 0L) 0.0 else dominantMs.toDouble() / supportedMs}")
+        }
+        // Union support per output cluster avoids counting overlapping windows as extra evidence.
+        for ((label, indices) in assignments.indices.groupBy { assignments[it].speakerId }.toSortedMap()) {
+            val support = overlap(union(indices.flatMap { windows[it].speech }))
+            println("DIALOG DEVELOPMENT CLUSTER $id label=$label: windows=${indices.size}, " +
+                "seeds=${indices.count { windows[it].canSeed }}, " +
+                "meanQuality=${indices.map { windows[it].quality.toDouble() }.average()}, " +
+                "referenceSupportMs=$support, matchedReference=${matching.entries.firstOrNull { it.value == label }?.key ?: "none"}")
+        }
+        var splitProbeTurns = 0
+        var splitRecognizedTurns = 0
+        var emptyRecognizedTurns = 0
+        var probeSwitches = 0
+        var wordSwitches = 0
+        var maximumProbeLabels = 0
+        for (turn in turns) {
+            val localProbeLabels = probes.indices.filter {
+                val midpoint = probes[it].startMs + (probes[it].endMs - probes[it].startMs) / 2
+                midpoint >= turn.startMs && midpoint < turn.endMs
+            }.map { probeLabels[it] }
+            val localWordLabels = words.indices.filter {
+                val midpoint = words[it].startMs + (words[it].endMs - words[it].startMs) / 2
+                midpoint >= turn.startMs && midpoint < turn.endMs
+            }.map { completed.speakerIds[it] }
+            val probeLabelCount = localProbeLabels.distinct().size
+            maximumProbeLabels = maxOf(maximumProbeLabels, probeLabelCount)
+            if (probeLabelCount > 1) splitProbeTurns++
+            if (localWordLabels.distinct().size > 1) splitRecognizedTurns++
+            if (localWordLabels.isEmpty()) emptyRecognizedTurns++
+            probeSwitches += localProbeLabels.zipWithNext().count { (left, right) -> left != right }
+            wordSwitches += localWordLabels.zipWithNext().count { (left, right) -> left != right }
+        }
+        println("DIALOG DEVELOPMENT FRAGMENTATION $id: referenceTurns=${turns.size}, " +
+            "splitProbeTurns=$splitProbeTurns, probeSwitches=$probeSwitches, maximumProbeLabels=$maximumProbeLabels, " +
+            "splitRecognizedTurns=$splitRecognizedTurns, wordSwitches=$wordSwitches, " +
+            "emptyRecognizedTurns=$emptyRecognizedTurns, inferredRecognizedWords=${completed.inferred.count { it }}")
     }
 
     private fun verifyRecognitionMirror(wave: PcmWave, windows: JSONArray, tokens: List<String>, expected: List<TimedWord>) {
