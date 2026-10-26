@@ -52,9 +52,13 @@ calibrated operating point for Russian phone recordings.
   spread across the session. This bounds the pairwise score matrix and avoids
   training only on the beginning of a long conversation.
 - Consolidate compatible aggregate centroids after average-linkage discovery.
-  Suppress an isolated degraded fragment only when the same established voice
+  Suppress a bounded degraded fragment only when the same established voice
   surrounds it and acoustic similarity plus the runner-up margin support that
-  voice. Clear short replies remain eligible to represent another speaker.
+  voice. A single acoustic disturbance can affect several overlapping windows;
+  recovery considers that contiguous run together, up to three seconds with
+  gaps no larger than 500 ms. Every recovered window must satisfy the quality,
+  similarity and margin checks. Clear short replies and recurring fragments
+  remain eligible to represent another speaker.
   Reject a mixed bridge between two different voices only with immediate
   temporal evidence; resembling two people elsewhere in the session does not
   by itself disqualify a third speaker.
@@ -120,8 +124,10 @@ embeddings and aggregate voice centroids have different variability. A
 low-occupancy short reply still requires similarity 0.80 and margin 0.12.
 A bounded, two-sided recovery can use similarity 0.48 with a margin of 0.08
 when an established voice is independently supported on both sides. An
-isolated degraded fragment requires similarity 0.50 and margin 0.12 before
-being removed as a separate voice. Recovered contexts cannot recursively recover
+isolated degraded run requires similarity 0.50 and margin 0.12 for every window,
+with quality below 0.75, before being removed as a separate voice. Both unknown
+and degraded-run recovery require neighboring evidence within 500 ms and a run
+no longer than three seconds. Recovered contexts cannot recursively recover
 more contexts or teach remembered profiles. Word-run recovery is limited to 800 ms with gaps no
 larger than 500 ms and clear same-voice neighbors.
 
@@ -142,10 +148,11 @@ variation, extraction order, mixed boundaries, clear short replies, weak
 fragments, invalid input, bounded anchors, unique speech support, sparse CTC
 emissions, pause boundaries, and ambiguous word votes. GitHub CI executes them.
 
-The [public Russian fixtures](../tools/fixtures/speakers/README.md) add six real
-utterances from three credited LibriVox readers. CI verifies their hashes and
+The [public Russian fixtures](../tools/fixtures/speakers/README.md) now contain 16
+real utterances from six credited LibriVox readers (110.18 seconds), including
+additional chapters and reference transcripts. CI verifies their hashes and
 the exact ERes2NetV2 model, extracts embeddings from clean speech, reduced gain,
-and deterministic 20 dB white-noise variants, and runs the app's activity and
+deterministic 20 dB white noise and a mild synthetic channel response, and runs the app's activity and
 clustering code on those samples. The generated model inputs are cached test
 resources; neither audio nor embeddings enter the APK or downloadable artifact.
 This checks a fixed set of real-speaker regressions. It is development data,
@@ -176,7 +183,7 @@ percentiles of **0.587/0.680/0.760 for the same reader** and
 the old cutoff and this model's actual short-window output; idealized
 orthogonal-vector tests had not exposed it.
 
-There are only six source utterances, totaling 47.88 seconds, from three
+Those historical measurements used only six source utterances, totaling 47.88 seconds, from three
 readers. The 150 evaluated windows include overlapping contexts and three
 variants of each utterance; they are not 150 independent examples. Cosine
 percentiles weight window pairs rather than giving each reader equal weight.
@@ -184,6 +191,34 @@ The alternating sequence uses 1.2-second gaps and embeddings computed inside
 each source clip, so it does not evaluate mixed boundaries or the ASR pass.
 These measurements guide development and must not be presented as held-out
 accuracy or diarization error rate.
+
+### Recognition boundaries and timeline
+
+The app previously cut ASR cores exactly every 20 seconds with 500 ms of context.
+It now searches the final two seconds of each nonfinal core for at least 200 ms
+of low energy and places the seam in the latest qualifying interval. If none
+exists it retains the 20-second seam. Each side receives 1.25 seconds of context,
+keeping the maximum input at 22.5 seconds. Quiet samples are never discarded;
+word ownership still uses nonoverlapping core intervals. This is an energy
+heuristic, not a learned VAD. GigaAM's official [longform implementation](https://github.com/salute-developers/GigaAM/blob/main/gigaam/vad_utils.py)
+also separates segmentation from recognition, but its neural VAD is not included
+in this prototype.
+
+Model CI measures reference-normalized WER/CER on the downloaded development
+clips and compares the old/new chunk policies on concatenated speech. The
+comparison rejects an increase in word errors on either clean or channel audio.
+Host
+evaluation mirrors the Kotlin timing and ownership logic; it is not Android
+device accuracy validation. Fixed model weights are unchanged. No numerical
+improvement is claimed before inspecting the new CI measurements.
+
+The display groups consecutive phrases with the same known speaker ID into one
+timeline element, including across pauses and former 20-second element limits.
+It retains stored phrases for export, shows decimal elapsed seconds, and marks
+gaps above 700 ms with a timer icon and duration. Unknown speaker IDs remain
+separate because absence of attribution cannot establish a shared voice.
+Pause durations are estimates between CTC-derived phrase times, not verified
+silence; the interface says that reply and pause timings are approximate.
 
 Voice-memory tests cover explicit enrollment, encrypted restart, short/invalid
 evidence rejection, runner-up and conflicting-speaker ambiguity, absence of

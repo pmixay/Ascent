@@ -154,6 +154,46 @@ class SpeakerClustererTest {
         assertArrayEquals(floatArrayOf(1f, 0f), result.signatures.single().vector, 0.001f)
     }
 
+    @Test fun overlappingDegradedContextsDoNotSelfConfirmAnotherPerson() {
+        // One 2.7-second phonetic/channel excursion produces two correlated windows.
+        // Its weak match falls below discovery, but both sides independently support A.
+        val degraded = floatArrayOf(0.53f, sqrt(1f - 0.53f * 0.53f))
+        val result = SpeakerClusterer().cluster(listOf(
+            voice(0, 1f, 0f), voice(1800, 1f, 0f),
+            SpeakerObservation(3600, 5400, degraded, quality = 0.6f),
+            SpeakerObservation(4500, 6300, degraded, quality = 0.6f),
+            voice(6300, 1f, 0f), voice(8100, 1f, 0f),
+        ))
+        assertEquals(List(6) { "speaker_1" }, result.assignments.map { it.speakerId })
+        assertEquals(4, result.signatures.single().windowCount)
+        assertEquals(7200L, result.signatures.single().speechMs)
+        assertArrayEquals(floatArrayOf(1f, 0f), result.signatures.single().vector, 0.001f)
+    }
+
+    @Test fun recurringDegradedVoiceIsNotDeletedAsOneBriefExcursion() {
+        val degraded = floatArrayOf(0.53f, sqrt(1f - 0.53f * 0.53f))
+        val result = SpeakerClusterer().cluster(listOf(
+            voice(0, 1f, 0f), voice(1800, 1f, 0f),
+            SpeakerObservation(3600, 4400, degraded, quality = 0.6f),
+            voice(4400, 1f, 0f), voice(6200, 1f, 0f),
+            SpeakerObservation(8000, 8800, degraded, quality = 0.6f),
+            voice(8800, 1f, 0f),
+        ))
+        assertEquals("speaker_2", result.assignments[2].speakerId)
+        assertEquals("speaker_2", result.assignments[5].speakerId)
+    }
+
+    @Test fun overlappingClearContextsRemainADistinctBriefVoice() {
+        val reply = floatArrayOf(0.53f, sqrt(1f - 0.53f * 0.53f))
+        val result = SpeakerClusterer().cluster(listOf(
+            voice(0, 1f, 0f), voice(1800, 1f, 0f),
+            SpeakerObservation(3600, 5400, reply), SpeakerObservation(4500, 6300, reply),
+            voice(6300, 1f, 0f), voice(8100, 1f, 0f),
+        ))
+        assertEquals(listOf("speaker_1", "speaker_1", "speaker_2", "speaker_2", "speaker_1", "speaker_1"),
+            result.assignments.map { it.speakerId })
+    }
+
     @Test fun aGenuinelyDifferentBriefVoiceIsPreservedInsideALongerTurn() {
         val result = SpeakerClusterer().cluster(listOf(
             voice(0, 1f, 0f), voice(1800, 1f, 0f), voice(3600, 0.4f, sqrt(0.84f)),
@@ -216,5 +256,41 @@ class SpeakerClustererTest {
         val weak = voice(5000, 0.53f, sqrt(1f - 0.53f * 0.53f), canSeed = false)
         val result = SpeakerClusterer().cluster(listOf(voice(0, 1f, 0f), weak, voice(10000, 1f, 0f)))
         assertEquals(SpeakerClusterer.UNKNOWN, result.assignments[1].speakerId)
+    }
+
+    @Test fun aBoundedRunOfWeakObservationsCanRecoverWithoutTeachingTheVoice() {
+        val weak = floatArrayOf(0.53f, sqrt(1f - 0.53f * 0.53f))
+        val result = SpeakerClusterer().cluster(listOf(
+            voice(0, 1f, 0f),
+            SpeakerObservation(1800, 3600, weak, canSeed = false),
+            SpeakerObservation(2700, 4500, weak, canSeed = false),
+            voice(4500, 1f, 0f),
+        ))
+        assertEquals(List(4) { "speaker_1" }, result.assignments.map { it.speakerId })
+        assertEquals(2, result.signatures.single().windowCount)
+    }
+
+    @Test fun aLongWeakRunIsNotInferredFromItsNeighbors() {
+        val weak = floatArrayOf(0.53f, sqrt(1f - 0.53f * 0.53f))
+        val result = SpeakerClusterer().cluster(listOf(
+            voice(0, 1f, 0f),
+            SpeakerObservation(1800, 3600, weak, canSeed = false),
+            SpeakerObservation(3600, 5400, weak, canSeed = false),
+            voice(5400, 1f, 0f),
+        ))
+        assertEquals(listOf("speaker_1", SpeakerClusterer.UNKNOWN, SpeakerClusterer.UNKNOWN, "speaker_1"),
+            result.assignments.map { it.speakerId })
+    }
+
+    @Test fun weakRunCannotCrossARealSpeakerChange() {
+        val weak = floatArrayOf(0.53f, sqrt(1f - 0.53f * 0.53f), 0f)
+        val result = SpeakerClusterer().cluster(listOf(
+            SpeakerObservation(0, 1800, floatArrayOf(1f, 0f, 0f)),
+            SpeakerObservation(1800, 3600, weak, canSeed = false),
+            SpeakerObservation(2700, 4500, weak, canSeed = false),
+            SpeakerObservation(4500, 6300, floatArrayOf(0f, 0f, 1f)),
+        ))
+        assertEquals(listOf("speaker_1", SpeakerClusterer.UNKNOWN, SpeakerClusterer.UNKNOWN, "speaker_2"),
+            result.assignments.map { it.speakerId })
     }
 }

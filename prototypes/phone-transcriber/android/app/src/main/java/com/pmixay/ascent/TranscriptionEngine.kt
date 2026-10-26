@@ -37,41 +37,46 @@ class TranscriptionEngine(private val modelDirectory: File) {
             environment.createSession(model.asrFile.absolutePath, options).use { session ->
                 require(session.inputNames == setOf("audio", "audio_lengths")) { "Несовместимая модель GigaAM" }
                 var coreStart = 0L
-                val coreSize = 20 * RATE
                 while (coreStart < wave.sampleCount) {
                     checkCancelled()
-                    val coreEnd = (coreStart + coreSize).coerceAtMost(wave.sampleCount)
-                    val start = (coreStart - RATE / 2).coerceAtLeast(0)
-                    val end = (coreEnd + RATE / 2).coerceAtMost(wave.sampleCount)
+                    val window = AsrChunking.next(coreStart, wave.sampleCount, wave::read)
+                    val coreEnd = window.coreEnd
+                    val start = window.start
+                    val end = window.end
                     val input = wave.read(start, (end - start).toInt())
                     val samples = if (input.size < 4000) input.copyOf(4000) else input
                     progress("Распознаю речь: ${(100 * coreStart / wave.sampleCount).toInt()}%")
-                    OnnxTensor.createTensor(environment, FloatBuffer.wrap(samples), longArrayOf(1, samples.size.toLong())).use { signal ->
-                        OnnxTensor.createTensor(environment, LongBuffer.wrap(longArrayOf(samples.size.toLong())), longArrayOf(1)).use { lengths ->
-                            session.run(mapOf("audio" to signal, "audio_lengths" to lengths)).use { result ->
-                                checkCancelled()
-                                val logits = result.get("log_probs").get() as OnnxTensor
-                                val shape = logits.info.shape
-                                require(shape.size == 3 && shape[0] == 1L && shape[2] == model.tokens.size.toLong() + 1)
-                                val count = ((result.get("encoded_lengths").get().value as LongArray)[0]).toInt()
-                                require(count in 1..shape[1].toInt())
-                                val vocabulary = shape[2].toInt()
-                                val buffer = logits.floatBuffer
-                                val ids = IntArray(count) { frame ->
-                                    var best = 0
-                                    var value = Float.NEGATIVE_INFINITY
-                                    for (token in 0 until vocabulary) {
-                                        val score = buffer.get(frame * vocabulary + token)
-                                        if (score > value) { value = score; best = token }
+                    try {
+                        OnnxTensor.createTensor(environment, FloatBuffer.wrap(samples), longArrayOf(1, samples.size.toLong())).use { signal ->
+                            OnnxTensor.createTensor(environment, LongBuffer.wrap(longArrayOf(samples.size.toLong())), longArrayOf(1)).use { lengths ->
+                                session.run(mapOf("audio" to signal, "audio_lengths" to lengths)).use { result ->
+                                    checkCancelled()
+                                    val logits = result.get("log_probs").get() as OnnxTensor
+                                    val shape = logits.info.shape
+                                    require(shape.size == 3 && shape[0] == 1L && shape[2] == model.tokens.size.toLong() + 1)
+                                    val count = ((result.get("encoded_lengths").get().value as LongArray)[0]).toInt()
+                                    require(count in 1..shape[1].toInt())
+                                    val vocabulary = shape[2].toInt()
+                                    val buffer = logits.floatBuffer
+                                    val ids = IntArray(count) { frame ->
+                                        var best = 0
+                                        var value = Float.NEGATIVE_INFINITY
+                                        for (token in 0 until vocabulary) {
+                                            val score = buffer.get(frame * vocabulary + token)
+                                            if (score > value) { value = score; best = token }
+                                        }
+                                        best
                                     }
-                                    best
+                                    val decoded = CtcDecoder.decode(ids, model.tokens, model.blankId, start * 1000 / RATE, samples.size * 1000L / RATE)
+                                        .filter { it.startMs < wave.durationMs }
+                                        .map { it.copy(endMs = it.endMs.coerceAtMost(wave.durationMs)) }
+                                    allWords += CtcDecoder.ownedBy(decoded, coreStart * 1000 / RATE, coreEnd * 1000 / RATE)
                                 }
-                                val decoded = CtcDecoder.decode(ids, model.tokens, model.blankId, start * 1000 / RATE, samples.size * 1000L / RATE)
-                                    .filter { it.startMs < wave.durationMs }
-                                    .map { it.copy(endMs = it.endMs.coerceAtMost(wave.durationMs)) }
-                                allWords += CtcDecoder.ownedBy(decoded, coreStart * 1000 / RATE, coreEnd * 1000 / RATE)
                             }
                         }
+                    } finally {
+                        samples.fill(0f)
+                        if (input !== samples) input.fill(0f)
                     }
                     coreStart = coreEnd
                 }

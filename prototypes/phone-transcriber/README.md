@@ -7,6 +7,9 @@ appear as collapsible timelines with linked dots, names and timestamps inside
 warm amber glass surfaces. The header reads `Ascent.` with a square period;
 listening and model status have separate elements. A dedicated glass model panel
 contains readiness, update status, downloaded bytes, and download progress.
+Consecutive phrases from the same known speaker occupy one element even across
+pauses or processing boundaries. Elapsed times include decimal seconds; timer
+icons mark estimated pauses while the underlying phrase timestamps remain intact.
 
 The native UI uses Jetpack Compose / Material 3, a ViewModel with StateFlow,
 lifecycle-aware collection, Activity Result contracts, Kotlin coroutines and
@@ -45,10 +48,13 @@ milestones is complete merely because this source or an APK exists.
   limit or leaving the foreground stops capture and starts local processing.
   Listening requires installed models. There are no audio-import, manual
   transcribe, playback or audio-delete controls.
-- Local GigaAM Multilingual 220M CTC inference, the June 2026 GigaAM line.
+- Local GigaAM Multilingual 220M CTC inference, the June 2026 GigaAM line. Bounded
+  chunks prefer a sustained quiet seam near 20 seconds and include 1.25 seconds
+  of context at each edge to reduce word cuts. All samples remain covered.
 - ERes2NetV2 embeddings, context around short CTC emissions, quality gates, bounded
   clustering with voice-fragment consolidation, and conservative temporal recovery
-  of uncertain labels. Naming a sufficiently clear current
+  of short degraded runs supported by the same established voice on both sides.
+  Recovered fragments cannot teach voice templates. Naming a sufficiently clear current
   speaker enrolls an encrypted voice template for later strong matches. Automatic
   predictions never teach their own templates. See [speaker research](docs/speaker-diarization.md).
 - Multiple encrypted text conversations, collapsible connected timelines,
@@ -209,11 +215,13 @@ check selection changes without transfer publications, failed-update readiness,
 observation restart, selection removal, and rejection of missing payloads after
 a local refresh. These use tiny metadata fixtures and do not run fake weights
 through the inference runtimes. A cached, checksum-verified CI fixture
-uses the real speaker model on six public Russian utterances from three readers,
-including reduced-gain and white-noise variants. JVM tests apply the app's activity
+uses the real speaker model on 16 public Russian utterances from six readers,
+including reduced-gain, white-noise and synthetic channel variants. JVM tests apply the app's activity
 gates and clustering to these embeddings; the fixture audio and model never enter
 the APK or downloadable artifacts. The separate model workflow checks actual ASR
-inference. These controlled regressions do not substitute for a Russian conversation
+inference, prints reference-transcript WER/CER, and rejects chunk-policy changes
+that increase word errors in either the clean or channel comparison. These
+controlled regressions do not substitute for a Russian conversation
 accuracy benchmark. See [fixture provenance](tools/fixtures/speakers/README.md).
 
 ## Model and runtime references

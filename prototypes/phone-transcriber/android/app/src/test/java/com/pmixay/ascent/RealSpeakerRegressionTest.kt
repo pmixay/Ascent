@@ -38,23 +38,30 @@ class RealSpeakerRegressionTest {
         val examples = arrange(clips)
         val result = SpeakerClusterer().cluster(examples.map { it.observation })
         val predictions = result.assignments.map { it.speakerId }
-        val ids = predictions.filter { it != SpeakerClusterer.UNKNOWN }.toSet()
+        val ids = predictions.filter { it != SpeakerClusterer.UNKNOWN }.distinct().sorted()
         val readers = examples.map { it.reader }.distinct()
         val matches = readers.map { reader ->
             ids.associateWith { id -> examples.indices.count { examples[it].reader == reader && predictions[it] == id } }
         }
-        fun bestMapping(index: Int, used: Set<String>): Int {
+        val memo = mutableMapOf<Pair<Int, Int>, Int>()
+        fun bestMapping(index: Int, used: Int): Int {
             if (index == matches.size) return 0
-            return ids.filter { it !in used }.maxOfOrNull { id ->
-                matches[index].getValue(id) + bestMapping(index + 1, used + id)
-            } ?: 0
+            // Labels are bounded to 12. Subset DP scales to the expanded six-reader
+            // corpus and permits an unmapped reference when a speaker was missed.
+            return memo.getOrPut(index to used) {
+                var best = bestMapping(index + 1, used)
+                for ((label, id) in ids.withIndex()) if (used and (1 shl label) == 0) {
+                    best = maxOf(best, matches[index].getValue(id) + bestMapping(index + 1, used or (1 shl label)))
+                }
+                best
+            }
         }
-        val errorRate = 1.0 - bestMapping(0, emptySet()).toDouble() / examples.size
+        val errorRate = 1.0 - bestMapping(0, 0).toDouble() / examples.size
         val unknownRate = predictions.count { it == SpeakerClusterer.UNKNOWN }.toDouble() / examples.size
         val diagnostic = "Russian alternating readers: windows=${examples.size}, speakers=${ids.size}, " +
             "assignmentError=$errorRate, unknown=$unknownRate"
         println(diagnostic)
-        assertEquals(diagnostic, 3, ids.size)
+        assertEquals(diagnostic, readers.size, ids.size)
         assertTrue(diagnostic, errorRate <= 0.15)
         assertTrue(diagnostic, unknownRate <= 0.15)
     }
@@ -81,7 +88,7 @@ class RealSpeakerRegressionTest {
         assertEquals("bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239", json.getString("model_sha256"))
         assertEquals(16000, json.getInt("sample_rate"))
         val source = json.getJSONArray("fixtures")
-        assertEquals(6, source.length())
+        assertEquals(16, source.length())
         buildList {
             for (i in 0 until source.length()) {
                 val fixture = source.getJSONObject(i)
@@ -121,8 +128,8 @@ class RealSpeakerRegressionTest {
                 }
             }
         }.also { clips ->
-            assertEquals(3, clips.map { it.reader }.distinct().size)
-            assertEquals(setOf("clean", "gain035", "noise20db"), clips.map { it.variant }.toSet())
+            assertEquals(6, clips.map { it.reader }.distinct().size)
+            assertEquals(setOf("clean", "gain035", "noise20db", "channel"), clips.map { it.variant }.toSet())
             val clean = clips.filter { it.variant == "clean" }
             val within = mutableListOf<Float>()
             val between = mutableListOf<Float>()

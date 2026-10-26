@@ -13,16 +13,24 @@ no-audio-persistence or watch-capture requirements.
    enable airplane mode, start a short Russian conversation with two speakers,
    and press stop. Confirm processing starts without another action and produces
    a connected timeline with speaker names and source-relative timestamps.
+   Consecutive phrases by the same known speaker must share one timeline element,
+   including after a pause and beyond 20 seconds. Check decimal-second ranges
+   and a timer-marked pause such as `Пауза 1,3 с`. Timing remains approximate.
    Verify the temporary audio is removed after completion.
 2. Repeat with one speaker, a silent recording, short replies, background noise,
    a third speaker entering later, and overlapping speech. Record transcription
    errors and speaker-label mistakes; the current clustering threshold is an
    initial default, not a calibrated accuracy guarantee.
+   Include a brief change in microphone distance inside one person's turn and
+   a different person's clear short reply; recovery must not hide the latter.
 3. Run a longer listening session. Measure wall time, peak process memory, battery use
    and thermal behaviour. ASR and speaker model sessions are sequential, but the
    Maven ASR runtime and sherpa's separately named bundled C runtime may both
    remain loaded. Measure their combined process memory. WAV windows are read
    from disk rather than loading the full recording into RAM.
+   Check speech around the former fixed 20-second boundaries against reference
+   text, including continuous speech with no quiet seam. Check scrolling through
+   a long single-speaker timeline element with large text enabled.
 4. Deny/revoke microphone access, background the app while listening, and rotate
    the screen while processing. Capture must stop when leaving the foreground;
    temporary audio must be removed on success, failure or cancellation. Kill the

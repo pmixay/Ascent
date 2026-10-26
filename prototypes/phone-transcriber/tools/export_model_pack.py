@@ -22,6 +22,7 @@ from model_pack import (
     MODEL_ID, REQUIRED_FILES, SPEAKER_MODEL_ID, SPEAKER_SHA256, UPSTREAM_CHECKPOINT_MD5,
     UPSTREAM_COMMIT, ctc_decode, sha256_file, validate_directory, validate_manifest, validate_zip,
 )
+from evaluate_speech import measure_public_speech
 
 UPSTREAM_REPOSITORY = "https://github.com/salute-developers/GigaAM"
 UPSTREAM_MODEL = "multilingual_ctc"
@@ -323,6 +324,9 @@ def main():
             if [node.name for node in session.get_inputs()] != ["audio", "audio_lengths"]:
                 raise RuntimeError("Unexpected exported input names")
             report = smoke_test(model, exported, session, tokens, args.smoke_wav)
+            # Console-only development scores; neither references, audio nor
+            # regression measurements become downloadable model-pack files.
+            measure_public_speech(session, tokens)
             del session
         report["speaker_smoke"] = speaker_smoke_test(args.speaker_model, args.smoke_wav, args.threads)
         report["speaker_runtime_tested"] = True

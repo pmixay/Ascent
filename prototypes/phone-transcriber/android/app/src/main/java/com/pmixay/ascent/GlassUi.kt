@@ -40,6 +40,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -98,6 +99,9 @@ internal fun ConversationScreen(
     var renameText by rememberSaveable { mutableStateOf("") }
     var exportConversation by rememberSaveable { mutableStateOf<String?>(null) }
     val editable = !state.busy && !state.recording
+    val timelineTurns = remember(state.conversations) {
+        state.conversations.associate { it.id to TranscriptTimeline.turns(it.segments) }
+    }
 
     Box(Modifier.fillMaxSize()) {
         WarmBackdrop(Modifier.fillMaxSize())
@@ -150,14 +154,15 @@ internal fun ConversationScreen(
                         ConversationHeader(conversation, expanded) { onToggleConversation(conversation.id) }
                     }
                     if (expanded) {
-                        itemsIndexed(conversation.segments,
-                            key = { index, _ -> "${conversation.id}:segment:$index" },
-                            contentType = { _, _ -> "conversation-segment" },
-                        ) { index, segment ->
-                            ConversationTimelineRow(conversation, segment, index, editable) {
+                        val turns = timelineTurns.getValue(conversation.id)
+                        itemsIndexed(turns,
+                            key = { index, _ -> "${conversation.id}:turn:$index" },
+                            contentType = { _, _ -> "conversation-turn" },
+                        ) { index, turn ->
+                            ConversationTimelineRow(conversation, turn, index, turns.lastIndex, editable) {
                                 renameConversation = conversation.id
-                                renameSpeaker = segment.speakerId
-                                renameText = conversation.speakerName(segment.speakerId)
+                                renameSpeaker = turn.speakerId
+                                renameText = conversation.speakerName(turn.speakerId)
                             }
                         }
                         item(key = "${conversation.id}:footer", contentType = "conversation-footer") {
@@ -277,7 +282,7 @@ private fun ModelStatusMark(ready: Boolean, modifier: Modifier) {
     }
 }
 
-/** Keep each utterance independently lazy while adjacent pieces form one unbroken amber card. */
+/** Keep each speaker turn independently lazy while its phrases share one timeline element. */
 private fun LazyListScope.spacedItem(key: String, content: @Composable () -> Unit) {
     item(key = key) {
         Column {
@@ -325,33 +330,74 @@ private fun ConversationHeader(conversation: SavedConversation, expanded: Boolea
 @Composable
 private fun ConversationTimelineRow(
     conversation: SavedConversation,
-    segment: TranscriptSegment,
+    turn: TimelineTurn,
     index: Int,
+    lastIndex: Int,
     editable: Boolean,
     onRename: () -> Unit,
 ) {
-    Row(Modifier.conversationSurface().padding(horizontal = 20.dp).height(IntrinsicSize.Min)) {
+    if (turn.pauseBeforeMs > 0) {
+        Row(Modifier.conversationSurface().padding(horizontal = 20.dp).height(IntrinsicSize.Min)) {
+            Canvas(Modifier.width(22.dp).fillMaxHeight()) {
+                val x = 5.dp.toPx()
+                drawLine(Ink.copy(alpha = 0.26f), Offset(x, 0f), Offset(x, size.height), 1.5.dp.toPx())
+            }
+            TimelinePause(turn.pauseBeforeMs, Modifier.weight(1f).padding(bottom = 14.dp))
+        }
+    }
+    Row(Modifier.conversationSurface().testTag("conversation-turn-${conversation.id}-$index")
+        .padding(horizontal = 20.dp).height(IntrinsicSize.Min)) {
         Canvas(Modifier.width(22.dp).fillMaxHeight()) {
             val x = 5.dp.toPx()
             val y = 13.dp.toPx()
             if (index > 0) drawLine(Ink.copy(alpha = 0.26f), Offset(x, 0f), Offset(x, y), 1.5.dp.toPx())
-            if (index < conversation.segments.lastIndex)
+            if (index < lastIndex)
                 drawLine(Ink.copy(alpha = 0.26f), Offset(x, y), Offset(x, size.height), 1.5.dp.toPx())
             drawCircle(Ink, 4.dp.toPx(), Offset(x, y))
         }
-        Column(Modifier.weight(1f).padding(bottom = if (index < conversation.segments.lastIndex) 20.dp else 0.dp)) {
+        Column(Modifier.weight(1f).padding(bottom = if (index < lastIndex) 20.dp else 0.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(conversation.speakerName(segment.speakerId), fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                Text(conversation.speakerName(turn.speakerId), fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                     color = Ink, modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
-                        .clickable(enabled = editable && segment.speakerId != UNKNOWN_SPEAKER,
+                        .clickable(enabled = editable && turn.speakerId != UNKNOWN_SPEAKER,
                             role = Role.Button, onClick = onRename)
                         .padding(vertical = 4.dp))
-                Text(formatTimelineTime(segment.startMs), fontSize = 12.sp, color = Ink.copy(alpha = 0.72f),
-                    modifier = Modifier.padding(start = 10.dp))
             }
+            Text(formatTimelineRange(turn.startMs, turn.endMs), fontSize = 14.sp, color = Ink,
+                style = TextStyle(fontFeatureSettings = "tnum"))
             Spacer(Modifier.height(3.dp))
-            SelectionContainer { Text(segment.text, color = Ink, fontSize = 17.sp, lineHeight = 25.sp) }
+            turn.phrases.forEach { phrase ->
+                if (phrase.pauseBeforeMs > 0) {
+                    TimelinePause(phrase.pauseBeforeMs, Modifier.padding(vertical = 12.dp))
+                    Text(formatTimelineRange(phrase.startMs, phrase.endMs), fontSize = 14.sp, color = Ink,
+                        style = TextStyle(fontFeatureSettings = "tnum"))
+                    Spacer(Modifier.height(3.dp))
+                }
+                SelectionContainer { Text(phrase.text, color = Ink, fontSize = 17.sp, lineHeight = 25.sp) }
+            }
         }
+    }
+}
+
+@Composable
+private fun TimelinePause(durationMs: Long, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Canvas(Modifier.size(18.dp)) {
+            val stroke = 1.6.dp.toPx()
+            val clockCenter = Offset(size.width / 2, size.height * 0.58f)
+            drawCircle(Ink, size.width * 0.34f, clockCenter, style = Stroke(stroke))
+            drawLine(Ink, Offset(size.width * 0.39f, stroke / 2), Offset(size.width * 0.61f, stroke / 2),
+                strokeWidth = stroke, cap = StrokeCap.Round)
+            drawLine(Ink, Offset(size.width / 2, stroke / 2), Offset(size.width / 2, size.height * 0.21f),
+                strokeWidth = stroke, cap = StrokeCap.Round)
+            drawLine(Ink, clockCenter, Offset(clockCenter.x, size.height * 0.38f),
+                strokeWidth = stroke, cap = StrokeCap.Round)
+            drawLine(Ink, clockCenter, Offset(size.width * 0.64f, size.height * 0.66f),
+                strokeWidth = stroke, cap = StrokeCap.Round)
+        }
+        Text("Пауза ${formatTimelineSeconds(durationMs)} с", color = Ink, fontSize = 14.sp,
+            style = TextStyle(fontFeatureSettings = "tnum"))
     }
 }
 
@@ -359,8 +405,11 @@ private fun ConversationTimelineRow(
 private fun ConversationFooter(conversation: SavedConversation, editable: Boolean, onExport: () -> Unit) {
     Column(Modifier.conversationSurface(last = true).padding(horizontal = 20.dp, vertical = 16.dp)) {
         if (conversation.segments.isEmpty()) Text("Речь не обнаружена", color = Ink, fontSize = 15.sp)
-        else TextButton(onClick = onExport, enabled = editable, modifier = Modifier.align(Alignment.End)) {
-            Text("Экспорт текста", color = Ink)
+        else {
+            Text("Время реплик и пауз приблизительное", color = Ink, fontSize = 14.sp, lineHeight = 20.sp)
+            TextButton(onClick = onExport, enabled = editable, modifier = Modifier.align(Alignment.End)) {
+                Text("Экспорт текста", color = Ink)
+            }
         }
     }
 }
@@ -368,10 +417,6 @@ private fun ConversationFooter(conversation: SavedConversation, editable: Boolea
 private fun conversationDate(timestamp: Long): String = java.text.SimpleDateFormat(
     "d MMMM, HH:mm", java.util.Locale.forLanguageTag("ru"),
 ).format(java.util.Date(timestamp))
-
-private fun formatTimelineTime(milliseconds: Long): String = formatTime(milliseconds).let {
-    if (milliseconds < 3_600_000) it.removePrefix("00:") else it
-}
 
 @Composable
 private fun AscentWordmark(modifier: Modifier = Modifier) {

@@ -154,31 +154,42 @@ class SpeakerClusterer(
             consolidated.removeAt(second)
         }
 
-        // A single poor context inside a stable voice must not create a new person solely because
-        // of a phonetic/channel excursion. Require acoustic agreement AND that same established
-        // cluster immediately on both sides. A different short voice and a one-sided boundary
-        // remain independent; no duration-only minor-cluster deletion is used.
+        // Overlapping contexts from one brief degraded passage share their acoustic evidence.
+        // They must not establish a new person merely by agreeing with one another. Recover only
+        // one bounded, contiguous passage with acoustic support for the SAME established voice
+        // on both sides. Clear, recurring, distant and one-sided voices remain independent.
         val originalOwners = consolidated.flatMapIndexed { owner, item -> item.indices.map { it to owner } }.toMap()
+        val anchorPositions = anchorOrder.withIndex().associate { it.value to it.index }
         val fragmentParents = mutableMapOf<Int, Int>()
         for ((index, item) in consolidated.withIndex()) {
-            if (item.indices.size != 1 || item.supportMs >= 2400) continue
-            val position = anchorOrder.indexOf(item.indices.single())
-            val before = anchorOrder.getOrNull(position - 1) ?: continue
-            val after = anchorOrder.getOrNull(position + 1) ?: continue
+            if (item.supportMs >= 3000) continue
+            val positions = item.indices.map { anchorPositions.getValue(it) }.sorted()
+            if (positions.last() - positions.first() + 1 != positions.size) continue
+            val first = item.indices.minBy { observations[it].startMs }
+            val last = item.indices.maxBy { observations[it].endMs }
+            if (observations[last].endMs - observations[first].startMs > 3000) continue
+            val before = anchorOrder.getOrNull(positions.first() - 1) ?: continue
+            val after = anchorOrder.getOrNull(positions.last() + 1) ?: continue
             val parent = originalOwners[before] ?: continue
             if (parent == index || originalOwners[after] != parent) continue
             val established = consolidated[parent]
             if (established.indices.size < 3 || established.supportMs < 3000) continue
-            val sample = observations[item.indices.single()]
             // A clear short reply is evidence for another voice, even inside someone else's
-            // longer turn. Only a degraded context is eligible for fragment cleanup.
-            if (sample.quality >= 0.75f) continue
-            if (sample.startMs - observations[before].endMs > 500 ||
-                observations[after].startMs - sample.endMs > 500) continue
-            val ranked = consolidated.indices.filter { it != index }
-                .map { it to dot(item.center, consolidated[it].center) }.sortedByDescending { it.second }
-            if (ranked.first().first != parent || ranked.first().second < (assignmentThreshold - 0.10f).coerceAtLeast(0.45f)) continue
-            if (ranked.first().second - (ranked.getOrNull(1)?.second ?: -1f) < maxOf(margin, 0.12f)) continue
+            // longer turn. Every constituent must be degraded and support that same parent;
+            // averaging contradictory contexts must not manufacture evidence of continuity.
+            if (item.indices.any { observations[it].quality >= 0.75f }) continue
+            val passage = listOf(before) + anchorOrder.subList(positions.first(), positions.last() + 1) + after
+            if (passage.zipWithNext().any { (left, right) ->
+                observations[right].startMs - observations[left].endMs > 500
+            }) continue
+            val compatible = item.indices.all { observation ->
+                val ranked = consolidated.indices.filter { it != index }
+                    .map { it to dot(vectors[observation]!!, consolidated[it].center) }.sortedByDescending { it.second }
+                ranked.first().first == parent &&
+                    ranked.first().second >= (assignmentThreshold - 0.10f).coerceAtLeast(0.45f) &&
+                    ranked.first().second - (ranked.getOrNull(1)?.second ?: -1f) >= maxOf(margin, 0.12f)
+            }
+            if (!compatible) continue
             fragmentParents[index] = parent
         }
         // A recovered fragment may be labeled, but must not influence the centroid or enrollment.
@@ -215,19 +226,26 @@ class SpeakerClusterer(
         }.toMutableList()
         val strictAssignments = assignments.toList()
         val order = observations.indices.sortedWith(compareBy({ observations[it].startMs }, { observations[it].endMs }))
-        for ((position, index) in order.withIndex()) {
-            if (strictAssignments[index].speakerId != UNKNOWN || bestGroups[index] < 0) continue
-            val groupIndex = bestGroups[index]
+        var position = 0
+        while (position < order.size) {
+            if (strictAssignments[order[position]].speakerId != UNKNOWN) { position++; continue }
+            val start = position
+            while (position < order.size && strictAssignments[order[position]].speakerId == UNKNOWN) position++
+            val run = order.subList(start, position)
+            val before = order.getOrNull(start - 1) ?: continue
+            val after = order.getOrNull(position) ?: continue
+            if (run.maxOf { observations[it].endMs } - run.minOf { observations[it].startMs } > 3000) continue
+            val groupIndex = bestGroups[run.first()]
+            if (groupIndex < 0 || run.any { bestGroups[it] != groupIndex }) continue
             val id = "speaker_${groupIndex + 1}"
-            val before = order.getOrNull(position - 1) ?: continue
-            val after = order.getOrNull(position + 1) ?: continue
             if (strictAssignments[before].speakerId != id || strictAssignments[after].speakerId != id) continue
-            val item = observations[index]
-            if (item.startMs - observations[before].endMs > 500 ||
-                observations[after].startMs - item.endMs > 500) continue
-            if (bestScores[index] < (assignmentThreshold - 0.12f).coerceAtLeast(0.45f) || margins[index] < margin) continue
+            if ((listOf(before) + run + after).zipWithNext().any { (left, right) ->
+                observations[right].startMs - observations[left].endMs > 500
+            }) continue
+            if (run.any { bestScores[it] < (assignmentThreshold - 0.12f).coerceAtLeast(0.45f) || margins[it] < margin }) continue
             if (cleanGroups[groupIndex].indices.size < 2 || cleanGroups[groupIndex].supportMs < 2400) continue
-            assignments[index] = SpeakerAssignment(id, bestScores[index])
+            // Work from the original strict labels so recovery cannot propagate into later runs.
+            run.forEach { assignments[it] = SpeakerAssignment(id, bestScores[it]) }
         }
         val signatures = cleanGroups.indices.mapNotNull { groupIndex ->
             val id = "speaker_${groupIndex + 1}"

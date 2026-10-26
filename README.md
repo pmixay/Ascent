@@ -13,8 +13,12 @@ after ordinary app closure, with prompt request retries and verified resume. The
 shows model status; no weights or manual model archive belong in the APK flow.
 A dedicated model panel keeps local readiness separate from update checks and
 download progress, so an offline or failed update does not hide usable models.
-Speaker attribution preserves short acoustic contexts and consolidates recurring
-voice fragments. CI includes real Russian reader regressions; natural conversation
+Speaker attribution preserves short acoustic contexts, consolidates recurring
+voice fragments, and recovers bounded degraded runs only with matching voice
+evidence on both sides. Consecutive phrases by the same known speaker share one
+timeline element, with elapsed seconds and timer-marked estimated pauses.
+Recognition prefers quiet chunk boundaries with additional context. CI includes
+six-reader Russian speech regressions and reference-transcript ASR measurements; natural conversation
 accuracy remains unmeasured. See the [speaker evaluation scope](prototypes/phone-transcriber/docs/speaker-diarization.md).
 
 Russian speech memory for Android and Wear OS.

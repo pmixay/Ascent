@@ -51,6 +51,17 @@ def variants(samples, fixture_id, np):
     if peak > 0.98:
         mixed = mixed * np.float32(0.98 / peak)
     yield "noise20db", mixed
+    # A reproducible mild channel response tests identity across spectral changes.
+    # This is synthetic coloration, not a measured phone/microphone impulse response.
+    channel = np.convolve(samples, np.array([.1, .2, .4, .2, .1], dtype=np.float32), mode="same")
+    channel[1:] -= np.float32(.35) * channel[:-1].copy()
+    channel_rms = float(np.sqrt(np.mean(np.square(channel.astype(np.float64)))))
+    if channel_rms > 0:
+        channel *= np.float32(speech_rms / channel_rms)
+    peak = float(np.max(np.abs(channel)))
+    if peak > .98:
+        channel *= np.float32(.98 / peak)
+    yield "channel", channel
 
 
 def write_pcm(path, samples, np):
