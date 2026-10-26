@@ -74,12 +74,9 @@ class SpeakerClusterer(
         val mixedBoundaries = usable.toSet() - candidates.toSet()
         if (candidates.isEmpty()) return unknown(observations.size)
 
-        // Cover the full session rather than only its beginning. At most 256 squared scores.
-        val anchors = if (candidates.size <= maxAnchors) candidates else (0 until maxAnchors).map { bucket ->
-            val from = bucket * candidates.size / maxAnchors
-            val until = (bucket + 1) * candidates.size / maxAnchors
-            candidates.subList(from, until).maxBy { observations[it].quality }
-        }
+        // Preserve different voices before filling the remaining budget across the full session.
+        // Index buckets alone alias periodic turns: every [A, B] bucket can otherwise select A.
+        val anchors = selectAnchors(candidates, observations, vectors)
         val count = anchors.size
         val scores = Array(count) { FloatArray(count) }
         val members = Array(count) { mutableListOf(anchors[it]) }
@@ -111,8 +108,24 @@ class SpeakerClusterer(
             members[first].addAll(members[second])
             active[second] = false
         }
-        data class Group(val indices: List<Int>, val center: FloatArray, val supportMs: Long)
-        fun group(indices: List<Int>) = Group(indices, mean(indices.map { vectors[it]!! }), support(observations, indices))
+        data class Group(val indices: List<Int>, val center: FloatArray, val supportMs: Long,
+            val independentAgreement: Double, val independentPairs: Int) {
+            val independentCohesion: Float? get() = if (independentPairs == 0) null else
+                (independentAgreement / independentPairs).toFloat()
+        }
+        fun independentScore(first: Int, second: Int): Float? =
+            if (observations[first].endMs <= observations[second].startMs ||
+                observations[second].endMs <= observations[first].startMs)
+                dot(vectors[first]!!, vectors[second]!!) else null
+        fun group(indices: List<Int>, pairEvidence: Pair<Double, Int>? = null): Group {
+            var agreement = pairEvidence?.first ?: 0.0
+            var independentPairs = pairEvidence?.second ?: 0
+            if (pairEvidence == null) for (a in indices.indices) for (b in a + 1 until indices.size) {
+                independentScore(indices[a], indices[b])?.let { score -> agreement += score; independentPairs++ }
+            }
+            return Group(indices, mean(indices.map { vectors[it]!! }), support(observations, indices),
+                agreement, independentPairs)
+        }
         val groups = members.indices.filter { active[it] }.map { index ->
             group(members[index])
         }
@@ -153,12 +166,30 @@ class SpeakerClusterer(
             for (a in consolidated.indices) for (b in a + 1 until consolidated.size) {
                 if (consolidated[a].indices.size == 1 && consolidated[b].indices.size == 1) continue
                 val score = dot(consolidated[a].center, consolidated[b].center)
+                val firstCohesion = consolidated[a].independentCohesion
+                val secondCohesion = consolidated[b].independentCohesion
+                // More observations denoise both centroids and can raise their cosine even
+                // for distinct voices. Two independently coherent groups must agree at least
+                // as much across their centers as their own original contexts do internally.
+                // Overlapping windows cannot establish that independent coherence.
+                if (firstCohesion != null && secondCohesion != null &&
+                    score < maxOf(firstCohesion, secondCohesion)) continue
                 if (score >= best && (first == -1 || score > best)) {
                     first = a; second = b; best = score
                 }
             }
             if (first == -1) break
-            consolidated[first] = group(consolidated[first].indices + consolidated[second].indices)
+            val left = consolidated[first]
+            val right = consolidated[second]
+            var agreement = left.independentAgreement + right.independentAgreement
+            var independentPairs = left.independentPairs + right.independentPairs
+            // Reuse each group's evidence. Only newly joined cross-pairs need a dot product,
+            // bounding all cohesion work across successive merges by the anchor pair count.
+            for (a in left.indices) for (b in right.indices) independentScore(a, b)?.let { score ->
+                agreement += score
+                independentPairs++
+            }
+            consolidated[first] = group(left.indices + right.indices, agreement to independentPairs)
             consolidated.removeAt(second)
         }
 
@@ -396,6 +427,50 @@ class SpeakerClusterer(
             }
         }
         return SpeakerClustering(assignments, signatures)
+    }
+
+    private fun selectAnchors(candidates: List<Int>, observations: List<SpeakerObservation>, vectors: List<FloatArray?>): List<Int> {
+        if (candidates.size <= maxAnchors) return candidates
+        val selected = linkedSetOf<Int>()
+        val diversityBudget = minOf(maxAnchors, maxOf(2, maxAnchors / 4), maxSpeakers.coerceAtMost(maxAnchors) * 2)
+        val nearest = FloatArray(candidates.size) { -1f }
+        var next = candidates.indices.maxBy { observations[candidates[it]].quality }
+        while (selected.size < diversityBudget) {
+            checkCancelled()
+            val anchor = candidates[next]
+            selected += anchor
+            for (position in candidates.indices) {
+                nearest[position] = maxOf(nearest[position], dot(vectors[candidates[position]]!!, vectors[anchor]!!))
+            }
+            var leastAgreement = threshold
+            next = -1
+            for (position in candidates.indices) {
+                if (candidates[position] in selected) continue
+                val score = nearest[position]
+                if (score < leastAgreement || (next >= 0 && score == leastAgreement &&
+                    observations[candidates[position]].quality > observations[candidates[next]].quality)) {
+                    leastAgreement = score
+                    next = position
+                }
+            }
+            // The rest already match a selected context at the unchanged discovery cutoff.
+            if (next < 0) break
+        }
+        // Farthest-first work is O(N * diversityBudget * embeddingDimension), without a
+        // full-session pair matrix. All candidates retain the ordinary quality/seed gate.
+        val buckets = maxAnchors - selected.size
+        for (bucket in 0 until buckets) {
+            val from = bucket * candidates.size / buckets
+            val until = (bucket + 1) * candidates.size / buckets
+            candidates.subList(from, until).filter { it !in selected }
+                .maxByOrNull { observations[it].quality }?.let { selected += it }
+        }
+        // A bucket may already be completely represented by diversity anchors.
+        for (candidate in candidates) {
+            if (selected.size >= maxAnchors) break
+            selected += candidate
+        }
+        return selected.sortedWith(compareBy({ observations[it].startMs }, { observations[it].endMs }, { it }))
     }
 
     private fun unknown(count: Int) = SpeakerClustering(List(count) { SpeakerAssignment(UNKNOWN, 0f) }, emptyList())

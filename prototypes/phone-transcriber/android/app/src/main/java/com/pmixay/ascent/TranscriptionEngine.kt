@@ -30,7 +30,7 @@ class TranscriptionEngine(private val modelDirectory: File) {
         progress("Загружаю GigaAM…")
         val environment = OrtEnvironment.getEnvironment()
         environment.setTelemetry(false)
-        val allWords = mutableListOf<TimedWord>()
+        val stitcher = CtcChunkStitcher()
         OrtSession.SessionOptions().use { options ->
             options.setIntraOpNumThreads(2)
             options.setInterOpNumThreads(1)
@@ -70,7 +70,8 @@ class TranscriptionEngine(private val modelDirectory: File) {
                                     val decoded = CtcDecoder.decode(ids, model.tokens, model.blankId, start * 1000 / RATE, samples.size * 1000L / RATE)
                                         .filter { it.startMs < wave.durationMs }
                                         .map { it.copy(endMs = it.endMs.coerceAtMost(wave.durationMs)) }
-                                    allWords += CtcDecoder.ownedBy(decoded, coreStart * 1000 / RATE, coreEnd * 1000 / RATE)
+                                    stitcher.append(decoded, coreStart * 1000 / RATE, coreEnd * 1000 / RATE,
+                                        start * 1000 / RATE, end * 1000 / RATE)
                                 }
                             }
                         }
@@ -82,7 +83,7 @@ class TranscriptionEngine(private val modelDirectory: File) {
                 }
             }
         }
-        return allWords.sortedBy { it.startMs }
+        return stitcher.finish()
     }
 
     private fun attribute(model: ModelSpec, wave: PcmWave, words: List<TimedWord>, progress: (String) -> Unit): TranscriptionResult {

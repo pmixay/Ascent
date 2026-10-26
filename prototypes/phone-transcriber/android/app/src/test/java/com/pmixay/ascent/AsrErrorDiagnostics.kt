@@ -104,7 +104,8 @@ internal object AsrErrorDiagnostics {
             "referenceWords=${counts[0]}, substitutions=${counts[1]}, deletions=${counts[2]}") }
         emotions.forEach { (emotion, counts) -> println("ASR DEVELOPMENT $id emotion=$emotion: " +
             "referenceWords=${counts[0]}, substitutions=${counts[1]}, deletions=${counts[2]}") }
-        println("ASR diagnostic scope: one optimal alignment; seam counts use approximate CTC times. " +
+        println("ASR diagnostic scope: cached predictions before stitching; final current metrics are in DIALOG EVALUATION. " +
+            "One optimal alignment; seam counts use approximate CTC times. " +
             "Reference clips have no word timings, so crossing-clip deletions are only candidates. " +
             "Matching overlap candidates are not proof of duplicate speech.")
     }

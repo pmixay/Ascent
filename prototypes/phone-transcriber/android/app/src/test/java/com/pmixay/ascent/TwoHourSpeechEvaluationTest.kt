@@ -33,8 +33,10 @@ class TwoHourSpeechEvaluationTest {
         var inferredMs = 0L
         var wordsTotal = 0L
         var wordErrors = 0L
+        var cachedWordErrors = 0L
         var charTotal = 0L
         var charErrors = 0L
+        var cachedCharErrors = 0L
         var jointErrors = 0L
         var predictedWords = 0L
         var inferredWords = 0L
@@ -46,7 +48,8 @@ class TwoHourSpeechEvaluationTest {
             val id = document.getString("id")
             assertEquals(descriptor.getString("id"), id)
             val references = document.getJSONArray("references")
-            val words = document.getJSONArray("words").timedWords()
+            val cachedWords = document.getJSONArray("words").timedWords()
+            var words = cachedWords
             val probes = mutableListOf<TimedWord>()
             val readers = mutableListOf<String>()
             val referenceTurns = mutableListOf<AttributedText>()
@@ -78,7 +81,7 @@ class TwoHourSpeechEvaluationTest {
             try {
                 PcmWave(audio).use { wave ->
                     assertEquals(document.getLong("duration_ms"), wave.durationMs)
-                    verifyRecognitionMirror(wave, document.getJSONArray("asr_windows"), tokens, words)
+                    words = verifyRecognitionMirror(wave, document.getJSONArray("asr_windows"), tokens, cachedWords)
                     val contexts = SpeakerSpeechSupport.contexts(words, wave.durationMs)
                     val supplied = document.getJSONArray("contexts")
                     assertEquals("Embedding context mirror diverged in $id", contexts.size, supplied.length())
@@ -110,9 +113,17 @@ class TwoHourSpeechEvaluationTest {
                 val joint = SpeakerRecognitionMetrics.cpwer(referenceTurns, hypothesis)
                 val expectedTokens = referenceTurns.flatMap { SpeakerRecognitionMetrics.words(it.text) }
                 val actualTokens = hypothesis.flatMap { SpeakerRecognitionMetrics.words(it.text) }
-                val asr = document.getJSONObject("asr_metrics")
-                assertEquals(asr.getInt("words"), expectedTokens.size)
-                assertEquals(asr.getInt("word_errors"), SpeakerRecognitionMetrics.distance(expectedTokens, actualTokens))
+                val cachedAsr = document.getJSONObject("asr_metrics")
+                val cachedTokens = cachedWords.flatMap { SpeakerRecognitionMetrics.words(it.text) }
+                val referenceCharacters = characters(expectedTokens)
+                assertEquals(cachedAsr.getInt("words"), expectedTokens.size)
+                assertEquals(cachedAsr.getInt("word_errors"), SpeakerRecognitionMetrics.distance(expectedTokens, cachedTokens))
+                assertEquals(cachedAsr.getInt("chars"), referenceCharacters.size)
+                assertEquals(cachedAsr.getInt("char_errors"), SpeakerRecognitionMetrics.distance(referenceCharacters, characters(cachedTokens)))
+                val asr = JSONObject().put("words", expectedTokens.size)
+                    .put("word_errors", SpeakerRecognitionMetrics.distance(expectedTokens, actualTokens))
+                    .put("chars", referenceCharacters.size)
+                    .put("char_errors", SpeakerRecognitionMetrics.distance(referenceCharacters, characters(actualTokens)))
                 assertEquals(expectedTokens.size, joint.referenceWords)
                 val strictLabels = SpeakerSpeechSupport.speakersForWords(probes, stable, clustered.assignments)
                 val completeProbes = SpeakerAttribution.complete(probes, stable, clustered)
@@ -156,8 +167,10 @@ class TwoHourSpeechEvaluationTest {
                 inferredMs += sessionInferred
                 wordsTotal += joint.referenceWords
                 wordErrors += asr.getLong("word_errors")
+                cachedWordErrors += cachedAsr.getLong("word_errors")
                 charTotal += asr.getLong("chars")
                 charErrors += asr.getLong("char_errors")
+                cachedCharErrors += cachedAsr.getLong("char_errors")
                 jointErrors += joint.errors
                 predictedWords += words.size
                 inferredWords += completed.inferred.count { it }
@@ -182,9 +195,9 @@ class TwoHourSpeechEvaluationTest {
         assertEquals(setOf("M", "D", "S"), actorTotals.keys)
         val asrTotals = index.getJSONObject("asr_metrics")
         assertEquals(asrTotals.getLong("words"), wordsTotal)
-        assertEquals(asrTotals.getLong("word_errors"), wordErrors)
+        assertEquals(asrTotals.getLong("word_errors"), cachedWordErrors)
         assertEquals(asrTotals.getLong("chars"), charTotal)
-        assertEquals(asrTotals.getLong("char_errors"), charErrors)
+        assertEquals(asrTotals.getLong("char_errors"), cachedCharErrors)
         println("DIALOG EVALUATION TOTAL: sourceMs=$totalMs, uniqueFiles=${sources.size}, sessions=${sessions.length()}, " +
             "referenceWords=$wordsTotal, wordErrors=$wordErrors, WER=${wordErrors.toDouble() / wordsTotal}, " +
             "referenceChars=$charTotal, charErrors=$charErrors, CER=${charErrors.toDouble() / charTotal}, " +
@@ -272,6 +285,63 @@ class TwoHourSpeechEvaluationTest {
                 "meanQuality=${indices.map { windows[it].quality.toDouble() }.average()}, " +
                 "referenceSupportMs=$support, matchedReference=${matching.entries.firstOrNull { it.value == label }?.key ?: "none"}")
         }
+        // Inspect frozen output cohorts, not hidden discovery groups. These diagnostic means
+        // approximate the candidate's available parent evidence; they never alter a label.
+        val vectors = windows.map { SpeakerClusterer.normalized(it.vector) }
+        val cohorts = assignments.indices.filter { assignments[it].speakerId != SpeakerClusterer.UNKNOWN }
+            .groupBy { assignments[it].speakerId }
+        val centers = cohorts.mapValues { (_, indices) ->
+            val values = indices.mapNotNull { vectors[it] }
+            if (values.isEmpty()) null else {
+                val sum = FloatArray(values.first().size)
+                values.forEach { vector -> for (component in sum.indices) sum[component] += vector[component] }
+                try { SpeakerClusterer.normalized(sum) } finally { sum.fill(0f) }
+            }
+        }
+        try {
+            val order = windows.indices.sortedWith(compareBy({ windows[it].startMs }, { windows[it].endMs }, { it }))
+            val positions = order.withIndex().associate { it.value to it.index }
+            val supports = cohorts.mapValues { (_, indices) -> union(indices.flatMap { windows[it].speech })
+                .sumOf { it.endMs - it.startMs } }
+            fun independentMatch(vector: FloatArray, indices: List<Int>): Float? {
+                val ranked = indices.filter { windows[it].canSeed && windows[it].quality >= .55f && vectors[it] != null }
+                    .map { it to SpeakerClusterer.dot(vector, vectors[it]!!) }.sortedByDescending { it.second }
+                for (position in ranked.indices) {
+                    val current = windows[ranked[position].first]
+                    if ((0 until position).any { prior ->
+                        val previous = windows[ranked[prior].first]
+                        current.startMs >= previous.endMs || previous.startMs >= current.endMs
+                    }) return ranked[position].second
+                }
+                return null
+            }
+            for ((label, indices) in cohorts.toSortedMap()) {
+                val support = supports.getValue(label)
+                if (support >= 6000) continue
+                val parents = cohorts.keys.filter { it != label && supports.getValue(it) >= maxOf(4000, support * 2) }
+                for (index in indices.take(8)) {
+                    val vector = vectors[index] ?: continue
+                    val scores = parents.mapNotNull { parent -> centers[parent]?.let { center ->
+                        Triple(parent, SpeakerClusterer.dot(vector, center), independentMatch(vector, cohorts.getValue(parent)))
+                    } }.sortedByDescending { it.second }.take(3)
+                    val position = positions.getValue(index)
+                    val before = order.subList(0, position).lastOrNull {
+                        assignments[it].speakerId != label && assignments[it].speakerId != SpeakerClusterer.UNKNOWN }
+                    val after = order.subList(position + 1, order.size).firstOrNull {
+                        assignments[it].speakerId != label && assignments[it].speakerId != SpeakerClusterer.UNKNOWN }
+                    val previous = before?.let { "${assignments[it].speakerId}@gap${windows[index].startMs - windows[it].endMs}" } ?: "none"
+                    val next = after?.let { "${assignments[it].speakerId}@gap${windows[it].startMs - windows[index].endMs}" } ?: "none"
+                    println("DIALOG DEVELOPMENT SMALL CLUSTER $id label=$label: " +
+                        "startMs=${windows[index].startMs}, endMs=${windows[index].endMs}, " +
+                        "quality=${windows[index].quality}, canSeed=${windows[index].canSeed}, " +
+                        "groupSpeechMs=$support, previous=$previous, next=$next, " +
+                        "assignedParentMeanAndIndependentScores=${scores.joinToString { "${it.first}:${it.second}/${it.third}" }}")
+                }
+            }
+        } finally {
+            vectors.forEach { it?.fill(0f) }
+            centers.values.forEach { it?.fill(0f) }
+        }
         var splitProbeTurns = 0
         var splitRecognizedTurns = 0
         var emptyRecognizedTurns = 0
@@ -301,9 +371,12 @@ class TwoHourSpeechEvaluationTest {
             "emptyRecognizedTurns=$emptyRecognizedTurns, inferredRecognizedWords=${completed.inferred.count { it }}")
     }
 
-    private fun verifyRecognitionMirror(wave: PcmWave, windows: JSONArray, tokens: List<String>, expected: List<TimedWord>) {
+    private fun characters(tokens: List<String>) = tokens.joinToString(" ").codePoints().toArray().map { it.toString() }
+
+    private fun verifyRecognitionMirror(wave: PcmWave, windows: JSONArray, tokens: List<String>, expected: List<TimedWord>): List<TimedWord> {
         var start = 0L
         val actual = mutableListOf<TimedWord>()
+        val stitcher = CtcChunkStitcher()
         for (i in 0 until windows.length()) {
             val record = windows.getJSONObject(i)
             val window = AsrChunking.next(start, wave.sampleCount, wave::read)
@@ -318,10 +391,16 @@ class TwoHourSpeechEvaluationTest {
                 .filter { it.startMs < wave.durationMs }
                 .map { it.copy(endMs = minOf(it.endMs, wave.durationMs)) }
             actual += CtcDecoder.ownedBy(decoded, window.coreStart * 1000 / 16000, window.coreEnd * 1000 / 16000)
+            stitcher.append(decoded, window.coreStart * 1000 / 16000, window.coreEnd * 1000 / 16000,
+                window.start * 1000 / 16000, window.end * 1000 / 16000)
             start = window.coreEnd
         }
         assertEquals(wave.sampleCount, start)
         assertTrue("Host CTC/ownership mirror diverged from Android", expected == actual.sortedBy { it.startMs })
+        val result = stitcher.finish()
+        assertEquals("Stitching must preserve the exact acoustic support used by cached embeddings",
+            SpeakerSpeechSupport.contexts(expected, wave.durationMs), SpeakerSpeechSupport.contexts(result, wave.durationMs))
+        return result
     }
 
     private fun JSONArray.strings() = (0 until length()).map { getString(it) }
