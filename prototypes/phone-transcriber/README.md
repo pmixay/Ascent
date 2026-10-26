@@ -278,7 +278,8 @@ Candidate `ffa5fa7` reserves acoustic diversity within the existing 256-anchor
 budget, checks independent within-group agreement before centroid merging, and
 reconciles unique duplicated CTC words across overlapping chunk decodes. The
 original reserved set showed that these changes do not fix female/female merging.
-A complete-linkage discovery candidate is under CI evaluation; its results are pending. This
+A complete-linkage discovery experiment left female/female attribution at
+61.3% and failed three six-reader regressions; it has been reverted. This
 corpus does not establish natural-conversation DER, cross-session identity,
 overlap handling or supported-phone performance. See the linked evaluation
 record for exact denominators and scope.

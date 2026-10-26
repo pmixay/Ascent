@@ -19,7 +19,7 @@ data class SpeakerAssignment(val speakerId: String, val similarity: Float)
 data class SpeakerClustering(val assignments: List<SpeakerAssignment>, val signatures: List<VoiceSignature>)
 
 /**
- * Bounded complete-linkage discovery, centroid consolidation and evidence-gated reassignment.
+ * Bounded average-linkage discovery, centroid consolidation and evidence-gated reassignment.
  * Discovery and labeling are different decisions: a short phrase can match an established voice
  * without being allowed to establish a new voice or teach a remembered profile.
  * These cosine thresholds are initial operating points, not calibrated Russian accuracy claims.
@@ -97,11 +97,11 @@ class SpeakerClusterer(
                 }
             }
             if (first == -1) break
+            val firstSize = members[first].size
+            val secondSize = members[second].size
             for (other in 0 until count) if (active[other] && other != first && other != second) {
-                // A chain of medium-similarity fragments must not bridge two speakers.
-                // Complete linkage retains the weakest cross-group cosine, so every pair in
-                // the discovered group has to meet the unchanged discovery threshold.
-                val score = minOf(scores[first][other], scores[second][other])
+                val score = (scores[first][other] * firstSize + scores[second][other] * secondSize) /
+                    (firstSize + secondSize)
                 scores[first][other] = score
                 scores[other][first] = score
             }

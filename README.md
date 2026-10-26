@@ -40,8 +40,9 @@ development baseline is 2.8715% WER, 0.8730% CER, 4.9892% joint cpWER and 97.683
 completed clip-time attribution; this last figure is not DER. The original
 reserved recordings exposed a female/female merge: candidate cpWER was 77.94% and
 completed clip-time attribution 61.30%. They are diagnostic data now, not a
-held-out validation set. A complete-linkage candidate is under CI evaluation; no
-new improvement is claimed yet. Six-reader regression gates remain unchanged.
+held-out validation set. A complete-linkage experiment left the original female/female set at 61.3%
+completed attribution and failed three six-reader regressions. It has been
+reverted; no improvement is claimed. Six-reader regression gates remain unchanged.
 Natural conversation and phone accuracy remain unmeasured. See the
 [speaker evaluation scope](prototypes/phone-transcriber/docs/speaker-diarization.md).
 

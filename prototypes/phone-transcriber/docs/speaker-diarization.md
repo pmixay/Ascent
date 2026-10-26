@@ -448,7 +448,8 @@ separate reference-probe diagnostic inferred 255,893 ms of clip time.
 Candidate `ffa5fa7` added bounded anchor diversity, an independent-cohesion guard
 for centroid merging, and conservative duplicate-word seam reconciliation. It
 did not fix the female/female merge on the original diagnostic set. The current
-complete-linkage candidate awaits CI scoring; no improvement is claimed yet. These measurements cannot establish speech-only
+complete-linkage experiment left female/female attribution at 61.3% and failed
+three six-reader regressions; it has been reverted. No improvement is claimed. These measurements cannot establish speech-only
 DER, overlap separation, phone speed or natural-conversation acceptance;
 those requirements remain open.
 
