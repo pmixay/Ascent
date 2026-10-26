@@ -13,6 +13,15 @@ Freeze source selection and report unique source duration, annotation quality,
 transcription errors, speaker errors and inferred assignments. Reassembled dialogue
 turns must be identified as constructed sequences, not original continuous recordings.
 Run evaluation and model inference in CI, consistent with the build-only rule below.
+Use measured development errors to improve the algorithms, then validate the
+selected changes without adjusting them to validation scores. Before baseline
+inference, freeze `masha_dima_part1` as the Dialogs development subset and reserve
+`masha_sveta_part1`, `masha_sveta_part2`, and `masha_dima_part2` for validation.
+This split separates recordings, not all speakers: M appears in both subsets,
+D appears in development and validation, and S appears only in validation.
+Keep source selection, model weights and existing six-reader regression gates
+fixed; report development and validation results separately. Do not enroll the
+benchmark actors into application voice memory.
 
 ## 1. Build only through GitHub CI
 

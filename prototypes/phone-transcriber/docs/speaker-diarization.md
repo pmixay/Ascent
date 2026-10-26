@@ -377,7 +377,16 @@ public audio payloads, three actors and 7,233.107 seconds of publisher metadata
 duration. Every source checksum and annotation file is pinned before inference.
 CI verifies at least 7,200 seconds of actual resampled source audio, excluding
 inserted gaps. It runs the deployed GigaAM and ERes2NetV2 revisions without
-training, enrollment or threshold tuning on these recordings.
+training model weights or enrolling benchmark actors into voice memory.
+
+Before baseline inference or score inspection, `masha_dima_part1` is frozen as
+the development subset for diagnosing failures and choosing algorithm changes.
+The three other selected recordings (`masha_sveta_part1`, `masha_sveta_part2`,
+and `masha_dima_part2`) remain reserved until a candidate is chosen, then compare
+that candidate with the frozen baseline without further tuning to their scores.
+Report development and validation separately. This split separates recordings
+but shares M/D across subsets; S appears only in validation. Existing six-reader
+regression gates remain unchanged.
 
 Source clips retain their numeric turn order in approximately five-minute blocks
 with 100 ms inserted gaps. The source is expressive acted studio dialogue;

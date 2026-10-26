@@ -13,8 +13,9 @@ transcripts and expressive-style labels. See their
 [dataset card](https://huggingface.co/datasets/langswap/dialogs-ru-emotional-conversations/blob/a74ff44d8d27ca3d21098ea3ed4d31a32923fbdd/README.md)
 and [Interspeech 2026 paper](https://arxiv.org/abs/2607.14310).
 The dataset's [OpenRAIL license](LICENSE-Dialogs.md) is retained here. This is
-evaluation only: no model training, voice enrollment or parameter tuning uses
-these recordings, and none are distributed in the APK or downloadable archive.
+used for algorithm development and validation under the frozen split below.
+No model weights are trained and no actor is enrolled into application voice
+memory. No recordings are distributed in the APK or downloadable archive.
 
 ## Input acquisition status
 
@@ -27,9 +28,9 @@ from the publisher's rounded duration was below 0.023 ms. Speaker D contributes
 seconds. Public input files are outside the Git checkout and are not artifacts.
 
 This confirms input acquisition only. Recognition inference, Android checks,
-WER/CER and speaker scores remain pending in GitHub CI: the saved credential was
-rejected when pushing the implementation. No accuracy result is claimed from
-download integrity or header inspection.
+WER/CER and speaker scores remain pending in GitHub CI. GitHub authentication
+has been restored for the next run. No accuracy result is claimed from download
+integrity or header inspection.
 
 ## Selection frozen before inference
 
@@ -45,6 +46,29 @@ unavailable paths encountered in that selection are explicitly recorded in the
 manifest; they are not silently counted as downloaded speech. No repeated audio
 hash was found among the selected payloads. The selection was frozen before
 running either recognition model.
+
+## Development and validation split
+
+Before baseline inference or score inspection, freeze the following allocation:
+
+| Role | Selected source recordings | Actors |
+| --- | --- | --- |
+| Development | `masha_dima_part1` | M, D |
+| Validation | `masha_sveta_part1`, `masha_sveta_part2`, `masha_dima_part2` | M, S, D |
+
+Diagnose measured development failures and choose algorithm changes using only
+that subset. Keep the validation recordings reserved until a candidate is chosen;
+do not use their scores to choose thresholds or select fixes. Compare the same
+frozen baseline and chosen candidate on both subsets and report them separately.
+Keep all 1,134 payloads and the two-hour combined denominator, including failures.
+The existing six-reader regressions remain independent checks with unchanged
+acceptance thresholds.
+
+This split separates source recordings, not all identities: M and D appear in
+both subsets, while S is validation-only. The small number of actors and shared
+identities limit claims about generalization to unseen people. Upstream model
+training overlap remains unknown. No benchmark actor is added to voice memory,
+and no model weights are trained.
 
 ## Measurement and limitations
 
@@ -79,8 +103,8 @@ missing participant counts accompany the totals.
 
 The three actors provide substantial expressive variation but limited speaker
 diversity. Publisher train/validation/test labels do not determine this frozen
-application evaluation selection. This application trains on none of them;
-their absence from upstream model training cannot be established.
+application selection or its development/validation split. Model weights are
+not trained on this selection; upstream training exclusion cannot be established.
 
 The existing **Ascent Android CI** workflow runs the dedicated **Evaluate two
 hours of labeled Russian dialogue** job on pushes. It prepares verified inputs,

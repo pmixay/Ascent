@@ -37,6 +37,11 @@ The new CI dialogue evaluation freezes 1,134 unique public clips from three
 actors, totaling 7,233.107 metadata seconds. It requires at least two hours of
 verified resampled source audio and reports WER/CER, joint speaker-attributed
 word errors, strict/completed clip-time attribution and inferred coverage.
+Use `masha_dima_part1` errors for algorithm development, then validate chosen
+changes on the other three frozen recordings without selecting fixes from their
+scores. The split separates recordings but shares speakers M/D; S appears only
+in validation. Preserve all existing six-reader regression gates and report
+baseline/candidate results separately for development and validation.
 Its original-order, constructed sequences of acted studio dialogue do not
 establish natural-conversation DER, overlap separation or phone performance.
 Results are not yet measured; see the

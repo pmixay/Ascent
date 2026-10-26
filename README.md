@@ -33,6 +33,10 @@ A new CI evaluation freezes 1,134 public Russian Dialogs clips from three actors
 with 7,233.107 seconds of source metadata duration and an enforced minimum of
 two hours after resampling. It measures ASR, speaker attribution and joint word
 errors on constructed dialogue sequences; its results are not yet measured.
+Algorithm improvements use `masha_dima_part1` development errors; the other three
+selected recordings are reserved for validation of the chosen changes. This
+split separates recordings, with shared speakers M/D and validation-only S;
+existing six-reader regression gates remain unchanged.
 Natural conversation and phone accuracy remain unmeasured. See the
 [speaker evaluation scope](prototypes/phone-transcriber/docs/speaker-diarization.md).
 
