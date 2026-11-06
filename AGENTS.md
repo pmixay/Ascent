@@ -1,22 +1,61 @@
 # Ascent engineering contract
 
-Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation.
+Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation. Write project documentation in English; the app's user-facing language remains Russian.
 
-## 1. Build only through the existing GitHub CI
+## Review prototype scope
 
-- **Do not build on the local machine.** Existing GitHub CI performs builds.
+The current user request publishes the phone transcription prototype for review under `prototypes/phone-transcriber/`, with the corrected Ascent name. Stopping listening automatically transcribes a temporary WAV and deletes it after processing or failure; abandoned audio is removed on the next launch after process death. Multiple conversations and confirmed voice templates use encrypted local storage and source-based seven-day retention filtering. There is no Wear OS app. Temporary audio still reaches disk, and expiry cleanup cannot run while the app process is stopped, so this does not establish the production no-persistence or full retention guarantees. Preserve the production requirements below and do not mark their acceptance work complete or extend the prototype exception into production.
+
+The user authorizes downloading at least two hours of labeled public multi-speaker
+speech for evaluation. Licensed public benchmark audio may be cached on the development machine or in GitHub CI;
+never substitute application recordings or upload evaluation files as artifacts.
+Freeze source selection and report unique source duration, annotation quality,
+transcription errors, speaker errors and inferred assignments. Reassembled dialogue
+turns must be identified as constructed sequences, not original continuous recordings.
+Run public-corpus model inference on the development machine for algorithm improvement; do not run model inference in GitHub CI. Keep Android builds and executable application tests in GitHub CI under the build-only rule below. The CI evaluation job may score a previously completed inference cache.
+Use measured development errors to improve the algorithms, then validate the
+selected changes without adjusting them to validation scores. Before baseline
+inference, freeze `masha_dima_part1` as the Dialogs development subset and reserve
+`masha_sveta_part1`, `masha_sveta_part2`, and `masha_dima_part2` for validation.
+This split separates recordings, not all speakers: M appears in both subsets,
+D appears in development and validation, and S appears only in validation.
+Keep source selection, model weights and existing six-reader regression gates
+fixed; report development and validation results separately. Do not enroll the
+benchmark actors into application voice memory.
+
+## 1. Build only through GitHub CI
+
+- **Do not build on the local machine.** GitHub CI performs builds. The requested initial workflows are **Ascent Android CI** (`.github/workflows/android.yml`, job **Build and validate Android app**) and **Ascent Model Export** (`.github/workflows/model-pack.yml`, job **Export and validate offline models**); the fetched base repository had no workflows.
 - Do not run local Gradle, compilation, assemble, build, test, or lint tasks. Do not generate APK/AAB files or download Android SDKs or build toolchains. Do not invoke a wrapper, script, IDE action, or alternate tool that performs these operations indirectly.
 - Local work may include editing, reading configuration, reviewing diffs, and strictly non-building static checks. Check what a command does before running it.
 - Inspect the repository's actual GitHub workflow files, triggers, commands, and required checks before using CI. Do not invent workflow names or assume a pipeline exists in a supplied document-only workspace.
 - Use the existing workflow. Do not create a replacement, weaken checks, bypass CI, or fall back to a local build unless the user explicitly changes this instruction.
+- Both workflows trigger only on pushes; do not add a separate pull-request or manual-dispatch trigger. Model export filters relevant model/export/server paths.
+- Ascent Android CI publishes only `debug-<8-character commit>.zip`, containing the compact ARM64 `ascent.apk`. Use R8 code/resource optimization and keep model weights outside the APK. The separately optimized x86_64 emulator variant must pass its checks but is not a download artifact. Keep test and lint diagnostics in the workflow console; do not upload report artifacts. Build dependency caches may reduce repeated work but must preserve verification and required checks.
 - Report CI as not run or unverified unless an actual run and its result have been inspected. When available, identify the run and commit. Static review does not establish a successful build or passing tests.
 
+- The app automatically downloads models from `https://ascent.arbuz.lol/models/catalog.json` using a `dataSync` foreground service started while the activity is visible. Keep an ongoing progress notification, preserve transfer ownership when the activity closes, and reconnect promptly through validated-network callbacks and per-request retries. WorkManager remains the fallback for process recovery and approximate daily checks; background jobs must not attempt an unrestricted foreground-service start. Independent gzip chunks represent up to 4 MiB each of expanded data; verify compressed and expanded hashes, resume only verified prefixes, and verify complete files before activation. Check for compatible updates on open and through approximate daily background work. Keep the current revision usable until verification succeeds and protect revisions held by active inference leases. Show model status without install, reinstall, cancel, archive-import or server-selection controls. Internet permission for weights does not authorize audio uploads. Model CI may use a private archive solely as authenticated deployment transport.
+
 ## 2. Preserve the product architecture
+
+Keep the model status panel separate from conversation status. Validated local
+selection determines readiness; network update activity is secondary. Observe
+selection changes independently of progress, and publish transfer state only
+while that operation owns the transfer lock. Stale saved success never proves
+that model files still exist.
+
+During audio processing show one stable loading indicator. The model panel shows
+the latest successfully checked revision and elapsed time since that successful
+check; failed update attempts do not erase it or falsely advance the timestamp.
+Retain initial download progress. Completed transcripts use participant labels
+for every word, including best-effort assignments when evidence is insufficient.
+Keep inferred attribution distinguishable internally and exclude it from voice
+enrollment evidence; absence of an unidentified-speaker label is not confidence.
 
 - Support Android 12+ phones and Wear OS 6.0 watches. Keep minimum OS support separate from release-time target SDK requirements.
 - Continuous background listening through the watch microphone belongs in the first release and first capture milestone. The user explicitly enables a visible listening session; pause, stop, interruptions, and connection state must be accurate.
 - The phone performs Russian speech recognition, conversation diarization, speech enhancement, and sound classification locally. The watch captures, timestamps, transfers, and displays phone-produced results. Do not replace primary watch capture with a remote-control-only design or silently switch microphones.
-- Prioritize reliable live capture and early conversation speaker separation. Default to the Russian `День` experience with a chronological history.
+- Prioritize reliable live capture and early conversation speaker separation. Default to the Russian-language `Day` experience with a chronological history.
 
 ## 3. Never persist audio
 
@@ -52,7 +91,8 @@ Check current official [ZDR](https://openrouter.ai/docs/guides/features/zdr), [r
 
 ## 6. Evidence, interface, and completion reporting
 
+- The requested speaker-attribution target is strictly above 75% overall accuracy. Count unknown and missing attribution as errors, use a one-to-one mapping of anonymous labels to reference speakers, and report the evaluation denominator and per-speaker/condition results. Keep development regressions separate from evaluation speakers. A constructed audiobook score cannot establish natural-conversation accuracy or replace device validation; do not weaken existing stricter checks to meet the new target.
 - Link people facts and summaries to retained transcript evidence. Preserve uncertainty and attribution. A mentioned name is not speaker identity; do not invent facts.
 - Show contextual locations only with sufficient evidence. Otherwise omit the location field. Conversation topics alone do not prove physical location.
-- Use a blue palette, readable high-contrast text, and accessible controls. No small gray text or U+00B7 separators. Keep watch views concise and Rewind free of speaker division.
+- Use warm yellow accents and translucent glass surfaces inspired by Apple Intelligence, readable high-contrast text, and accessible controls. Render the in-app wordmark as `Ascent.` with a square period. The phone prototype has a separate status element and collapsible conversation timelines with connected dots, names and timestamps. Consecutive phrases attributed to the same known speaker share one timeline element, including across pauses; retain phrase boundaries for timer-icon pause durations and show elapsed seconds. Mark CTC-derived times as approximate. Stopping listening triggers processing without a separate transcribe or audio-delete action. No small gray text or U+00B7 separators. Keep watch views concise and Rewind free of speaker division.
 - Keep implementation and acceptance tasks unchecked until supported by actual evidence. In change reports, separate edits and static review from verified CI and device results. Never claim a local build, CI run, or audio/privacy guarantee that was not established.

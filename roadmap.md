@@ -4,22 +4,66 @@ Checked boxes indicate **confirmed product decisions only**, not completed softw
 
 See [README.md](README.md) and [AGENTS.md](AGENTS.md). Use existing GitHub CI exclusively for Gradle, builds, tests, lint, and build artifacts. **Never build locally.** Verify existing workflow names.
 
-Specification version: 0.4  
-Updated: 24 October 2026
+Specification version: 0.5
+
+Updated: 26 October 2026
+
+The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. Stopping listening automatically transcribes and deletes its temporary WAV. It retains multiple encrypted text conversations and confirmed voice templates with source-based seven-day filtering, but still writes temporary audio and has no watch app. Cleanup after process death waits for the next launch; this is not the production no-persistence guarantee. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) push-only workflows; their actual run results must be checked. The compact prototype uses R8 optimization, automatically downloads compressed, resumable model chunks through the fixed catalog with an activity-started foreground service, fast connection recovery and WorkManager fallback, and publishes only the ARM64 APK as `debug-<8-character commit>.zip`. Model controls are status-only. Emulator APKs, reports and model weights are not Android download artifacts.
 
 ## Confirmed scope
+
+The prototype model panel reports validated local readiness independently of
+background update activity. Checks, transfer progress and resumable waiting states
+appear together without disabling installed models during an update failure.
+The panel retains the last successful catalog comparison and elapsed check age;
+failed attempts cannot claim a fresh check or falsely mark a newer revision as
+installed. Stopping listening shows one stable audio-processing loading status.
+
+Prototype speaker work adds short-speech context recovery, centroid consolidation,
+bounded recovery of degraded runs, independently corroborated recovery of recurring
+voice fragments, and real-model regressions using six public
+Russian readers with controlled gain/noise/channel changes. Consecutive known
+speaker phrases share one timeline element with seconds and estimated pause
+durations. ASR uses quiet seams and longer context, with reference-transcript
+measurements in model CI. A paired development regression compares short,
+pause-separated phrases against the previous grouping policy using different
+source utterances for longer references and short queries. These fixtures do not complete the natural
+conversation diarization, overlap, or supported-phone accuracy acceptance criteria.
+Completed and legacy transcripts receive participant labels for every phrase,
+with best-effort guesses recorded as inferred and excluded from voice learning.
+Strict evidence remains separate from the completed display labels.
+Candidate changes reserve acoustic diversity within the existing anchor budget,
+check independent within-group agreement before merging centroids, and reconcile
+unique overlapping duplicate words at ASR chunk seams. Their acceptance depends
+on measured development improvement and unchanged regression gates.
+
+The new CI dialogue evaluation freezes 1,134 unique public clips from three
+actors, totaling 7,233.107 metadata seconds. It requires at least two hours of
+verified resampled source audio and reports WER/CER, joint speaker-attributed
+word errors, strict/completed clip-time attribution and inferred coverage.
+Use `masha_dima_part1` errors for algorithm development, then validate chosen
+changes on the other three frozen recordings without selecting fixes from their
+scores. The split separates recordings but shares speakers M/D; S appears only
+in validation. Preserve all existing six-reader regression gates and report
+baseline/candidate results separately for development and validation.
+Its original-order, constructed sequences of acted studio dialogue do not
+establish natural-conversation DER, overlap separation or phone performance.
+The inspected development baseline is 2.8715% WER, 0.8730% CER, 4.9892% cpWER
+and 97.6839% completed clip-time attribution (not DER). Candidate comparisons
+remain pending and validation results remain reserved; see the
+[selection, baseline and limitations](prototypes/phone-transcriber/tools/fixtures/dialogs/README.md).
 
 - [x] Support Android 12 and later with `minSdk 31`; choose distribution `targetSdk` separately against release-time requirements.
 - [x] Support Wear OS 6.0, with the watch as primary microphone and continuous background capture in the first vertical slice.
 - [x] Run Russian speech recognition, conversation speaker separation, and sound classification on the phone. Speech recognition never uses a cloud service.
 - [x] Give the watch a simplified version of the app: history snippets, Rewind, AI questions and results, listening status, and sound events.
-- [x] Default to **День**, showing conversations and sounds chronologically.
+- [x] Default to **Day**, showing conversations and sounds chronologically.
 - [x] Never save audio. Raw and processed audio exist only as short-lived volatile processing frames, with no files, caches, databases, disk-backed retries, offline spool, or watch audio backlog.
 - [x] Apply rolling seven-day retention to transcripts, summaries, sound events, and source-linked facts. Rewind uses a 30-second text ring.
 - [x] Freeze the preceding 30 seconds for Rewind and send its entire, unabridged transcript to AI, without speakers, profiles, locations, sounds, or full-history context.
 - [x] Prioritize speaker separation for stored day conversations independently of the simpler Rewind flow.
 - [x] Infer contextual place labels only when evidence is sufficient; otherwise, show no location.
-- [x] Use blue accents and readable hierarchy, without small gray text or centered-dot separators.
+- [x] Use warm yellow accents, translucent glass surfaces inspired by Apple Intelligence, and readable hierarchy, without small gray text or centered-dot separators.
 - [x] Start with encrypted audio buffers, authenticated encrypted transfer, encrypted text storage, listening controls, and content-free diagnostics. Microphone, DSP, and inference operations briefly require plaintext.
 - [x] Permit optional OpenRouter text AI through approved zero-data-retention providers with visible scope, consent, and no downgrade. Prohibit audio uploads and content in operational logs or caches.
 - [x] Use `https://ascent.arbuz.lol` as the fixed production application backend. Provide no server selector or custom server URL in the phone or watch app; manage OpenRouter configuration server-side.
@@ -80,6 +124,7 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 
 - [ ] Reviewers can trace phrases and speaker turns to capture timestamps without audio playback.
 - [ ] Benchmarks report transcription errors, speaker assignment errors, latency, and phone resource use separately.
+- [ ] Exceed 75% overall speaker-attribution accuracy on representative annotated Russian sessions, with unknown/missing attribution counted as errors, one-to-one label mapping, and per-speaker/condition reporting. Keep constructed public-corpus regression scores separate from this natural-conversation acceptance criterion.
 - [ ] Preserve text, speaker, and boundary corrections distinctly from generated results.
 - [ ] Missing or unclear speech appears as a limitation, not invented dialogue.
 
@@ -120,7 +165,7 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 
 **Dependency:** Milestones 2 and 3. **Outcome:** daily history on both devices.
 
-- [ ] Open on **День**, with date navigation and filters such as **Этим утром**, conversations, and sounds.
+- [ ] Open on **Day**, with date navigation and filters such as **This morning**, conversations, and sounds.
 - [ ] Show start time, duration, processing state, and summary; add locations after Milestone 6.
 - [ ] Open a conversation on its summary, with access to timestamped text and speaker turns.
 - [ ] Add optional remote conversation summaries and day or morning recaps using visibly selected text scope, consent, and the same provider restrictions. Link claims to supporting spans.
@@ -135,7 +180,7 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 - [ ] Users can open morning conversations, read summaries and evidence, and return to the timeline.
 - [ ] Both devices identify matching fragments and results without duplicate history entries.
 - [ ] Disconnection, stale status, and expired content have explicit states. A disconnected Rewind never later returns an unrelated newer fragment.
-- [ ] Design review confirms blue accents, readable contrast, no small gray text, and no centered-dot separators.
+- [ ] Design review confirms yellow accents and legible translucent surfaces, readable contrast, no small gray text, and no centered-dot separators.
 
 ## Milestone 5: Sounds and speech enhancement
 

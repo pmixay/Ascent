@@ -1,0 +1,324 @@
+name: Ascent Android CI
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and validate Android app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: prototypes/phone-transcriber/android
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set short artifact name
+        id: artifact
+        run: echo "short_sha=${GITHUB_SHA:0:8}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Test model packaging and build tooling
+        working-directory: prototypes/phone-transcriber
+        run: |
+          python3 -m unittest discover -s tests -v
+          python3 -m unittest discover -s tools -p 'test_*.py' -v
+          python3 -m unittest discover -s ../../server -p 'test_*.py' -v
+
+      - name: Restore verified Russian speaker regression fixtures
+        id: speaker-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            prototypes/phone-transcriber/.cache/speaker-test.onnx
+            prototypes/phone-transcriber/android/app/build/generated/speaker-fixtures
+          key: ${{ runner.os }}-speaker-fixtures-v1-${{ hashFiles('prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tests/requirements-speaker-test.txt', 'prototypes/phone-transcriber/tools/fixtures/speakers/**') }}
+
+      - name: Generate real speaker embeddings for regression checks
+        if: steps.speaker-cache.outputs.cache-hit != 'true'
+        working-directory: prototypes/phone-transcriber
+        run: |
+          python3 -m pip install -r tests/requirements-speaker-test.txt
+          mkdir -p .cache
+          curl --fail --location --retry 3 \
+            https://huggingface.co/csukuangfj/speaker-embedding-models/resolve/8be2a75c9ed7a590538b268e46fbb65e1aa9d208/3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx \
+            --output .cache/speaker-test.onnx
+          python3 tools/generate_speaker_fixtures.py \
+            --model .cache/speaker-test.onnx \
+            --output android/app/build/generated/speaker-fixtures/speaker-embeddings.json
+
+      - name: Restore native dependency download
+        id: native-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: prototypes/phone-transcriber/.cache/sherpa-onnx-*.aar
+          key: ${{ runner.os }}-sherpa-v1-${{ hashFiles('prototypes/phone-transcriber/scripts/prepare_android.py') }}
+
+      - name: Prepare verified native Android dependency
+        working-directory: prototypes/phone-transcriber
+        run: python3 scripts/prepare_android.py
+
+      - name: Save verified native dependency download
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: prototypes/phone-transcriber/.cache/sherpa-onnx-*.aar
+          key: ${{ steps.native-cache.outputs.cache-primary-key }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 9.8.2
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: '9.8.2'
+          cache-provider: basic
+          cache-read-only: false
+
+      - name: Set up Android SDK command-line tools
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: '15859902' # 22.0
+          log-accepted-android-sdk-licenses: false
+
+      - name: Install Android SDK packages
+        id: sdk
+        run: |
+          sdkmanager "platforms;android-37.2" "build-tools;37.0.0" "emulator"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          properties = Path(os.environ['ANDROID_HOME']) / 'emulator/source.properties'
+          revision = next(line.split('=', 1)[1].strip() for line in properties.read_text().splitlines()
+                          if line.split('=', 1)[0].strip() == 'Pkg.Revision')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'emulator_revision={revision}\n')
+          PY
+
+      # Regression resources are JVM-test-only; phone APKs contain no weights or speech fixtures.
+      - name: Run checks and build APK
+        run: >-
+          gradle --stacktrace --continue
+          :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Inspect and preserve ARM64 phone APK
+        run: |
+          python3 ../scripts/check_apk.py \
+            --apk app/build/outputs/apk/debug/app-debug.apk \
+            --mapping app/build/outputs/mapping/debug/mapping.txt
+          mkdir -p build/distribution
+          cp app/build/outputs/apk/debug/app-debug.apk build/distribution/ascent.apk
+
+      - name: Print Russian speaker regression measurements
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          for path in Path('app/build/test-results').rglob('*RealSpeakerRegressionTest.xml'):
+              report = ET.parse(path)
+              for output in report.iter('system-out'):
+                  print(output.text or '')
+          PY
+
+      - name: Enable emulator hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Restore clean Android emulator snapshot
+        id: avd-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/test.avd
+            ~/.android/avd/test.ini
+            ${{ env.ANDROID_HOME }}/system-images/android-36/google_apis/x86_64
+          key: ${{ runner.os }}-${{ runner.arch }}-avd-36-google-apis-x86_64-${{ steps.sdk.outputs.emulator_revision }}-v1-${{ hashFiles('.github/workflows/android.yml') }}
+
+      # Save an empty, booted emulator before installing the app or running tests.
+      - name: Create clean Android emulator snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          avd-name: test
+          force-avd-creation: false
+          working-directory: prototypes/phone-transcriber/android
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: echo "Clean emulator snapshot ready."
+
+      - name: Save clean Android emulator snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.android/avd/test.avd
+            ~/.android/avd/test.ini
+            ${{ env.ANDROID_HOME }}/system-images/android-36/google_apis/x86_64
+          key: ${{ steps.avd-cache.outputs.cache-primary-key }}
+
+      - name: Verify native runtimes on Android 16
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          avd-name: test
+          force-avd-creation: false
+          working-directory: prototypes/phone-transcriber/android
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-save -noaudio -no-boot-anim -camera-back none
+          script: gradle --stacktrace -PascentAbi=x86_64 :app:connectedDebugAndroidTest
+
+      - name: Upload checked debug APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: debug-${{ steps.artifact.outputs.short_sha }}
+          path: prototypes/phone-transcriber/android/build/distribution/ascent.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Print failed test details
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          roots = (Path('app/build/test-results'), Path('app/build/outputs/androidTest-results'))
+          count = 0
+          for root in roots:
+              for path in sorted(root.rglob('*.xml')):
+                  try:
+                      report = ET.parse(path)
+                  except ET.ParseError:
+                      continue
+                  for case in report.iter('testcase'):
+                      for issue in list(case.findall('failure')) + list(case.findall('error')):
+                          count += 1
+                          print(f"FAILED: {case.get('classname', '')}.{case.get('name', '')}")
+                          print((issue.get('message') or issue.text or 'No error details')[:4000])
+          if not count:
+              print('No failed testcase XML found; inspect the failed step above.')
+          PY
+
+  speech-evaluation:
+    name: Score cached two-hour Russian speech evaluation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: prototypes/phone-transcriber/android
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Restore previously inferred public speech inputs
+        id: dialog-results
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: prototypes/phone-transcriber/android/app/build/generated/long-evaluation
+          key: ${{ runner.os }}-dialog-inference-v1-${{ hashFiles('prototypes/phone-transcriber/tools/fixtures/dialogs/manifest.json', 'prototypes/phone-transcriber/tools/evaluate_dialogs.py', 'prototypes/phone-transcriber/tools/evaluate_speech.py', 'prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tests/requirements-dialog-evaluation.txt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/AsrChunking.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/CtcDecoder.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/SpeakerSpeechSupport.kt') }}
+
+      - name: Require a completed local-improvement inference cache
+        if: steps.dialog-results.outputs.cache-hit != 'true'
+        run: |-
+          echo 'No completed speech-inference cache is available. Generate it on the development machine; CI does not download audio or run models.'
+          exit 1
+
+      - name: Restore native dependency download
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: prototypes/phone-transcriber/.cache/sherpa-onnx-*.aar
+          key: ${{ runner.os }}-sherpa-v1-${{ hashFiles('prototypes/phone-transcriber/scripts/prepare_android.py') }}
+
+      - name: Prepare verified native Android dependency
+        working-directory: prototypes/phone-transcriber
+        run: python3 scripts/prepare_android.py
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 9.8.2
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: '9.8.2'
+          cache-provider: basic
+          cache-read-only: false
+
+      - name: Set up Android SDK command-line tools
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: '15859902' # 22.0
+          log-accepted-android-sdk-licenses: false
+
+      - name: Compile evaluation harness
+        run: |
+          sdkmanager "platforms;android-37.2" "build-tools;37.0.0"
+          gradle --stacktrace :app:compileDebugUnitTestKotlin
+
+      - name: Score Android attribution and joint transcription errors
+        env:
+          ASCENT_DIALOG_EVALUATION: ${{ github.workspace }}/prototypes/phone-transcriber/android/app/build/generated/long-evaluation/evaluation.json
+        run: gradle --stacktrace :app:testDebugUnitTest --tests com.pmixay.ascent.TwoHourSpeechEvaluationTest
+
+      - name: Print evaluation measurements and failure details
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          found = False
+          for path in Path('app/build/test-results').rglob('*TwoHourSpeechEvaluationTest.xml'):
+              found = True
+              report = ET.parse(path)
+              root = report.getroot()
+              if int(root.get('tests', '0')) != 1 or int(root.get('skipped', '0')) != 0:
+                  raise SystemExit('The complete two-hour evaluation must execute without a skipped test.')
+              for output in report.iter('system-out'):
+                  lines = (output.text or '').splitlines()
+                  print('\n'.join(lines))
+                  selected = [line for line in lines if line.startswith(('DIALOG EVALUATION TOTAL:', 'DIALOG EVALUATION actor=', 'Scope:'))]
+                  if selected:
+                      with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                          summary.write('### Cached two-hour Russian dialogue evaluation\n\n```text\n' + '\n'.join(selected) + '\n```\n')
+              for issue in list(report.iter('failure')) + list(report.iter('error')):
+                  print((issue.get('message') or issue.text or 'No error details')[:5000])
+          if not found:
+              raise SystemExit('No two-hour evaluation test result was produced; inspect the preceding step.')
+          PY

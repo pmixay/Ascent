@@ -1,0 +1,7 @@
+# Evaluation only; none of these dependencies or public recordings enter the APK.
+numpy==2.5.4
+onnxruntime==1.31.0
+sherpa-onnx==2.0.0
+soundfile==0.14.0
+scipy==1.18.1
+rapidfuzz==3.14.6

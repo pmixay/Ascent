@@ -1,0 +1,14 @@
+# ONNX Runtime's JNI bridge looks up Java types and members by their original names.
+# Upstream required rule: https://onnxruntime.ai/docs/build/android.html
+-keep class ai.onnxruntime.** { *; }
+
+# Keep only the sherpa bindings used by speaker extraction, including config fields
+# read by GetFieldID and native method names resolved by the Android linker.
+-keep class com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractor { *; }
+-keep class com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig { *; }
+-keep class com.k2fsa.sherpa.onnx.OnlineStream { *; }
+
+# AndroidViewModelFactory invokes this constructor reflectively.
+-keepclassmembers class com.pmixay.ascent.ConversationViewModel {
+    public <init>(android.app.Application);
+}
