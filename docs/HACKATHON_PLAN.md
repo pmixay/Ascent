@@ -91,6 +91,12 @@ Assignments assume no information about the teammates' experience beyond availab
 | **Timofey** — three GPT Plus accounts via Codex LB | Integration, model packaging, CI and performance lead | Embedded-model bootstrap, manifests/native packaging, reproducible CI inputs, ARM benchmarks, release integration and final artifact provenance | Pasha for architecture; Andrey for model validity | Separate workspaces for (1) packaging/CI, (2) benchmark tooling, (3) read-only review/integration. Multiple accounts do not justify concurrent writes to the same branch/files. |
 | **Petya** — Kimi + Cursor | UX and independent QA lead | Import/progress/result/export UI, error messages and accessibility, held-out test custody, device test matrix, judge-facing instructions/results/video | Pasha reviews UI state contract; Timofey reviews reproducibility | Cursor for bounded UI changes; Kimi for test matrices, documentation and review. Petya executes device checks and verifies claims personally. |
 
+T2 user override to the original table/schedule: Petya executes all real
+Android/ARM validation and measurements and owns server TLS/SSH/publication
+repair. Timofey supplies build assets, harness/measurement contracts and artifact
+identity, and reviews evidence. The older table's shared measurement slots remain
+coordination slots, not duplicated physical-device ownership.
+
 ### File boundaries
 
 Paths below are relative to `prototypes/phone-transcriber/` unless specified.

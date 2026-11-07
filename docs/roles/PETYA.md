@@ -14,7 +14,7 @@ At fetched `origin/main` `4b16e3a`, participant timeline/result UI and model-sta
 
 ### Explicit T2 handoff from Timofey — user-assigned
 
-- [ ] **Own real Android/ARM validation**, including cold install with networking
+- [ ] **Own real Android/ARM validation and measurement**, including cold install with networking
   disabled before first launch, extraction of both model groups, microphone and
   imported-file inference, and the integrated text stage. Use the exact CI APK,
   not a local build; record commit/APK/bundle hashes, OS/ABI/RAM/storage, cold/warm

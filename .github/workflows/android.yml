@@ -116,7 +116,7 @@ jobs:
               output.write(f'emulator_revision={revision}\n')
           PY
 
-      # Regression resources are JVM-test-only; phone APKs contain no weights or speech fixtures.
+      # Regression resources are JVM-test-only; the compact APK contains no weights or speech fixtures.
       - name: Run checks and build APK
         run: >-
           gradle --stacktrace --continue
@@ -308,6 +308,16 @@ jobs:
         run: >-
           python3 scripts/prepare_embedded_models.py --acoustic build/offline-export
           --output android/app/build/generated/offline-assets/models --cache build/offline-source-cache
+      - name: Release redundant generated export transport copies
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          # These exact outputs were created by this job, not source/user data.
+          Path('build/offline-export.zip').unlink()
+          Path('build/offline-export.zip.sha256').unlink()
+          shutil.rmtree('build/offline-export')
+          PY
       - name: Prepare verified native Android dependency
         run: python3 scripts/prepare_android.py
       - name: Set up JDK 17

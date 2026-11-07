@@ -126,6 +126,7 @@ Final application code handoff/push is **17:00**. After that only a release-bloc
 
 These cross-role prerequisites are not implemented by Timofey's T2 packaging.
 Petya now owns real-device verification and server repair; no task is waived.
+Callable details: [embedded-models.md](../interfaces/embedded-models.md).
 
 | Need | From | Deliver to others |
 | --- | --- | --- |

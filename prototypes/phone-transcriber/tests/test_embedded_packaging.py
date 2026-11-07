@@ -1,6 +1,6 @@
 """Small synthetic packaging fixtures, CI only; no model inference/download."""
 import hashlib
-import importlib.util
+import io
 import json
 from pathlib import Path
 import re
@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -74,6 +75,26 @@ class EmbeddedPackagingTests(unittest.TestCase):
     def test_transport_rejects_non_https(self):
         with tempfile.TemporaryDirectory() as directory, self.assertRaisesRegex(ValueError, "HTTPS"):
             prepare.download("http://example.invalid/model", Path(directory) / "model", {"bytes": 1, "sha256": "0" * 64})
+
+    def test_download_checks_actual_bytes_and_cleans_unverified_staging(self):
+        expected = {"bytes": 3, "sha256": hashlib.sha256(b"abc").hexdigest()}
+        for payload in (b"bad", b"truncated too long", b"a"):
+            with self.subTest(payload=payload), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                opener = Mock()
+                opener.open.return_value = io.BytesIO(payload)
+                with patch("prepare_embedded_models.urllib.request.build_opener", return_value=opener), self.assertRaises(ValueError):
+                    prepare.download("https://example.invalid/model", root / "model", expected)
+                self.assertEqual(list(root.iterdir()), [])
+
+    def test_verified_download_cache_works_without_network(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model"
+            path.write_bytes(b"abc")
+            expected = {"bytes": 3, "sha256": hashlib.sha256(b"abc").hexdigest()}
+            with patch("prepare_embedded_models.urllib.request.build_opener") as connection:
+                prepare.download("https://example.invalid/model", path, expected)
+                connection.assert_not_called()
 
 
 if __name__ == "__main__":

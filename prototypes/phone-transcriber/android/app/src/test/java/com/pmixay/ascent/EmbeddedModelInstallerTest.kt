@@ -32,6 +32,24 @@ class EmbeddedModelInstallerTest {
         try { block(root) } finally { root.deleteRecursively() }
     }
 
+    @Test fun descriptorRequiresTheCompiledDigestAndCompleteFileSet() {
+        val (_, data) = fixture()
+        fun descriptor(payloads: Map<String, ByteArray>): ByteArray {
+            val files = JSONObject()
+            payloads.forEach { (name, bytes) ->
+                files.put(name, JSONObject().put("bytes", bytes.size).put("sha256", bytes.inputStream().use(::sha256)))
+            }
+            return JSONObject().put("schema_version", 1).put("acoustic_model_id", ModelSpec.MODEL_ID)
+                .put("text_repository", TextModelFiles.REPOSITORY).put("text_revision", TextModelFiles.REVISION)
+                .put("files", files).toString().toByteArray()
+        }
+        val complete = descriptor(data)
+        assertEquals(data.size, EmbeddedBundle.parse(complete, complete.inputStream().use(::sha256)).files.size)
+        assertThrows(IllegalArgumentException::class.java) { EmbeddedBundle.parse(complete, "0".repeat(64)) }
+        val missing = descriptor(data - "text-model/model_int8.onnx")
+        assertThrows(IllegalArgumentException::class.java) { EmbeddedBundle.parse(missing, missing.inputStream().use(::sha256)) }
+    }
+
     @Test fun streamsBothGroupsAndKeepsAcousticWireFormatUnchanged() = inRoot { root ->
         val (bundle, data) = fixture()
         val installer = EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(data.getValue(it)) }) { Long.MAX_VALUE }
@@ -75,6 +93,15 @@ class EmbeddedModelInstallerTest {
         val old = File(root, "gigaam-old").apply { mkdir() }
         assertThrows(IllegalArgumentException::class.java) {
             EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(if (it.endsWith("asr.onnx")) byteArrayOf(1) else data.getValue(it)) }) { Long.MAX_VALUE }.install()
+        }
+        assertEquals(listOf(old.name), root.list()!!.toList())
+    }
+
+    @Test fun failedAssetReadCannotPromoteOrRemoveOldModels() = inRoot { root ->
+        val (bundle, _) = fixture()
+        val old = File(root, "gigaam-old").apply { mkdir() }
+        assertThrows(java.io.IOException::class.java) {
+            EmbeddedModelInstaller(root, bundle, { throw java.io.IOException("asset read failed") }) { Long.MAX_VALUE }.install()
         }
         assertEquals(listOf(old.name), root.list()!!.toList())
     }

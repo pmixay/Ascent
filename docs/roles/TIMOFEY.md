@@ -19,7 +19,7 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 - Root `.github/workflows/android.yml` and `model-pack.yml`.
 - Android build configuration, manifest/native packaging, prototype `scripts/` and `Model*.kt`.
 - Model-pack/export schema and delivery tooling, coordinated with Andrey on numerical/model changes.
-- Device performance harness, merged release integration and final hashes.
+- Performance harness/provenance review, merged release integration and final hashes. Petya executes real Android/ARM checks and measurements and owns server repair per the user's T2 reassignment.
 - Pasha owns application lifecycle/source contracts; Andrey owns algorithms/model quality; Petya owns UI/independent QA.
 
 ## 11:00–12:00 — confirm access and the specific red paths
@@ -89,6 +89,10 @@ not claimed as completed work here.
 Full candidate target: **16:00**. Measure the same jobs as Andrey/Petya rather than scheduling a separate benchmark sweep. One-phone quality/performance slot is **16:00–16:30**, then Petya's negative/lifecycle slot **16:30–17:00**.
 
 ### T4. Fixed-configuration ARM measurement, no optimization search
+
+Petya performs these physical-device trials and records the results. Timofey
+supplies the exact CI APK/pins and measurement contract, then reviews the table;
+this checklist is not permission to substitute CI x86_64 extraction for ARM work.
 
 - [ ] Record device/OS/ABI/RAM, APK/model hashes, threads, run order and thermal conditions.
 - [ ] Measure decode, model load, ASR, diarization, text LLM and save time, plus total wall time.

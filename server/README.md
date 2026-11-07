@@ -50,3 +50,11 @@ and are never included in an APK.
 Builds, model export and executable validation run in GitHub CI. Server
 provisioning is separate from Android compilation. No application release tag
 is needed to publish models.
+
+T2 operational owner: **Petya**, as assigned by the user. The current handoff is
+to diagnose HTTPS/catalog availability and authenticate the changed SSH host key
+from a trusted server/provider console before updating `ASCENT_MODEL_HOST_KEY`.
+Keep strict host-key/TLS verification; a passing export is not successful
+publication. See [T1 evidence](../docs/roles/TIMOFEY_T1_STATUS.md) and
+[Petya's assigned checklist](../docs/roles/PETYA.md#explicit-t2-handoff-from-timofey--user-assigned).
+Never put operational passwords/private keys in this repository or APKs.

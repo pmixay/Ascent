@@ -40,7 +40,8 @@ Interrupted staging is removed on the next launch; no imported source is touched
 The existing model-selection lock/lease policy protects old acoustic **and paired
 text** revisions until every job releases them. `ModelLease.directory` remains the
 acoustic directory and nullable `ModelLease.textDirectory` exposes the paired text
-assets to Pasha. Initial preparation revalidates full hashes, not a saved success
+assets to Pasha; see [callable contract](../interfaces/embedded-models.md).
+Initial preparation revalidates full hashes, not a saved success
 flag. Later process-local readiness also checks file size/mtime snapshots; this
 is not a claim to detect an attacker preserving file metadata. Automatic updates
 are disabled in the offline build for deterministic evaluation.

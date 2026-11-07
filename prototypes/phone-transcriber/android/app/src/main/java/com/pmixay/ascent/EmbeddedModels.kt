@@ -26,28 +26,40 @@ internal object EmbeddedModels {
         val app = context.applicationContext
         scope.launch {
             try {
+                var lastProgress = 0L
                 ModelDownloads.installEmbedded(app) { completed, total ->
-                    state.value = ModelTransferState(null, "Подготавливаю встроенные модели…", completedBytes = completed,
-                        totalBytes = total, phase = ModelTransferPhase.VERIFYING)
+                    val now = System.nanoTime()
+                    if (now - lastProgress >= 250_000_000 || completed == total) {
+                        state.value = ModelTransferState(null, "Подготавливаю встроенные модели…", completedBytes = completed,
+                            totalBytes = total, phase = ModelTransferPhase.VERIFYING)
+                        lastProgress = now
+                    }
                 }.let { installed ->
                     selected = installed
                     stamps = snapshot(installed)
                     ModelSelection.cleanup(app)
                     state.value = ModelTransferState(installed.acoustic, "Встроенные модели готовы", phase = ModelTransferPhase.READY)
                 }
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 selected = null
                 stamps = emptyMap()
-                state.value = ModelTransferState(null, "Не удалось подготовить встроенные модели. Проверьте свободное место и откройте приложение снова.", phase = ModelTransferPhase.ERROR)
+                val message = when {
+                    error.message?.contains("Недостаточно места") == true -> "Недостаточно места для встроенных моделей. Освободите память и откройте приложение снова."
+                    error is IllegalArgumentException -> "Повреждён встроенный комплект моделей. Переустановите проверенный офлайн-APK."
+                    else -> "Не удалось подготовить встроенные модели. Откройте приложение снова."
+                }
+                state.value = ModelTransferState(null, message, phase = ModelTransferPhase.ERROR)
             } finally { synchronized(this@EmbeddedModels) { preparing = false } }
         }
     }
 
     fun current(context: Context): File? {
         val installation = selected ?: return null
-        if (installation.acoustic.canonicalFile.parentFile != ModelSelection.root(context)) return null
-        if (snapshot(installation) != stamps) return null
-        return try { ModelSpec.load(installation.acoustic); installation.acoustic } catch (_: Exception) { null }
+        return try {
+            if (installation.acoustic.canonicalFile.parentFile != ModelSelection.root(context)) null
+            else if (snapshot(installation) != stamps) null
+            else { ModelSpec.load(installation.acoustic); installation.acoustic }
+        } catch (_: Exception) { null }
     }
 
     fun textDirectory(acoustic: File): File? = selected?.takeIf { it.acoustic == acoustic && snapshot(it) == stamps }?.text

@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -11,7 +13,7 @@ val embeddedAssets = layout.buildDirectory.dir("generated/offline-assets").get()
 val embeddedManifest = embeddedAssets.resolve("models/bundle.json")
 val embeddedDigest = if (embeddedModels) {
     require(embeddedManifest.isFile) { "CI must prepare the pinned offline model assets before building" }
-    java.security.MessageDigest.getInstance("SHA-256").digest(embeddedManifest.readBytes())
+    MessageDigest.getInstance("SHA-256").digest(embeddedManifest.readBytes())
         .joinToString("") { "%02x".format(it.toInt() and 255) }
 } else ""
 

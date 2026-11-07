@@ -2,6 +2,7 @@ package com.pmixay.ascent
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.work.WorkManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -24,6 +25,9 @@ class EmbeddedModelRuntimeTest {
         }
         assertEquals(state.message, ModelTransferPhase.READY, state.phase)
         assertFalse(ModelDownloadService.running.value)
+        val work = WorkManager.getInstance(context)
+        assertTrue(work.getWorkInfosForUniqueWork("ascent-model-download").get().isEmpty())
+        assertTrue(work.getWorkInfosForUniqueWork("ascent-model-updates").get().isEmpty())
         ModelSelection.acquire(context).use { lease ->
             assertTrue(File(lease.directory, "asr.onnx").isFile)
             val text = requireNotNull(lease.textDirectory)

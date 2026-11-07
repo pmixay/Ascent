@@ -78,7 +78,9 @@ internal class EmbeddedModelInstaller(
         check(root.isDirectory || root.mkdirs()) { "Не удалось открыть хранилище моделей" }
         // Only our abandoned staging names; selected revisions and active leases are not touched.
         root.listFiles()?.filter { it.name.startsWith(".embedded-stage-") }?.forEach {
-            check(it.deleteRecursively()) { "Не удалось удалить незавершённую подготовку моделей" }
+            check(if (Files.isSymbolicLink(it.toPath())) it.delete() else it.deleteRecursively()) {
+                "Не удалось удалить незавершённую подготовку моделей"
+            }
         }
         if (existing != null && valid(existing)) return existing
         require(availableBytes() >= bundle.totalBytes + RESERVE) { "Недостаточно места для встроенных моделей" }
