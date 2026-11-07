@@ -2,6 +2,14 @@
 
 ## Mission
 
+**Current reconciliation:** [remaining work, exact candidate and cross-role blockers](TIMOFEY_REMAINING_STATUS.md).
+Latest tested source `91e2598` passed both jobs in [42417416875](https://github.com/pmixay/Ascent/actions/runs/42417416875),
+including version/signature identity and all 25/two required runtime cases.
+The real read-only evidence collector also succeeded. Raw APK/bundle/signature
+hashes and storage measurements are recorded; signing remains `unprotected-debug`,
+not stable key acceptance. ARM/final release gates remain open.
+[Signing and publication procedure](../RELEASE.md).
+
 Deliver a reproducibly checked APK with a complete embedded model set, prove offline first-run operation on ARM and own final artifact provenance. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H01/H04/H10/H12.
 
 **Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Last model/export-input push: 15:00; final app push: 17:00; final APK handoff by 18:00; release sign-off by 19:30.** The last 30 minutes are shared submission reserve. This replaces all working-day/effort estimates. Local application builds/tests/lint and Android toolchain preparation remain prohibited; use existing GitHub workflows and their APKs.
@@ -20,8 +28,8 @@ with the real `62fbe3f` producer identity preserved and payloads reverified.
 in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795),
 with separate measured emulator/ARM64-archive figures. ARM/release acceptance stays open.
 The next [T4 timing slice](TIMOFEY_T4_STATUS.md) adds per-job exclusive stage totals
-and completed-job RTF in volatile UI state; its own CI and actual ARM measurements
-remain required.
+and completed-job RTF in volatile UI state; its CI passed at `68487f1` and the
+later merged `42d4de9`. Actual ARM measurements remain required.
 
 - Existing push-only Android/model workflows, R8/JNI isolation, downloader verification/leases and acoustic pipeline are the base, not tasks to recreate.
 - At fetched `origin/main` `4b16e3a`, historical [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042) has a **successful build/validation job**. The overall run failed because the since-removed two-hour inference inputs were missing; that failure is not a current CI gate.
@@ -35,7 +43,7 @@ Latest user assignment: [Parakeet packaging/R8/emulator smoke](TIMOFEY_PARAKEET_
 Source adds the four pinned files and CC-BY-4.0 notice in schema 2, with a third
 leased directory. Both jobs passed at `dbbce95` in [42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446),
 including enlarged-APK emulator installation and required minified recognizer creation.
-Exact new APK/bundle hashes remain uncollected because follow-up network access failed;
+Exact merged APK/bundle hashes are now recorded in the current reconciliation;
 mode selection and actual ARM acceptance remain open.
 T4 `68487f1` passed both jobs in `42402862397`; no ARM results are inferred.
 
@@ -51,6 +59,10 @@ T4 `68487f1` passed both jobs in `42402862397`; no ARM results are inferred.
 - [x] Use the pushed diagnosis for export run `42257595048`; confirm secure checkpoint access and model publication availability rather than restarting a generic investigation. Current exact-main Model Export `42393688781` passed; live metadata/pins verified in the current review.
 - [x] Inspect the current push CI after the job removal: confirm bounded compact and embedded jobs cover Python tooling, app/wear lint, unit tests, ARM64 APK inspection and x86_64 emulator checks, and that superseded runs cancel. Both jobs passed at `f04aaa7` in `42393688728`; long corpus jobs remain absent.
 - [ ] Locate verified model artifacts and establish who has permissions for CI, model publication and signing.
+  - [x] Locate the exact merged artifacts/model identities and inspect this session's
+    push/pull/triage permissions and configured secret names without exposing values.
+    Model publication access is documented by Petya. Signing key custody/admin
+    access remains a named blocker in the current reconciliation.
 - [ ] Agree embedded-install readiness/lease contract with Pasha and expected status UI with Petya.
 - [ ] Identify available ARM phones with RAM/OS/ABI/storage information.
 
@@ -90,7 +102,10 @@ not claimed as completed work here.
 - [x] Pin model manifest and build-time asset hashes; package current acoustic models first to unblock an internal baseline. Required payloads/receipt checked in successful `62fbe3f` CI.
 - [x] Replace the competition APK's weight-absence check with required-payload, integrity, ABI and provenance checks. Embedded checks pass at `62fbe3f`; compact weight-absence gate remains unchanged.
 - [x] Include all necessary tokenizer/config/license files; add Andrey's selected text-model assets and runtime through a versioned contract. Confirmed by the 19:00 comparison: `model_int8.onnx` and `tokenizer.json` from `onnx-community/Qwen2.5-0.5B-Instruct` with the revision, sizes and hashes in [text-punctuation.md](../interfaces/text-punctuation.md) and `TextModelFiles`; it runs on the existing ONNX Runtime, so no new native library is needed. Packaging and synthetic x86_64 execution passed at `62fbe3f`; ARM approval remains open.
-- [ ] Coordinate exact file-set/schema changes across Kotlin, Python and server validators/tests.
+- [x] Coordinate exact file-set/schema changes across Kotlin, Python and server validators/tests.
+  Schema 2 is an embedded-only envelope; acoustic/server schema 1 and limits stay
+  unchanged. Exact cross-language pins, synthetic schema tests, archive checks and
+  actual triple bootstrap passed in `42404340446` and merged `42406537594`.
 - [x] Stream assets to a staging directory with disk-space checks; verify hashes before atomically selecting an immutable revision. Installer regressions and actual embedded extraction passed at `62fbe3f`.
 - [x] Preserve active inference leases and clean failed/interrupted staging safely; recover on the next launch. JVM interrupted-promotion regressions and required paired-lease corruption recovery passed at `62fbe3f`; physical process-kill acceptance remains in T3/Petya's checklist.
 - [x] Ensure first-launch readiness does not wait for DNS, catalog access, WorkManager or downloads. Required network-disabled bootstrap and absence of download work passed at `62fbe3f`.
@@ -129,10 +144,15 @@ this checklist is not permission to substitute CI x86_64 extraction for ARM work
 
 ### T5. Integrate in a controlled order
 
-- [ ] Merge agreed source/result/export contracts first, then basic import and offline bootstrap/UI.
-- [ ] Integrate lifecycle/text-model stages before final quality/performance tuning.
+- [x] Merge agreed source/result/export contracts first, then basic import and offline bootstrap/UI.
+  Existing main integration retained; current exact merged `42d4de9` passes both jobs.
+- [x] Integrate lifecycle/text-model stages before final quality/performance tuning.
+  Source pipeline and required bounded text check pass; actual ViewModel lifecycle
+  and ARM acceptance remain Pasha/Petya blockers, not completed by integration.
 - [ ] Merge only Andrey's accepted quality candidate with its tests/provenance.
-- [ ] Inspect all required checks for the merged revision; artifact presence does not prove workflow-wide success.
+- [x] Inspect all required checks for the merged revision; artifact presence does not prove workflow-wide success.
+  Run `42406537594`, attempt 1, both jobs successful; actual 25/2 required methods
+  executed without skips. Later source changes still need their own exact-run checks.
 - [ ] Coordinate shared manifest/Gradle/DTO edits through a single editor at a time.
 
 ## 17:00–20:00 — final CI, exact artifact and submission
@@ -146,9 +166,19 @@ Final APK-producing push by **17:00**. Workflow limits: **45 min** Android build
 
 - [ ] Freeze source, model and configuration revisions with Pasha/Andrey.
 - [ ] Produce the final CI artifact with identifiable version and stable signing identity; protect signing credentials from source/APKs/logs.
+  - [x] CI version/signature preparation, fail-closed synthetic signing checks and
+    real exact-run collection verified at `91e2598` / `42417416875`. Actual APKs use
+    `unprotected-debug`; the positive owner-key signing path remains unrun. Supplying
+    the team key/cert pin/protected environment still requires the custodian/admin.
 - [ ] Verify all applicable jobs for the exact commit, not an earlier branch baseline.
 - [ ] Give Petya the exact APK hash, model hash, run links, size figures and device benchmark table.
+  - [x] The current merged internal candidate's exact APK/bundle hashes, run/artifact
+    links and separate ARM64-archive/x86_64 storage figures are in the current register.
+    Physical-device benchmark table remains missing; newer code produces a new identity.
 - [ ] Provide a durable repository-linked APK location consistent with submission rules; 14-day Actions retention is not sufficient as the only archive.
+  Current APK exceeds GitHub Releases' per-file 2 GiB limit. An approved complete-file
+  HTTPS host is a Petya/server-operator dependency, not permission to change the model
+  publisher, split the required APK or omit/compress mandatory model assets.
 - [ ] Repeat clean offline first-run and three-file processing on the delivered build; retest affected paths after any final fix.
 
 **Done:** source commit → CI runs → model manifests → APK hash → physical-device results → demonstration all identify the same release.

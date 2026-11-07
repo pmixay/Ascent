@@ -1,4 +1,4 @@
-# Embedded model bootstrap and paired lease contract
+# Embedded model bootstrap and triple lease contract
 
 T2 implementation branch: `timofey/t2-embedded-bootstrap`. Verification status:
 [T2 handoff](../roles/TIMOFEY_T2_STATUS.md). This contract describes code, not a
@@ -27,8 +27,9 @@ completed Android/LLM acceptance claim.
   validated export. `bundle.json.export_validation` records source/dependency/
   fixture fingerprints, the acoustic manifest hash and producer CI commit/run/
   attempt. Preparation and APK inspection reject mismatched provenance. This is
-  envelope metadata, not a new acoustic payload or server schema. Its current
-  branch implementation is pending CI; see the [ordered review](../roles/TIMOFEY_PLAN_REVIEW.md).
+  envelope metadata, not a new acoustic payload or server schema. Cold and warm
+  paths passed CI, including exact merged `42d4de9`; see the
+  [current evidence](../roles/TIMOFEY_REMAINING_STATUS.md).
 
 ## Application API
 
@@ -49,7 +50,7 @@ ModelSelection.acquire(context).use { lease ->
 ```
 
 One lease protects all three model groups for the whole job. A caller must not persist
-paths and use them after releasing that lease. Old revisions and their text pair
+paths and use them after releasing that lease. Old revisions and their text/multilingual groups
 are cleaned only after the last lease closes. Model leases do not own or delete
 the imported audio source.
 
@@ -93,7 +94,7 @@ budgets. [Field definitions and measurement limits](../roles/TIMOFEY_T3_STATUS.m
 ## Open acceptance dependencies
 
 The merged ViewModel connects the sequential text stage and job/export flow.
-Combined CI and real model execution evidence remain required. Andrey
+Combined CI passed at `42d4de9` in `42406537594`; actual ARM execution remains required. Andrey
 approves provisional model/runtime semantics and pins; Petya runs real ARM
 offline inference, memory/time and interrupted-install checks, and retains the [completed server repair evidence](../roles/PETYA_SERVER_STATUS.md). The merged x86_64 CI check validates extraction/recovery and one synthetic
-text-stage call through the paired API; it is not an ARM or quality measurement.
+text-stage call through the leased API plus real Parakeet creation; it is not an ARM or quality measurement.

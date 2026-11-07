@@ -10,6 +10,19 @@ references below. ARM trials, durable release and video remain open.
 
 ## Active competition track — 7 November 2026
 
+Latest [Timofey reconciliation](docs/roles/TIMOFEY_REMAINING_STATUS.md): combined
+`42d4de9` passed both Android jobs in `42406537594`; APK/bundle identities and actual
+emulator storage figures are recovered. New CI version/signature/protected-signing
+support and evidence collection require their own run; stable key custody,
+application mode/lifecycle acceptance, real ARM measurements and final freeze
+remain open. The >2 GiB APK needs an approved durable complete-file HTTPS host,
+not an impossible GitHub Releases asset or a model-packaging workaround.
+
+Subsequent source `91e2598` passed both jobs in `42417416875`, including the actual
+version/signature check and all 25/two required runtime cases. The real read-only
+evidence collector succeeded. Independent CI/provenance work is verified; actual
+owner-key signing, application/ARM/device/freeze/hosting/submission gates stay open.
+
 Execute [the four-person hackathon plan](docs/HACKATHON_PLAN.md), grounded in
 [the source-specification and current-CI audit](docs/HACKATHON_AUDIT.md), for the
 phone competition release. It prioritizes import, exact JSON, bundled usable
@@ -75,8 +88,8 @@ The user's explicit [Parakeet handoff](docs/roles/TIMOFEY_PARAKEET_STATUS.md) no
 adds a schema-2 third embedded group, pinned/uncompressed assets and attribution,
 and a required emulator JNI-configuration creation probe. Its new CI and enlarged
 APK emulator installation passed at `dbbce95` in [42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446),
-with both Android jobs successful and both embedded methods required. Exact new
-artifact/hash metadata is uncollected after follow-up network errors; mode
+with both Android jobs successful and both embedded methods required. Exact merged
+artifact/hash metadata is now recovered in the latest reconciliation; mode
 selection/ARM acceptance stay open.
 Historical teammate runs are in
 [T2 status](docs/roles/TIMOFEY_T2_STATUS.md).

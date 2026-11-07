@@ -17,6 +17,23 @@ local text LLM, physical-device results, APK release and video remain open.
 
 ## Individual execution plans
 
+Latest Timofey follow-up: [remaining-work and dependency register](roles/TIMOFEY_REMAINING_STATUS.md)
+records exact merged `42d4de9` success in `42406537594`, both required jobs and actual
+25/2 required cases, recovered raw APK/bundle hashes and separate emulator storage.
+New CI version/signature/protected-key support and evidence collection need their
+own CI. No team key, physical ARM results or final sign-off is invented. The raw
+offline APK exceeds GitHub Releases' per-file 2 GiB limit, so durable whole-file
+hosting is an explicit Petya/server-operator dependency. [Release procedure](RELEASE.md).
+This does not reschedule the deadline or waive a gate.
+
+That CI/provenance follow-up is now verified at `91e2598` in
+[42417416875](https://github.com/pmixay/Ascent/actions/runs/42417416875), both jobs
+successful with 25/two required executed cases. Read-only collection against the
+real run also succeeded. The current register identifies actual APK/version/
+certificate/bundle/expiry; signing is still `unprotected-debug`. Team-owned
+protected-key signing, ARM/application acceptance and durable final publication
+are not established by this success.
+
 Each plan includes first assignments, ordered checklists, file ownership, colleague dependencies and completion evidence:
 
 - [Pasha — application, import/export, lifecycle and local LLM](roles/PASHA.md)

@@ -2,6 +2,18 @@
 
 ## Mission
 
+### Current integration/ARM handoff from Timofey
+
+Both Android jobs passed on merged `42d4de9` / `42406537594`, including Parakeet
+creation and synthetic text execution on x86_64. Packaging is no longer missing;
+normal mode selection and actual ARM approval are still open. [Exact identities
+and dependency register](TIMOFEY_REMAINING_STATUS.md) supersede older packaging/CI
+notes below, not host study results.
+
+- [ ] Review Petya's exact-build ARM acoustic/Parakeet/text execution and fixed
+  timing/memory/quality table before approving models/runtime/configuration.
+  Host studies and the emulator creation gate do not close this item.
+
 Maximize measured Russian transcription, speaker and timestamp quality while keeping the phone pipeline stable and fast. Own model decisions and experiment validity. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H07/H08/H09/H10.
 
 **Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Personal handoff/sign-off: 19:30; 19:30–20:00 is shared submission reserve.** This replaces all former working-day estimates. Only the remaining work below is assigned; pushed studies are not to be repeated. Application builds/tests/lint use existing GitHub CI; no local Android build/toolchain. Approved public-corpus host inference remains distinct from actual judge processing on Android.

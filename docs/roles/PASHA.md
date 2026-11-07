@@ -8,11 +8,20 @@ Timofey is implementing the user's requested [schema-2 Parakeet bundle](TIMOFEY_
 not the mode chooser. After verified bootstrap, the same `ModelLease` exposes
 `multilingualDirectory` beside `directory` and `textDirectory`; it stays leased
 through both acoustic and text stages. Compact leases return null. Default GigaAM
-behavior remains unchanged; new packaging/smoke still needs its own CI.
+behavior remains unchanged. Packaging/smoke and the merged AUTO/timing source
+passed both jobs at `42d4de9` / `42406537594`; this is not ARM acceptance.
 
-- [ ] Wire explicit recognition-mode selection using the leased multilingual directory;
-  keep GigaAM default and report missing files without automatic fallback. Coordinate
-  the now-merged constructor (`mode`, `multilingualDirectory`, optional named `timings`).
+- [ ] Validate all three recognition modes on the final exact build. Source wiring
+  is now included through main `18c3599`: app selection defaults to AUTO, uses the
+  leased multilingual directory and exposes the actual used mode. Low-level engine
+  omitted-mode behavior remains GigaAM. Fresh combined CI and ARM operation remain
+  required; missing fixed-mode files must never silently fall back.
+- [ ] Add/review a per-job elapsed-work cap for the text stage with truthful fallback/
+  cancellation and native-resource cleanup; the current context cap is not a deadline.
+- [ ] Supply full ViewModel lifecycle evidence (cancel→new job, rotation, background,
+  kill/reopen) and final application/source/export freeze. [Exact-build handoff and
+  cross-role blockers](TIMOFEY_REMAINING_STATUS.md). Timofey imported the documentation-only
+  sign-off commit `f3e4386` without replacing these newer assignments; no app code was missing.
 
 Deliver the application path from a selected local audio file to a safely retained transcript and specification-compatible JSON. Own the job lifecycle and meaningful local text-LLM integration. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H00/H02/H03/H06/H07/H12.
 

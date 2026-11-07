@@ -7,6 +7,11 @@ instrumentation tests), the inference job and the scoring job. In the "Verified"
 named test covers counts; the rest is unmeasured.
 Source files are in `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
 
+Current combined evidence supersedes that historical three-job run: merged
+`42d4de9` passed the two bounded Android jobs in `42406537594`, including 25 compact
+and two embedded required cases. Long corpus CI remains removed. [Exact candidate
+and open application/ARM/release gates](../roles/TIMOFEY_REMAINING_STATUS.md).
+
 ```text
 picker (Petya) -> ConversationViewModel.importAudio(uri)
   -> job (one at a time, own ID) -> AudioSources.open: content:// descriptor, read in place
@@ -47,7 +52,7 @@ All are on `ConversationViewModel`. None needs the microphone permission.
 - `measurements`: volatile last-finished phone job counters and outcome, total/media
   duration and completed-only RTF. The T4 follow-up shows exclusive stage timings
   without persistence/logging/export changes; [exact measurement boundaries and
-  pending verification](../roles/TIMOFEY_T4_STATUS.md). It is cleared for a new job.
+  CI evidence/device limits](../roles/TIMOFEY_T4_STATUS.md). It is cleared for a new job.
 - `recognitionMode`: the selected mode. `recognizedMode`: the recognizer the last **saved** job actually used
   (for `AUTO`, the probe's choice), `null` while a job runs and after a failed or cancelled one. Show it beside the result.
   A fixed `MULTILINGUAL` choice without installed Parakeet files is refused before recording starts or a file is
