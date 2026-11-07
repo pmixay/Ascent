@@ -10,8 +10,11 @@ manual resolution preserves all three recognition modes, the exact incoming
 probe/restart logic and actual-mode result metadata, together with exclusive
 validation/ASR/diarization/load timers. AUTO's initial probe and restarted pass
 both contribute to total ASR time. No model hashes, thresholds, packaging or
-source cleanup rules changed during this reconciliation. Required new combined
-CI is pending; historical Parakeet success does not certify AUTO execution.
+source cleanup rules changed during this reconciliation. Merged `42d4de9`, also
+including main's later `2133dfa` holdout-study report, passed both jobs in
+`42406537594`; 25 compact/two embedded required cases executed without skips.
+This does not demonstrate actual AUTO/Parakeet inference on ARM. [Current identities
+and remaining blockers](TIMOFEY_REMAINING_STATUS.md).
 Main already contains Andrey's code; the task branch is not silently promoted
 to main as part of this synchronization.
 

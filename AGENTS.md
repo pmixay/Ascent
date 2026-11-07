@@ -69,6 +69,17 @@ integration and Petya's exact-build ARM/offline evidence are complete.
 
 Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation. Write project documentation in English; the app's user-facing language remains Russian.
 
+Timofey's remaining-work reconciliation is in `docs/roles/TIMOFEY_REMAINING_STATUS.md`;
+`docs/RELEASE.md` specifies CI version/signature identity and owner-supplied signing.
+Do not generate/replace the team's release key silently. Signing secrets belong in
+the `android-signing` GitHub environment with independently configured deployment-ref
+rules; unprotected CI uses empty `android-baseline`. Source-level ref conditions alone
+are not a secret-access boundary. No keys/admin settings are supplied by this code.
+New structured identity/evidence tools do not close ARM, stable-signing or final
+acceptance gates. The inspected schema-2 APK exceeds GitHub Releases' under-2-GiB
+per-file limit; durable complete-file hosting needs an authorized operator, not
+split APKs, omitted/compressed mandatory assets or a weakened model-server publisher.
+
 ## Review prototype scope
 
 The current user request publishes the phone transcription prototype for review under `prototypes/phone-transcriber/`, with the corrected Ascent name. Stopping listening automatically transcribes a temporary WAV and deletes it after processing or failure; abandoned audio is removed on the next launch after process death. The branch also has source-level import from a user-selected URI through bounded PCM/Android codec readers and a separate jury JSON serializer; device format support and export remain unverified. Multiple conversations and confirmed voice templates use encrypted local storage and source-based seven-day retention filtering. A separate Wear OS 6.0 companion preview now exists in source: it starts watch microphone capture from a visible watch action, sends bounded encrypted frames over bonded Bluetooth to the phone, and displays phone-produced text. Its CI build and paired-device behavior remain unverified until inspected. Temporary phone microphone audio still reaches disk, and expiry cleanup cannot run while the app process is stopped, so this does not establish the production no-persistence or full retention guarantees. Preserve the production requirements below and do not mark their acceptance work complete or extend the prototype exception into production.

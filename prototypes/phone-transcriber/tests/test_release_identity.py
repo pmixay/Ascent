@@ -144,6 +144,15 @@ class IdentityTests(unittest.TestCase):
             env["ASCENT_EXPECTED_CERT_SHA256"] = "e" * 64
             self.assertEqual("protected-key", apk_identity.identity(apk, "compact", badging, signing, env)["signing_mode"])
 
+    def test_version_failure_diagnostic_is_bounded_and_sanitizes_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk, env, badging, signing = self.fixture(Path(directory))
+            badging = badging.replace("0.1.140-aaaaaaaa", "unexpected<version>")
+            with self.assertRaises(apk_identity.IdentityCheckError) as error:
+                apk_identity.identity(apk, "compact", badging, signing, env)
+            self.assertIn("package/version mismatch", str(error.exception))
+            self.assertNotIn("<", str(error.exception))
+
     def test_sdk_verification_failure_prints_no_identity_or_stderr(self):
         with tempfile.TemporaryDirectory() as directory:
             apk, env, _, _ = self.fixture(Path(directory))
