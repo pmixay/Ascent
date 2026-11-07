@@ -25,6 +25,26 @@ The compact artifact has no installed text-model assets: its text-stage status
 must report unavailable and preserve recognized words. This trial verifies the
 prototype after download; it does not satisfy fresh offline/local-LLM acceptance.
 
+## Embedded baseline: fresh offline phone trial
+
+After both jobs pass on the combined branch, the same Android CI run provides
+`offline-baseline-<commit>` containing `ascent-offline.apk`. This separate package
+uses `com.pmixay.ascent.offline`, so it can coexist with the compact app. Verify
+its APK/bundle identities in the candidate record before installing.
+
+1. Use a fresh offline-package install/data state. Disable Wi-Fi/mobile data before
+   first launch; no model predownload is needed. Record available storage, including
+   space for the APK, Android's install copies and approximately 1.48 GB of expanded
+   model payloads. This is a payload lower bound, not a measured peak storage need.
+2. Wait for local verification/extraction of both model groups. The offline app
+   has no Internet permission and shows disabled automatic updates.
+3. Run the three-file judge procedure, including import without microphone
+   permission, microphone capture, cancellation and reopen. Record actual text-stage
+   processed/fallback counts and time. Missing/failed text processing is an open
+   acceptance failure, even when an acoustic transcript is preserved.
+4. Record cold/warm RTF, peak memory and the extraction/lifecycle negative cases.
+   CI's x86_64 asset-extraction test does not perform ARM model inference.
+
 ## Target device and package
 
 The Android module currently declares Android 12+ (`minSdk 31`) and builds ARM64 (`arm64-v8a`) for download. Its x86_64 variant is for CI instrumentation. Current source accepts seekable WAV PCM 8/16/24/32, float32, A-law/μ-law, one to eight channels and 4–192 kHz input rates, plus other audio tracks decodable by the device's Android media stack. The latter format support is device dependent and unverified; unsupported sources must show an error. The WAV adapter declares a two-hour limit; the compressed decoder declares 30 minutes. These are source limits, not measured phone capacity. The final verification build must include all runtime weights, tokenizer and local text-model assets needed for the default pipeline; the actual APK size, installed storage requirement, model version/hash, signing identity and ARM performance remain to be measured. Leave enough free storage for model extraction and results after measuring the exact final package. Do not infer an installed size from the compressed ZIP.

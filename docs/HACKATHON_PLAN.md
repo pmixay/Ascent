@@ -45,6 +45,37 @@ This inventory was reconciled against fetched `origin/main`, not just the older 
 
 ## 1. Delivery objective and order
 
+Historical execution update: [Timofey's 13:55 MSK H01 checkpoint](roles/TIMOFEY_H01_STATUS.md)
+records inspected attempts, the cold cache key, access and current TLS blockers.
+The first inference attempt was cancelled; attempt 2 is running. Latest-run
+diagnosis is recorded, but H01 acceptance, verified embedded assets and the
+remaining inference-policy decision are still open.
+
+T1 implementation follow-up: the existing fixture/export validation checks are
+now explicitly covered in `AGENTS.md`. Model export gains a separately identified,
+hash-pinned official Hugging Face state-dictionary source, preserving all parity
+and speaker checks. Main and task-branch cold inference/cache/scoring runs passed.
+At `a83fdff`, both new cache guards and scoring passed; HF export graph hashes
+match the historical acoustic pins. The entire Android run has now passed,
+including the 18 new regression tests and R8/native/emulator checks. Publication
+still fails strict SSH host-key verification and is excluded by the user. See
+[T1 evidence](roles/TIMOFEY_T1_STATUS.md). Frozen dialogue inputs/gates are unchanged;
+non-server T1 is verified, but full H01 and competition acceptance remain open.
+
+T2 ownership update: Petya owns **real Android/ARM tests and server repair**;
+Timofey implements pinned embedded preparation/bootstrap and the separately
+checked `offline-baseline-<sha>` artifact, preserving compact checks. Pasha owns
+job/text-stage integration; Andrey approves model/runtime choice. Reusing the
+same fixed export validation in Android's embedded job is explicitly authorized,
+not a new corpus-inference job. Cross-role blockers are recorded unchecked in
+their role files and [T2 status](roles/TIMOFEY_T2_STATUS.md). An asset-only baseline
+is not a final LLM/offline-ARM-qualified release. Existing absolute handoffs remain.
+
+Main synchronization and branch-cleanup review: [TIMOFEY_MERGE_REVIEW.md](roles/TIMOFEY_MERGE_REVIEW.md).
+The merged baseline requires complete same-revision CI, with intended emulator
+cases proven executed rather than only a successful Gradle invocation. The review
+does not promote an internal APK to a compliant competition release.
+
 Deliver one clearly identified CI-built ARM64 APK containing every model needed for the default pipeline. On a clean supported phone with networking disabled before first launch, a judge can import an unfamiliar local recording, process it on the phone, inspect timestamped speaker turns and export the exact required JSON. Three successive files must work independently. Provide source, measured results, installation instructions, architecture, limitations and a video of the same release.
 
 Priority order:
@@ -73,6 +104,12 @@ Assignments assume no information about the teammates' experience beyond availab
 | **Andrey** — Claude Pro + GPT Plus | Speech/ML lead | ASR, diarization, timestamp alignment, VAD experiments, model/quantization quality decisions, evaluation interpretation; selects and constrains text LLM with Pasha | Timofey checks measurement/provenance; Pasha checks integration | Claude for algorithm work; GPT for experiment design, metric review and failure analysis. Change one hypothesis at a time. |
 | **Timofey** — three GPT Plus accounts via Codex LB | Integration, model packaging, CI and performance lead | Embedded-model bootstrap, manifests/native packaging, reproducible CI inputs, ARM benchmarks, release integration and final artifact provenance | Pasha for architecture; Andrey for model validity | Separate workspaces for (1) packaging/CI, (2) benchmark tooling, (3) read-only review/integration. Multiple accounts do not justify concurrent writes to the same branch/files. |
 | **Petya** — Kimi + Cursor | UX and independent QA lead | Import/progress/result/export UI, error messages and accessibility, held-out test custody, device test matrix, judge-facing instructions/results/video | Pasha reviews UI state contract; Timofey reviews reproducibility | Cursor for bounded UI changes; Kimi for test matrices, documentation and review. Petya executes device checks and verifies claims personally. |
+
+T2 user override to the original table/schedule: Petya executes all real
+Android/ARM validation and measurements and owns server TLS/SSH/publication
+repair. Timofey supplies build assets, harness/measurement contracts and artifact
+identity, and reviews evidence. The older table's shared measurement slots remain
+coordination slots, not duplicated physical-device ownership.
 
 ### File boundaries
 

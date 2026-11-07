@@ -235,3 +235,147 @@ jobs:
           if not count:
               print('No failed testcase XML found; inspect the failed step above.')
           PY
+
+  offline-build:
+    name: Build and validate embedded offline baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: prototypes/phone-transcriber
+    env:
+      ASCENT_SPEAKER_SOURCE: https://huggingface.co/csukuangfj/speaker-embedding-models/resolve/8be2a75c9ed7a590538b268e46fbb65e1aa9d208/3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx
+      ASCENT_SPEAKER_SHA256: bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set short artifact name
+        id: artifact
+        run: echo "short_sha=${GITHUB_SHA:0:8}" >> "$GITHUB_OUTPUT"
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: prototypes/phone-transcriber/tools/requirements-export.txt
+      - name: Test embedded preparation and packaging guards
+        run: python3 -m unittest discover -s tests -p 'test_embedded_packaging.py' -v
+      # Caches are accelerators only. On a miss the same verified export regenerates
+      # acoustic inputs from the pinned official HF checkpoint, never from the catalog.
+      - name: Restore pinned public source downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            prototypes/phone-transcriber/build/offline-source-cache
+            prototypes/phone-transcriber/build/gigaam-cache/huggingface
+          key: ${{ runner.os }}-offline-source-v1-${{ hashFiles('prototypes/phone-transcriber/config/embedded-models.json', 'prototypes/phone-transcriber/tools/checkpoint_source.py') }}
+      - name: Install pinned export dependencies and upstream source
+        run: |
+          python3 -m pip install -r tools/requirements-export.txt
+          python3 -m pip install --no-deps -r tools/requirements-gigaam.txt
+      - name: Prepare hash-verified public export inputs
+        run: |
+          mkdir -p build/models
+          curl --fail --location --retry 3 "$ASCENT_SPEAKER_SOURCE" --output build/models/3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx
+          curl --fail --location --retry 3 https://huggingface.co/csukuangfj/sherpa-onnx-nemo-ctc-giga-am-v3-russian-2025-12-16/resolve/f376a99ee8be93b61f9e969d2ac827c4d228dac3/test_wavs/example.wav --output build/models/example.wav
+          curl --fail --location --retry 3 https://raw.githubusercontent.com/modelscope/3D-Speaker/b6ea24f428a178c02b7ef9d6900569050448c8a1/LICENSE --output build/models/LICENSE-3D-Speaker
+          python3 - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          import soundfile
+          import torch
+          import torchaudio
+          expected = {'3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx': os.environ['ASCENT_SPEAKER_SHA256'],
+                      'example.wav': 'd8aaaa18a5098d7c6de0595ae7ac1e64cacd0d4022af3595213bdaf23be77e69'}
+          for name, digest in expected.items():
+              with (Path('build/models') / name).open('rb') as stream:
+                  assert hashlib.file_digest(stream, 'sha256').hexdigest() == digest, name
+          samples, rate = soundfile.read('build/models/example.wav', dtype='float32', always_2d=True)
+          mono = torch.from_numpy(samples.mean(axis=1))
+          if rate != 16000:
+              mono = torchaudio.functional.resample(mono, rate, 16000)
+          assert 4000 <= mono.numel() <= 400000
+          soundfile.write('build/models/smoke-16k.wav', mono.numpy(), 16000, subtype='PCM_16')
+          PY
+      - name: Reuse required export parity and speaker validation for embedded inputs
+        run: >-
+          python3 tools/export_model_pack.py --output build/offline-export.zip
+          --directory-output build/offline-export --cache-dir build/gigaam-cache
+          --checkpoint-source huggingface
+          --speaker-model build/models/3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx
+          --speaker-sha256 "$ASCENT_SPEAKER_SHA256"
+          --speaker-license build/models/LICENSE-3D-Speaker --speaker-source "$ASCENT_SPEAKER_SOURCE"
+          --smoke-wav build/models/smoke-16k.wav
+      - name: Prepare pinned acoustic and text APK assets
+        run: >-
+          python3 scripts/prepare_embedded_models.py --acoustic build/offline-export
+          --output android/app/build/generated/offline-assets/models --cache build/offline-source-cache
+      - name: Release redundant generated export transport copies
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          # These exact outputs were created by this job, not source/user data.
+          Path('build/offline-export.zip').unlink()
+          Path('build/offline-export.zip.sha256').unlink()
+          shutil.rmtree('build/offline-export')
+          PY
+      - name: Prepare verified native Android dependency
+        run: python3 scripts/prepare_android.py
+      - name: Set up JDK 17
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle 9.8.2
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: '9.8.2'
+          cache-provider: basic
+          cache-read-only: false
+      - name: Set up Android SDK command-line tools
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: '15859902'
+          log-accepted-android-sdk-licenses: false
+      - name: Check and assemble ARM64 offline baseline
+        working-directory: prototypes/phone-transcriber/android
+        run: |
+          sdkmanager "platforms;android-37.2" "build-tools;37.0.0" "emulator"
+          gradle --stacktrace -PascentEmbedded=true :app:lintDebug :app:testDebugUnitTest --tests 'com.pmixay.ascent.EmbeddedModelInstallerTest' :app:assembleDebug
+          python3 ../scripts/check_apk.py --apk app/build/outputs/apk/debug/app-debug.apk --mapping app/build/outputs/mapping/debug/mapping.txt --embedded-assets app/build/generated/offline-assets/models
+          mkdir -p build/offline-distribution
+          cp app/build/outputs/apk/debug/app-debug.apk build/offline-distribution/ascent-offline.apk
+          sha256sum build/offline-distribution/ascent-offline.apk
+      - name: Enable emulator hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify offline first-launch asset installation on x86_64
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          working-directory: prototypes/phone-transcriber/android
+          disable-animations: true
+          disk-size: 8192M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb shell svc wifi disable
+            adb shell svc data disable
+            gradle --stacktrace --info -PascentEmbedded=true -PascentAbi=x86_64 -Pandroid.testInstrumentationRunnerArguments.class=com.pmixay.ascent.EmbeddedModelRuntimeTest :app:connectedDebugAndroidTest
+            python3 ../scripts/verify_android_tests.py app/build/outputs/androidTest-results --diagnose-device --require 'com.pmixay.ascent.EmbeddedModelRuntimeTest#coldBootstrapSelectsBothGroupsWithoutDownloadWork'
+      - name: Upload checked offline asset baseline
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offline-baseline-${{ steps.artifact.outputs.short_sha }}
+          path: prototypes/phone-transcriber/android/build/offline-distribution/ascent-offline.apk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

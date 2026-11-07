@@ -1,6 +1,5 @@
 package com.pmixay.ascent
 
-import android.content.Context
 import java.io.File
 import java.util.Locale
 
@@ -41,11 +40,8 @@ internal class TextStageOutcome(val segments: List<TranscriptSegment>, val repor
 internal object TextStages {
     private class Files(val model: File, val tokenizer: File)
 
-    /** The release packaging extracts the pinned files next to the acoustic revisions, in `models/text-model`. */
-    fun directory(context: Context): File = File(ModelSelection.root(context), TextModelFiles.DIRECTORY)
-
-    private fun locate(context: Context): Files? {
-        val directory = directory(context)
+    private fun locate(directory: File?): Files? {
+        if (directory == null) return null
         val model = File(directory, TextModelFiles.MODEL)
         val tokenizer = File(directory, TextModelFiles.TOKENIZER)
         // Hashes are checked when the files are extracted; a size mismatch means an interrupted extraction.
@@ -54,10 +50,15 @@ internal object TextStages {
         } else null
     }
 
-    /** Blocking; call off the main thread. A cancelled job surfaces as [InterruptedException]. */
-    fun run(context: Context, segments: List<TranscriptSegment>): TextStageOutcome {
+    /**
+     * Blocking; call off the main thread while holding the paired [ModelLease]. A null text directory
+     * is an acoustic-only revision, never permission to open an unversioned or newer text model.
+     * A cancelled job surfaces as [InterruptedException].
+     */
+    fun run(directory: File?, segments: List<TranscriptSegment>): TextStageOutcome {
+        if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
         if (segments.none { it.text.isNotBlank() }) return TextStageOutcome(segments, TextStageReport(TextStageStatus.SKIPPED))
-        val files = locate(context) ?: return TextStageOutcome(segments, TextStageReport(TextStageStatus.UNAVAILABLE))
+        val files = locate(directory) ?: return TextStageOutcome(segments, TextStageReport(TextStageStatus.UNAVAILABLE))
         val started = System.nanoTime()
         return try {
             val tokenizer = QwenTokenizer.load(files.tokenizer)

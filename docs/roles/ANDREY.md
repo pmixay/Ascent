@@ -23,8 +23,8 @@ remains separate from these host/code outputs.
   [text-model feasibility](../../prototypes/phone-transcriber/docs/text-model-feasibility.md).
   **Provisional choice at 14:30 (final after the team's model comparison):** Qwen2.5 0.5B int8 ONNX, single word-preserving pass on the existing
   ONNX Runtime, with Kotlin stage, tokenizer and JVM tests pushed; see
-  [text-punctuation.md](../interfaces/text-punctuation.md). Not yet packaged, integrated or
-  measured on ARM; CI has not yet run the new tests.
+  [text-punctuation.md](../interfaces/text-punctuation.md). The merged source now packages and integrates the paired text stage;
+  combined CI and actual ARM measurements remain open.
 - **Report:** [model-report.md](../hackathon/model-report.md) holds models, licences, the
   inspected historical CI two-hour scores and host results; its device table is still empty.
 - **P3 diarization:** no candidate measured; the short-reply hypothesis still
@@ -68,6 +68,21 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 | **19:30–20:00** | Shared submission/link verification reserve; no new experiments. |
 
 ### Remaining acceptance checklist
+
+#### T2 model handoff from Timofey
+
+- [ ] Review the pinned acoustic export provenance/identical graph hashes in
+  [T1 evidence](TIMOFEY_T1_STATUS.md); packaging must not change acoustic weights,
+  thresholds or scorer pins.
+- [ ] Approve or reject the provisional ONNX Qwen 0.5B choice from
+  [text-punctuation.md](../interfaces/text-punctuation.md), using Petya's exact
+  APK real-ARM execution/time/memory evidence. Hand Timofey any changed immutable
+  asset/runtime contract; host scores and bundled bytes alone are not acceptance.
+- [ ] Review Pasha's actual text-stage integration, lexical/ID/time preservation,
+  raw/presentation export choice and real success/fallback counters. Packaging
+  leaves this meaningful-pipeline requirement open until implemented and tested.
+
+#### Existing acceptance floor
 
 - [ ] Bounded source seam preserves original-media offsets, words and existing segmenter behavior.
 - [ ] Pushed grammar and independent validator actually run with the bundled text model on ARM; lexical content, numbers, negation, IDs and times stay unchanged. Record successful operation, fallbacks and incremental time.

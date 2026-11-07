@@ -26,8 +26,8 @@ Android CI; process-kill/device acceptance remains unrun.
 Recent handoffs on Timofey's `timofey/t2-embedded-bootstrap` assign model-server
 repair and exact-build ARM/offline measurements to Petya. Prioritize authenticated
 publication repair, then ARM/offline/lifecycle evidence and embedded-readiness
-copy. His latest packaging revision `082113c` fails instrumentation execution
-gates in run 42378802074 and is not a release candidate. Pasha's
+copy. The full Timofey branch through `a989b2e` is now integrated; the combined
+revision requires its own CI result. Pasha's
 `claude/pasha-work-lh3bs1` supplies the job API in `docs/interfaces/app-pipeline.md`;
 UI integration must preserve the existing source-safe import, watch coordination
 and retention behavior. That API is now integrated with the picker/progress/cancel
@@ -167,7 +167,7 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
 
 - From Pasha: commands/state/error contract, source/export semantics and recovery expectations.
 - From Andrey: scoring/annotation protocol and frozen candidate identity.
-- From Timofey: exact CI APK/model hashes, install instructions and device benchmark measurements.
+- From Timofey: exact CI APK/model hashes, install instructions and measurement procedures. You now execute and record the real-device measurements; Timofey reviews provenance.
 - To all: reproducible failures, retest outcomes and final acceptance matrix.
 
 ## Final personal checklist
@@ -178,3 +178,15 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
 - [ ] Negative/lifecycle/repeated-use cases have recorded outcomes.
 - [ ] Holdout results are independent and honestly scoped.
 - [ ] Complete submission and demonstration match the final APK.
+
+### Explicit T2 handoff from Timofey — user-assigned
+
+- [ ] Perform exact-build ARM cold-offline acoustic and text inference; record
+  commit/APK/bundle hashes, OS/ABI/RAM/storage, cold/warm RTF and peak memory.
+  The user will do phone trials later; x86_64 extraction is separate evidence.
+- [ ] Exercise corrupted/missing assets, low storage, kill during extraction and
+  processing, reopen and three consecutive files. Original inputs stay unchanged.
+- [x] Repair authenticated model publication and verify live HTTPS payloads.
+  See [server evidence](PETYA_SERVER_STATUS.md), including successful CI publication.
+- [ ] Validate Russian preparation/readiness/error UI on the exact offline APK.
+  Source now separates local readiness from online checks; phone evidence is open.

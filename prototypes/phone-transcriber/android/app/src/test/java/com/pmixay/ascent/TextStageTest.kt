@@ -91,6 +91,33 @@ class TextStageTest {
         assertEquals(0, outcome.report.phrases)
     }
 
+
+    @Test fun anAcousticOnlyLeaseReportsTheTextStageAsUnavailable() {
+        val input = listOf(segment("привет мир"))
+        val outcome = TextStages.run(null, input)
+        assertSame(input, outcome.segments)
+        assertEquals(TextStageStatus.UNAVAILABLE, outcome.report.status)
+        assertEquals(0, outcome.report.phrases)
+    }
+
+    @Test fun anAbsentPairedDirectoryNeverLoadsAnotherRevision() {
+        val root = java.nio.file.Files.createTempDirectory("text-pair").toFile()
+        try {
+            val input = listOf(segment("привет мир"))
+            val outcome = TextStages.run(java.io.File(root, "text-embedded-missing"), input)
+            assertSame(input, outcome.segments)
+            assertEquals(TextStageStatus.UNAVAILABLE, outcome.report.status)
+            assertEquals(TextStageStatus.SKIPPED, TextStages.run(null, emptyList()).report.status)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun cancellationBeforeOpeningPairedModelsIsPropagated() {
+        Thread.currentThread().interrupt()
+        try {
+            assertThrows(InterruptedException::class.java) { TextStages.run(null, listOf(segment("привет мир"))) }
+        } finally { Thread.interrupted() }
+    }
+
     @Test fun reportsDescribeWhatHappenedWithoutAnyText() {
         assertTrue(TextStageReport(TextStageStatus.UNAVAILABLE).describe().contains("не установлена"))
         assertTrue(TextStageReport(TextStageStatus.FAILED).describe().contains("не сработала"))

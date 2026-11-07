@@ -19,14 +19,14 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 - Root `.github/workflows/android.yml` and `model-pack.yml`.
 - Android build configuration, manifest/native packaging, prototype `scripts/` and `Model*.kt`.
 - Model-pack/export schema and delivery tooling, coordinated with Andrey on numerical/model changes.
-- Device performance harness, merged release integration and final hashes.
+- Performance harness/provenance review, merged release integration and final hashes. Petya executes real Android/ARM checks and measurements and owns server repair per the user's T2 reassignment.
 - Pasha owns application lifecycle/source contracts; Andrey owns algorithms/model quality; Petya owns UI/independent QA.
 
 ## 11:00–12:00 — confirm access and the specific red paths
 
-- [ ] Reuse inspected current run `42358746042`; check for any newer pushed result before integrating.
+- [x] Reuse inspected current run `42358746042`; check for any newer pushed result before integrating. See the [13:55 MSK diagnosis/access handoff](TIMOFEY_H01_STATUS.md): newer build success, cancelled first inference attempt and active second attempt; full H01 remains open.
 - [ ] Use the pushed diagnosis for export run `42257595048`; confirm secure checkpoint access and model publication availability rather than restarting a generic investigation.
-- [ ] Inspect the current push CI after the job removal: confirm one bounded build job covers Python tooling, app/wear lint, unit tests, ARM64 APK inspection and x86_64 emulator checks, and that superseded runs cancel. Do not recreate long inference or a cache bootstrap.
+- [ ] Inspect the current push CI after the job removal: confirm bounded compact and embedded jobs cover Python tooling, app/wear lint, unit tests, ARM64 APK inspection and x86_64 emulator checks, and that superseded runs cancel. Do not recreate long inference or a cache bootstrap.
 - [ ] Locate verified model artifacts and establish who has permissions for CI, model publication and signing.
 - [ ] Agree embedded-install readiness/lease contract with Pasha and expected status UI with Petya.
 - [ ] Identify available ARM phones with RAM/OS/ABI/storage information.
@@ -46,11 +46,23 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 
 **Done:** applicable existing jobs pass on the intended revision, and the build path works without relying on a particular warm cache. If access prevents this, report the exact missing permission/artifact instead of asserting success.
 
+**T1 handoff:** non-server implementation and verification are complete; see
+[exact commits/runs/hashes](TIMOFEY_T1_STATUS.md). The user excluded server work.
+That is historical: Petya has since repaired authenticated publication and
+verified live payloads; see [server evidence](PETYA_SERVER_STATUS.md). Long corpus
+inference/scoring jobs remain removed by the newer user instruction.
+
 ## 11:20–15:00 in the same workstream — complete offline packaging
 
 These packaging and CI tasks share the same window, not additive effort estimates. Integrate acoustic baseline at **13:00**; hand the first CI APK to the team, target **14:00**. Include a text-runtime probe early enough for **14:30** real ARM feasibility. All mandatory model/runtime changes and the last export-triggering push are due **15:00**.
 
 ### T2. Reuse existing model infrastructure; add embedded bootstrap
+
+Implementation branch/status: [TIMOFEY_T2_STATUS.md](TIMOFEY_T2_STATUS.md).
+User-updated ownership: Petya performs real Android/ARM validation and server
+repair; Timofey owns assets/bootstrap/CI, Pasha actual job/text integration and
+Andrey model/runtime approval. Cross-role blockers are assigned in their checklists,
+not claimed as completed work here.
 
 - [ ] Pin model manifest and build-time asset hashes; package current acoustic models first to unblock an internal baseline.
 - [ ] Replace the competition APK's weight-absence check with required-payload, integrity, ABI and provenance checks.
@@ -78,6 +90,10 @@ These packaging and CI tasks share the same window, not additive effort estimate
 Full candidate target: **16:00**. Measure the same jobs as Andrey/Petya rather than scheduling a separate benchmark sweep. One-phone quality/performance slot is **16:00–16:30**, then Petya's negative/lifecycle slot **16:30–17:00**.
 
 ### T4. Fixed-configuration ARM measurement, no optimization search
+
+Petya performs these physical-device trials and records the results. Timofey
+supplies the exact CI APK/pins and measurement contract, then reviews the table;
+this checklist is not permission to substitute CI x86_64 extraction for ARM work.
 
 - [ ] Record device/OS/ABI/RAM, APK/model hashes, threads, run order and thermal conditions.
 - [ ] Measure decode, model load, ASR, diarization, text LLM and save time, plus total wall time.

@@ -39,6 +39,20 @@ algorithm improvement. The former CI `dialog-inference` and `speech-evaluation`
 jobs were removed; no cache bootstrap, long inference or scoring runs in push CI.
 Reference-export provenance must remain explicit in development reports.
 
+Timofey's embedded assets/bootstrap and Pasha's job/text-stage work are now
+integrated on `claude/improve-app-peter`. The existing workflow retains compact
+checks and adds a separate embedded build with strict non-skipped instrumentation
+evidence. Both model groups remain leased across the sequential acoustic/text
+pipeline. Exact merged-revision CI remains pending; phone acceptance is deferred
+at the user's request. Historical teammate runs are in
+[T2 status](docs/roles/TIMOFEY_T2_STATUS.md).
+
+Model publication is repaired and independently verified; see
+[Petya's server evidence](docs/roles/PETYA_SERVER_STATUS.md).
+Petya retains offline ARM/device evidence and submission work, Andrey model/runtime
+approval, and Timofey packaging/CI ownership. No production or competition release
+gate is completed by branch integration alone.
+
 The old “reserved validation” references below are historical: the original
 Dialogs recordings have since informed algorithm fixes and are diagnostic data.
 New generalization claims require a fresh holdout, as specified in the active plan.
@@ -51,9 +65,12 @@ Specification version: 0.6
 
 Updated: 7 November 2026
 
-The hackathon jury's requirements ([brief](docs/hackathon/hackathon-brief-2026-11.pdf) and [clarifications](docs/hackathon/jury-clarifications.md)) add a separate verification APK with an embedded model, audio import and JSON export in the brief's schema. The current branch has source changes for bounded WAV and Android-codec import, its user interface and the JSON serializer, but no new CI/device evidence for them. The verification APK, complete model bundle and local LLM remain open. The unchecked gates below do not change the production milestones.
+The hackathon jury's requirements ([brief](docs/hackathon/hackathon-brief-2026-11.pdf) and [clarifications](docs/hackathon/jury-clarifications.md)) add a separate verification APK with an embedded model, audio import and JSON export in the brief's schema. The current branch has source changes for bounded WAV and Android-codec import, its user interface and the JSON serializer, but no new CI/device evidence for them. The embedded baseline and local text stage are integrated in source; exact-build
+CI, ARM validation and final competition acceptance remain open. The unchecked gates below do not change the production milestones.
 
-The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. Stopping listening automatically transcribes and deletes its temporary WAV. It retains multiple encrypted text conversations and confirmed voice templates with source-based seven-day filtering, but still writes temporary audio and has only a source-level Wear OS companion preview without CI or paired-device evidence. Cleanup after process death waits for the next launch; this is not the production no-persistence guarantee. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) push-only workflows; their actual run results must be checked. The compact prototype uses R8 optimization, automatically downloads compressed, resumable model chunks through the fixed catalog with an activity-started foreground service, fast connection recovery and WorkManager fallback, and publishes only the ARM64 APK as `debug-<8-character commit>.zip`. Model controls are status-only. Emulator APKs, reports and model weights are not Android download artifacts.
+The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. Stopping listening automatically transcribes and deletes its temporary WAV. It retains multiple encrypted text conversations and confirmed voice templates with source-based seven-day filtering, but still writes temporary audio and has only a source-level Wear OS companion preview without CI or paired-device evidence. Cleanup after process death waits for the next launch; this is not the production no-persistence guarantee. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) push-only workflows; their actual run results must be checked. The compact prototype uses R8 optimization, automatically downloads compressed, resumable model chunks through the fixed catalog with an activity-started foreground service, fast connection recovery and WorkManager fallback, and publishes only the ARM64 APK as `debug-<8-character commit>.zip`. Model controls are status-only. A separate `offline-baseline-<8-character commit>` artifact contains the ARM64
+`ascent-offline.apk` with embedded assets. Emulator APKs, reports and standalone
+model weights are not Android download artifacts.
 
 ## Confirmed scope
 

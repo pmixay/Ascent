@@ -3,13 +3,15 @@
 Status: the interface and engine overload arrived in `9127e20` (the re-attributed form of
 `7782992`). The merged branch extends the same seam to the import decoder and encrypted live
 watch window. The complete unified implementation passed lint, JVM unit tests, app/wear APK
-builds and x86_64 instrumentation in [CI run 42372716867](https://github.com/pmixay/Ascent/actions/runs/42372716867)
-at `78e4190`. No physical-device or ARM-emulator result is established.
+builds in [CI run 42372716867](https://github.com/pmixay/Ascent/actions/runs/42372716867)
+at `78e4190`. That older instrumentation task did not prove all methods executed;
+the combined branch now requires explicit non-skipped XML evidence. No physical-device
+or ARM-emulator result is established.
 
 This is the engine side of plan item A2 ("Connect the existing engine to a bounded URI/WAV
 source"). The seam is `PcmWindowSource.kt`, the engine overload lives in
 `TranscriptionEngine.kt`, the WAV reader in `PcmWave.kt`, the import factory and codec
-decoder in `AudioSources.kt` and `CodecAudioWindowSource.kt`, and the encrypted live watch
+decoder in `AudioSource.kt` and `CodecAudioWindowSource.kt`, and the encrypted live watch
 window in `LiveAudioCoordinator.kt`.
 
 ## The contract

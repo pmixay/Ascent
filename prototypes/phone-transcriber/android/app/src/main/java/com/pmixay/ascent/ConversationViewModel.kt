@@ -74,6 +74,13 @@ data class ConversationState(
 /** The data a job processes. The job closes [source] on every path. */
 internal class OpenedAudio(val source: PcmWindowSource, val name: String?)
 
+private class ProcessedAudio(
+    val recognition: TranscriptionResult,
+    val presentation: TextStageOutcome,
+    val durationMs: Long,
+    val name: String?,
+)
+
 /** A stopped listening session or imported file is processed once; only encrypted text remains afterwards. */
 class ConversationViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application
@@ -283,30 +290,35 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 withContext(NonCancellable + Dispatchers.IO) { pendingImports.begin(id) }
                 // Acquire, use and close native/source handles in the same worker. No open descriptor
                 // crosses a cancellable dispatcher return, where its value could otherwise be discarded.
-                val (result, durationMs, sourceName) = AudioWork.inference.withLock {
+                val processed = AudioWork.inference.withLock {
                     runInterruptible(Dispatchers.Default) {
-                        val opened = prepare()
-                        opened.source.use { source ->
-                            if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
-                            val mediaDurationMs = source.durationMs
-                            jobs.whileCurrent(id) { mutableState.update { it.copy(jobSource = opened.name,
-                                sourceDisplayName = opened.name, sourceDurationMs = mediaDurationMs,
-                                sourceFormat = source.formatDescription) } }
-                            val recognized = ModelSelection.acquire(app).use { lease ->
-                                TranscriptionEngine(lease.directory).transcribeWithSpeakers(source) { message ->
+                        // Pin the acoustic/text pair across both stages, including cancellation.
+                        ModelSelection.acquire(app).use { lease ->
+                            val opened = prepare()
+                            val (recognized, mediaDurationMs) = opened.source.use { source ->
+                                if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
+                                val duration = source.durationMs
+                                jobs.whileCurrent(id) { mutableState.update { it.copy(jobSource = opened.name,
+                                    sourceDisplayName = opened.name, sourceDurationMs = duration,
+                                    sourceFormat = source.formatDescription) } }
+                                val result = TranscriptionEngine(lease.directory).transcribeWithSpeakers(source) { message ->
                                     reportProgress(id, message)
                                 }
+                                result to duration
                             }
-                            Triple(recognized, mediaDurationMs, opened.name)
+                            // Native acoustic sessions and the source are closed before the LLM opens.
+                            if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
+                            stage = ProcessingState.Formatting
+                            jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Formatting, jobProgress = null) } }
+                            val presented = TextStages.run(lease.textDirectory, recognized.segments)
+                            ProcessedAudio(recognized, presented, mediaDurationMs, opened.name)
                         }
                     }
                 }
-                currentCoroutineContext().ensureActive()
-                stage = ProcessingState.Formatting
-                jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Formatting, jobProgress = null) } }
-                val presented = AudioWork.inference.withLock {
-                    runInterruptible(Dispatchers.Default) { TextStages.run(app, result.segments) }
-                }
+                val result = processed.recognition
+                val presented = processed.presentation
+                val durationMs = processed.durationMs
+                val sourceName = processed.name
                 report = presented.report
                 spoke = presented.segments.isNotEmpty()
                 currentCoroutineContext().ensureActive()

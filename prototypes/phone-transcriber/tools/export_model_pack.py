@@ -38,6 +38,8 @@ def arguments():
     parser.add_argument("--output", required=True, type=Path,
                         help="Verified ZIP transport for the model server; users download files in-app.")
     parser.add_argument("--cache-dir", type=Path, default=Path(".cache/gigaam"))
+    parser.add_argument("--directory-output", type=Path,
+                        help="Also preserve the validated flat export for CI embedded-APK preparation.")
     parser.add_argument("--checkpoint-source", choices=("upstream", "huggingface"), default="upstream",
                         help="Pinned CDN checkpoint or separately identified official Hugging Face state dictionary.")
     parser.add_argument("--speaker-model", required=True, type=Path)
@@ -387,6 +389,12 @@ def main():
         validate_manifest(manifest)
         write_json(staging / "manifest.json", manifest)
         validate_directory(staging)
+        if args.directory_output:
+            if args.directory_output.exists():
+                raise FileExistsError("Refusing to replace existing directory export")
+            args.directory_output.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(staging, args.directory_output)
+            validate_directory(args.directory_output)
         print(f"Verified model manifest SHA-256: {sha256_file(staging / 'manifest.json')}", flush=True)
         for name, record in files.items():
             print(f"Verified model payload: {name}; bytes={record['bytes']}; SHA-256={record['sha256']}", flush=True)

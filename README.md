@@ -10,8 +10,8 @@ schema, resolved local-LLM compliance and clean-install offline ARM validation.
 The current branch has source changes for bounded WAV and Android-codec audio
 import, an evaluator-facing
 interface and the brief-schema JSON serializer; they still need CI and device
-verification. The complete offline APK, local LLM and release evidence remain
-planned. For this competition
+verification. Embedded packaging and a sequential local text stage are integrated in source;
+combined CI and real offline ARM release evidence remain open. For this competition
 scope, the new requirements supersede the older no-weights/capture-only packaging
 direction and exclude remote text processing. The watch-first product target
 below remains a separate future track. Builds and executable application checks
@@ -36,6 +36,22 @@ current gate. Earlier `4b16e3a` had a passing build job but failed for missing
 inputs. Model publication is restored: [Model Export 42369233159, attempt 2](https://github.com/pmixay/Ascent/actions/runs/42369233159/attempts/2) passed, and all live transport/payload hashes were independently checked. See [Petya’s server evidence](docs/roles/PETYA_SERVER_STATUS.md).
 Public-reference results are not deployed-pack or offline ARM acceptance. The
 audit preserves its earlier snapshot.
+
+Timofey's full embedded-bootstrap branch is now integrated alongside Pasha's
+job/text pipeline. The existing push-only Android workflow checks both compact
+`debug-<sha>` and embedded `offline-baseline-<sha>` artifacts. The embedded build
+contains pinned acoustic and Qwen ONNX text assets, verifies/extracts them locally,
+and removes Internet permission. Recognition and text formatting use one paired
+model lease; acoustic sessions close before the text model opens. Raw recognized
+words remain available for competition JSON export. Final merged-revision CI is
+pending; historical teammate CI does not verify this combination.
+
+See [the embedded contract](docs/interfaces/embedded-models.md),
+[Timofey's historical T1/T2 evidence](docs/roles/TIMOFEY_T2_STATUS.md), and
+[Petya's current handoff](docs/roles/PETYA_HANDOFF.md). The server publication
+failure recorded in the historical T1 handoff is now resolved as linked above.
+The user will perform phone tests later. Exact-build offline ARM inference,
+text-model speed/memory and competition acceptance remain open.
 
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
@@ -110,7 +126,8 @@ the brief's schema, working offline with a local LLM, Russian first and English
 second. The current branch implements a bounded, seekable WAV path plus an
 in-memory Android codec path for platform-supported compressed audio, and a
 separate brief-schema serializer in source. Their behavior is unverified on
-Android; the prototype still downloads models, and the local LLM is absent. The
+Android on the final combined revision. Compact builds download acoustic models;
+the separate embedded baseline includes the provisional local text model. The
 [judge procedure](docs/QA_JUDGE_SCRIPT.md), [installation guide](docs/INSTALLATION.md)
 and [test ledger](docs/TEST_RESULTS.md) record the remaining evidence. See
 [Hackathon verification build](#12-hackathon-verification-build).
@@ -509,7 +526,7 @@ Phone destinations: `Today`, `History`, `People`, and `Search`. The watch provid
 
 The first production slice must use the watch as the live microphone and the phone for processing. The phone-only review prototype does not complete that slice. [roadmap.md](roadmap.md) defines the sequence and acceptance gates.
 
-**Do not build locally. GitHub CI is the build and executable-validation environment.** This branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) workflows for the review prototype; the fetched base repository had no workflows. Inspect each actual run and its commit before reporting success. Use these checks, do not weaken them or replace them with local builds, and do not claim an unobserved green result. Both workflows trigger only on pushes; model export additionally filters relevant source paths. Ascent Android CI publishes only `debug-<8-character commit>.zip` containing the compact ARM64 `ascent.apk`; test and lint diagnostics remain in the workflow console, without report artifacts. The optimized x86_64 emulator build is checked but never uploaded. Model CI deploys verified weights to the fixed HTTPS catalog through restricted SSH; users download them inside the app. Local document edits and static inspection are allowed. See [AGENTS.md](AGENTS.md).
+**Do not build locally. GitHub CI is the build and executable-validation environment.** This branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) workflows for the review prototype; the fetched base repository had no workflows. Inspect each actual run and its commit before reporting success. Use these checks, do not weaken them or replace them with local builds, and do not claim an unobserved green result. Both workflows trigger only on pushes; model export additionally filters relevant source paths. Ascent Android CI preserves `debug-<8-character commit>.zip` containing the compact ARM64 `ascent.apk` and adds the separately checked internal `offline-baseline-<8-character commit>.zip` / `ascent-offline.apk` with embedded assets. Test and lint diagnostics remain in the workflow console, without report artifacts. Optimized x86_64 emulator builds are checked but never uploaded. Model CI's publication path uses the fixed HTTPS catalog through restricted SSH; current server repair belongs to Petya and is not established by the offline APK. Local document edits and static inspection are allowed. See [AGENTS.md](AGENTS.md) and [T2 evidence](docs/roles/TIMOFEY_T2_STATUS.md).
 
 Later ideas include personal vocabulary, source-linked commitment tracking, conversation preparation, comparing decisions, local custom-sound enrollment, and deliberately configured longer-term text memory. Audio recording or storage is not a later extension of this plan.
 
@@ -525,8 +542,10 @@ The jury's [task brief](docs/hackathon/hackathon-brief-2026-11.pdf) and
 [clarifications](docs/hackathon/jury-clarifications.md) define an APK that experts
 install on an ARM emulator, import three recordings into, transcribe and export,
 then score against reference transcripts. This is a separate deliverable on the
-phone only. It does not change the production plan above, and every item here is a
-requirement, not an implemented feature. Owners and ordering are in the
+phone only. It does not change the production plan above. These are release
+requirements, not acceptance claims: T2's internal embedded-assets/bootstrap
+baseline implements part of the track but does not close the complete pipeline
+or ARM gates. Owners and ordering are in the
 [four-person delivery plan](docs/HACKATHON_PLAN.md) and the [audit](docs/HACKATHON_AUDIT.md).
 
 | Requirement | Plan |

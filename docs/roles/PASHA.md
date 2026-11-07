@@ -131,6 +131,29 @@ Final application code handoff/push is **17:00**. After that only a release-bloc
 
 ## Handoffs and blockers
 
+### T2 application integration handoff — still required
+
+- [ ] Use the embedded bootstrap via existing `ModelDownloads.schedule/observe`;
+  do not add a parallel installer or make first-run readiness wait for networking.
+  `ModelSelection.acquire` now supplies one lease with `directory` (unchanged
+  acoustic file set) and nullable `textDirectory` (separate versioned text assets).
+- [ ] Connect the real `OnnxTextModel`/`TextPunctuator` stage after acoustic
+  sessions close, consuming `lease.textDirectory` for the entire job. Keep that
+  lease until both acoustic and text stages stop; expose real execution/fallback
+  counts and elapsed time. Merely bundling weights does not close H07.
+- [ ] Preserve raw ASR text, lexical/ID/time invariants and encrypted history.
+  Propagate installation failures/cancellation safely; never delete imported
+  source audio. Coordinate job/background/reopen behavior with Petya's real-device
+  tests. Agree the export raw/presentation-text choice with Andrey.
+
+These cross-role prerequisites are not implemented by Timofey's T2 packaging.
+Petya now owns real-device verification and server repair; no task is waived.
+Callable details: [embedded-models.md](../interfaces/embedded-models.md).
+The first packaged baseline and its run/APK identities are available in
+[T2 status](TIMOFEY_T2_STATUS.md); do not wait for another host/model search or
+reimplement the installer. Use the implementation branch and the final tested
+revision identified there for integration.
+
 | Need | From | Deliver to others |
 | --- | --- | --- |
 | Acoustic input/result agreement | Andrey, by 11:20 | Stable source/state/export APIs to Petya by 11:20; baseline code 12:30 |
