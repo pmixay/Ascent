@@ -1,9 +1,10 @@
 # PcmWindowSource: how audio reaches the recognition engine
 
-Status: the interface and the engine overload arrived from `7782992`; the merge then made the
-same seam the boundary of the import decoder and the encrypted live watch window, replacing
-the private `AudioWindowSource` seam proposed in parallel. All results remain pending until
-an inspected CI run or device trial says otherwise.
+Status: the interface and engine overload arrived in `9127e20` (the re-attributed form of
+`7782992`). The merged branch extends the same seam to the import decoder and encrypted live
+watch window. The complete unified implementation passed lint, JVM unit tests, app/wear APK
+builds and x86_64 instrumentation in [CI run 42372716867](https://github.com/pmixay/Ascent/actions/runs/42372716867)
+at `78e4190`. No physical-device or ARM-emulator result is established.
 
 This is the engine side of plan item A2 ("Connect the existing engine to a bounded URI/WAV
 source"). The seam is `PcmWindowSource.kt`, the engine overload lives in

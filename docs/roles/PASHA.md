@@ -49,7 +49,7 @@ Reviewable source/serializer code reaches Timofey and Petya by **12:30**, integr
 ### A2. Connect the existing engine to a bounded URI/WAV source
 
 - [ ] Accept a `content://` URI from Petya's picker; handle permission lifetime and unreadable/revoked sources.
-- [ ] Adapt WAV reading to a bounded source abstraction and establish media duration/time origin. The engine side (`PcmWindowSource` and a `TranscriptionEngine` overload) is pushed in `7782992`; read the contract in [pcm-window-source.md](../interfaces/pcm-window-source.md) and implement a source for the picked `content://` URI. CI has not yet verified it.
+- [ ] Adapt WAV reading to a bounded source abstraction and establish media duration/time origin. The engine side (`PcmWindowSource` and a `TranscriptionEngine` overload) is pushed in `9127e20`; read the contract in [pcm-window-source.md](../interfaces/pcm-window-source.md) and implement a source for the picked `content://` URI. Its build and unit tests passed in CI run 42366154116.
 - [ ] Route it through real acoustic inference using Timofey's selected model lease.
 - [ ] Save results with a distinct conversation/job identity and appropriate import metadata.
 - [ ] Distinguish imported-at time from source-relative offsets; do not invent the recording's original capture date or silently reset known source expiry.

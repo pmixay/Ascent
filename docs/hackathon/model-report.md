@@ -38,7 +38,8 @@ the team's independent model comparison.
 
 [CI run 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969), commit
 `6a078e3`, job *Score cached two-hour Russian speech evaluation*. The same job also passed from the
-saved cache in run 42369021893 at `544ac34`; its numbers were not compared. Inference used the **public reference** recognizer export,
+saved cache in run 42369021893 (commit `544ac34`, re-attributed as `a7edeee` with identical
+content); its numbers were not compared. Inference used the **public reference** recognizer export,
 not the deployed pack, together with the byte-identical speaker model. The Kotlin scorer
 runs the application's own attribution and segmentation code on cached recognizer outputs
 and embeddings.
