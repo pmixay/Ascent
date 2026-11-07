@@ -255,12 +255,6 @@ jobs:
       - name: Set short artifact name
         id: artifact
         run: echo "short_sha=${GITHUB_SHA:0:8}" >> "$GITHUB_OUTPUT"
-      - name: Set up Python
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: '3.12'
-          cache: pip
-          cache-dependency-path: prototypes/phone-transcriber/tools/requirements-export.txt
       # Shared tooling/unit tests and lint run once in build. This job independently
       # checks embedded permissions, payloads and the actual offline runtime.
       - name: Restore validated acoustic export
@@ -270,6 +264,16 @@ jobs:
           path: prototypes/phone-transcriber/build/offline-export
           # No prefix restore: changed exporter/source/fixtures/dependencies must revalidate.
           key: ${{ runner.os }}-${{ runner.arch }}-offline-export-py312-v1-${{ hashFiles('.github/workflows/android.yml', 'prototypes/phone-transcriber/tools/export_model_pack.py', 'prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tools/checkpoint_source.py', 'prototypes/phone-transcriber/tools/evaluate_speech.py', 'prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tools/requirements-export.txt', 'prototypes/phone-transcriber/tools/requirements-gigaam.txt', 'prototypes/phone-transcriber/tools/fixtures/speakers/**', 'prototypes/phone-transcriber/config/embedded-models.json', 'prototypes/phone-transcriber/scripts/prepare_embedded_models.py') }}
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          # A warm export needs only stdlib packaging, not the large ML pip cache.
+          cache: ${{ steps.export-cache.outputs.cache-hit != 'true' && 'pip' || '' }}
+          cache-dependency-path: |
+            prototypes/phone-transcriber/tools/requirements-export.txt
+            prototypes/phone-transcriber/tools/requirements-gigaam.txt
 
       - name: Restore pinned text asset downloads
         id: text-cache

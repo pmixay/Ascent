@@ -40,6 +40,7 @@ provenance before copying assets. Save occurs before Android checks so an
 unrelated app failure does not discard valid export work. Native AAR reuse also
 retains checksum verification. No extra deployment ZIP is created for embedding;
 the model-server workflow still creates and validates its deployment transport.
+Warm exports also skip restoring the large Python ML package cache.
 
 Long Dialogs inference/scoring/cache-bootstrap jobs remain absent. Gradle also
 excludes `TwoHourSpeechEvaluationTest` when `CI=true`, even if evaluation inputs
