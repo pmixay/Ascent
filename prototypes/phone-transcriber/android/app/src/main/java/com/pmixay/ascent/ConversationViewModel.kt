@@ -308,7 +308,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                                 jobs.whileCurrent(id) { mutableState.update { it.copy(jobSource = opened.name,
                                     sourceDisplayName = opened.name, sourceDurationMs = duration,
                                     sourceFormat = source.formatDescription) } }
-                                val result = TranscriptionEngine(lease.directory, timings).transcribeWithSpeakers(source) { message ->
+                                val result = TranscriptionEngine(lease.directory, timings = timings).transcribeWithSpeakers(source) { message ->
                                     reportProgress(id, message)
                                 }
                                 result to duration
