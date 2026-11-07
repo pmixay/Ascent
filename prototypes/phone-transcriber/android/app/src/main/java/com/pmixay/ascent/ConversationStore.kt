@@ -29,6 +29,10 @@ data class SavedConversation(
     val participantCount: Int get() = segments.map { it.speakerId }.distinct().count { it != UNKNOWN_SPEAKER }
 }
 
+/** Provider modification time is not capture evidence; only a retained import has a retention origin. */
+internal fun importRetentionStart(existing: SavedConversation?, importedAtMs: Long): Long =
+    existing?.startedAtMs ?: importedAtMs
+
 /** Authenticated encryption with a fresh nonce on every write and atomic file replacement. */
 internal class EncryptedJsonFile(
     private val file: File,

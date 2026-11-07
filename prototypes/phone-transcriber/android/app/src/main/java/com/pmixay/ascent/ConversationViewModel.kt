@@ -3,7 +3,6 @@ package com.pmixay.ascent
 import android.app.Application
 import android.net.Uri
 import android.os.SystemClock
-import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -255,7 +254,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         // Reprocessing the same provider URI replaces its transcript without renewing retention.
         val id = "import-${UUID.nameUUIDFromBytes(uri.toString().toByteArray(Charsets.UTF_8))}"
         val importedAtMs = System.currentTimeMillis()
-        var startedAtMs = mutableState.value.conversations.firstOrNull { it.id == id }?.startedAtMs ?: importedAtMs
+        val startedAtMs = importRetentionStart(
+            mutableState.value.conversations.firstOrNull { it.id == id }, importedAtMs)
         mutableState.update { it.copy(busy = true, processingAudio = true, status = "Читаю выбранный файл…",
             sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null) }
         processingJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -267,17 +267,6 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                         }
                     } catch (_: Exception) { null }
                     mutableState.update { it.copy(sourceDisplayName = displayName) }
-                    val modifiedAtMs = try {
-                        app.contentResolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
-                            null, null, null)?.use { cursor ->
-                            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null
-                        }
-                    } catch (_: Exception) { null }
-                    // A provider timestamp is source metadata, not proof of capture time. When
-                    // available it is a stable conservative fallback; otherwise first import wins.
-                    if (modifiedAtMs != null && modifiedAtMs > 0) {
-                        startedAtMs = minOf(startedAtMs, modifiedAtMs.coerceAtMost(importedAtMs))
-                    }
                     ModelSelection.acquire(app).use { lease ->
                         AudioSources.open(app, uri).use { wave ->
                             val duration = wave.durationMs
@@ -353,7 +342,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     fun exportTranscript(conversationId: String, uri: Uri, json: Boolean) {
         val conversation = mutableState.value.conversations.firstOrNull { it.id == conversationId } ?: return
         if (conversation.startedAtMs <= System.currentTimeMillis() - HISTORY_RETENTION_MS) return
-        work("Сохраняю расшифровку…") {
+        work(if (json) "Экспортирую JSON…" else "Экспортирую текст…",
+            failure = "Не удалось экспортировать ${if (json) "JSON" else "текст"}. Расшифровка сохранена") {
             runInterruptible(Dispatchers.IO) {
                 val text = if (json) CompetitionTranscriptJson.serialize(conversation)
                 else conversation.segments.joinToString("\n\n") {
@@ -388,7 +378,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    private fun work(message: String, task: suspend () -> Unit) {
+    private fun work(message: String, failure: String = "Ошибка", task: suspend () -> Unit) {
         if (!historyReady || mutableState.value.busy || mutableState.value.recording) return
         mutableState.update { it.copy(busy = true, status = message) }
         viewModelScope.launch {
@@ -396,7 +386,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             catch (_: OutOfMemoryError) { reportMemoryError() }
             catch (error: Exception) {
                 if (error is CancellationException) throw error
-                reportError(error)
+                reportError(error, failure)
             } finally { mutableState.update { it.copy(busy = false) } }
         }
     }
@@ -408,8 +398,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         app.getSharedPreferences("ascent", Application.MODE_PRIVATE).edit().remove("audioPath").apply()
     }
 
-    private fun reportError(error: Exception) {
-        mutableState.update { it.copy(status = "Ошибка: ${error.message ?: "операция не завершена"}") }
+    private fun reportError(error: Exception, prefix: String = "Ошибка") {
+        mutableState.update { it.copy(status = "$prefix: ${error.message ?: "операция не завершена"}") }
     }
     private fun reportMemoryError() { mutableState.update { it.copy(status = MEMORY_MESSAGE) } }
 

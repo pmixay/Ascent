@@ -151,4 +151,16 @@ class ConversationStoreTest {
             assertEquals(List(2) { UNKNOWN_SPEAKER }, original.segments.map { it.speakerId })
         } finally { root.deleteRecursively() }
     }
+
+    @Test fun firstImportUsesImportTimeAndRemainsAvailableForOldProviderFiles() {
+        // Provider mtime is not verified capture time and is deliberately absent from this decision.
+        val imported = conversation(id = "import-old-provider-file", start = importRetentionStart(null, now))
+        assertEquals(now, imported.startedAtMs)
+        assertEquals(listOf(imported), ConversationStore.retained(listOf(imported), now))
+    }
+
+    @Test fun reimportPreservesOriginalRetentionOrigin() {
+        val original = conversation(id = "import-existing", start = now - 2 * 24 * 60 * 60 * 1000)
+        assertEquals(original.startedAtMs, importRetentionStart(original, now + 60_000))
+    }
 }
