@@ -122,8 +122,11 @@ showed that this candidate does not solve female/female merging.
 ## Measurement and limitations
 
 The local evaluator downloads and verifies every selected recording and the
-exact production GigaAM/ERes2NetV2 model revision. GitHub CI never runs inference;
-it restores the completed cache and scores the current Android attribution code.
+exact production GigaAM/ERes2NetV2 model revision. A dedicated GitHub CI job
+(`dialog-inference`) can create the same cache with `--model-source public-reference`,
+which uses the hash-pinned public GigaAM reference export and the byte-identical
+public ERes2NetV2 file; the scoring job then restores the cache and scores the
+current Android attribution code. The index records which recognizer produced it.
 The evaluator mixes source channels to mono, resamples to
 16 kHz using SciPy's polyphase filter, quantizes to PCM16, and removes at most
 15 resampled tail samples per source to obtain exact millisecond boundaries.
@@ -157,10 +160,11 @@ diversity. Publisher train/validation/test labels do not determine this frozen
 application selection or its development/validation split. Model weights are
 not trained on this selection; upstream training exclusion cannot be established.
 
-The **Score cached two-hour Russian speech evaluation** job scores a previously
-completed inference cache on pushes. Model inference for algorithm improvement
-runs on the development machine; Android builds and application tests remain CI
-only. In CI, the harness scores the actual application attribution code. For
+The **Score cached two-hour Russian speech evaluation** job scores the inference
+cache that the **Create public two-hour speech inference cache** job creates when
+none exists for the current cache key. Model inference for algorithm improvement
+may also run on the development machine; Android builds and application tests
+remain CI only. In CI, the harness scores the actual application attribution code. For
 local public-corpus inference, use the pinned environment from
 `prototypes/phone-transcriber`:
 

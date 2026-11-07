@@ -1,4 +1,4 @@
-"""Checks for the local ASR study tooling; CI never runs model inference or downloads audio."""
+"""Checks for the local ASR study tooling; these tests never run model inference or download audio."""
 import copy
 import importlib.util
 import json

@@ -134,10 +134,12 @@ triggers. The base repository had no workflow to reuse.
    optimization output and absence of model weights. Its only download artifact
    is `debug-<8-character commit>.zip`, containing only `ascent.apk`. Test and lint
    diagnostics remain in the workflow console; report artifacts are not uploaded.
-   Its additional **Score cached two-hour Russian speech evaluation** job scores a
-   previously completed inference cache against the application attribution code.
-   Model inference for algorithm improvement runs on the development machine; CI
-   fails on a missing cache rather than downloading speech or starting models.
+   Its additional **Create public two-hour speech inference cache** job runs the
+   frozen public-corpus inference once per cache key (hash-pinned public reference
+   ASR export and the identical public speaker model, never application audio),
+   and **Score cached two-hour Russian speech evaluation** scores that cache
+   against the application attribution code. Model inference for algorithm
+   improvement may also run on the development machine; no other job runs models.
 2. **Ascent Model Export**, with job **Export and validate offline models**, runs
    on relevant model/export/server changes on `main` and the current prototype
    branch. It exports pinned official GigaAM and speaker weights, requires

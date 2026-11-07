@@ -2,9 +2,12 @@
 """CI-only evaluation inputs from >2 h of checksum-pinned Russian acted dialogue.
 
 This command never accepts application audio. It downloads the frozen public
-selection and deployed model revision, runs the app's ASR/context mirrors, and
-exports private CI resources for the actual Kotlin attribution implementation.
-No corpus, weights, transcripts, embeddings or reports are APK artifacts.
+selection and either the deployed model revision or, with
+``--model-source public-reference``, the public GigaAM reference export plus the
+byte-identical public speaker model. It runs the app's ASR/context mirrors and
+exports private resources for the actual Kotlin attribution implementation. The
+dedicated CI job uses the public source to create the inference cache. No corpus,
+weights, transcripts, embeddings or reports are APK artifacts.
 """
 from __future__ import annotations
 
@@ -195,6 +198,32 @@ def fetch_models(record, cache):
     return manifest
 
 
+PUBLIC_ASR = "multilingual_ctc.onnx"
+PUBLIC_VOCAB = "multilingual_vocab.txt"
+# The public mirror serves the same ERes2NetV2 file as the deployed pack (same SHA-256).
+PUBLIC_SPEAKER = {
+    "repository": "csukuangfj/speaker-embedding-models",
+    "revision": "0743f301363dec56491a490f6d6cbc9d67f9a3bf",
+    "path": "3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx",
+    "bytes": 71441526,
+    "sha256": "bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239",
+}
+
+
+def fetch_public_models(directory):
+    """Hash-pinned public reference ASR export and speaker model, for when the deployed pack is unreachable."""
+    import reference_asr
+    reference = reference_asr.REFERENCE
+    for name in (PUBLIC_ASR, PUBLIC_VOCAB):
+        item = reference["files"][name]
+        fetch(reference_asr.reference_url(name), directory / name, item["bytes"], item["sha256"])
+    speaker = PUBLIC_SPEAKER
+    fetch(f"https://huggingface.co/{speaker['repository']}/resolve/{speaker['revision']}/{speaker['path']}",
+          directory / "speaker.onnx", speaker["bytes"], speaker["sha256"])
+    return {"files": {"asr.onnx": {"sha256": reference["files"][PUBLIC_ASR]["sha256"]},
+                      "speaker.onnx": {"sha256": speaker["sha256"]}}}
+
+
 def blocks(manifest):
     """Keep original turn order; never split a source utterance across blocks."""
     target = manifest["selection"]["target_block_ms"]
@@ -296,9 +325,13 @@ def speaker_contexts(extractor, samples, words, block_id, np):
     return result
 
 
-def fingerprint(manifest):
+def fingerprint(manifest, source="deployed"):
     digest = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode())
-    for name in ("evaluate_dialogs.py", "evaluate_speech.py", "generate_speaker_fixtures.py", "model_pack.py"):
+    names = ["evaluate_dialogs.py", "evaluate_speech.py", "generate_speaker_fixtures.py", "model_pack.py"]
+    if source != "deployed":
+        digest.update(source.encode())
+        names.append("reference_asr.py")
+    for name in names:
         digest.update((Path(__file__).parent / name).read_bytes())
     digest.update((Path(__file__).parent.parent / "tests" / "requirements-dialog-evaluation.txt").read_bytes())
     return digest.hexdigest()
@@ -316,6 +349,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--download-workers", type=int, default=8)
+    parser.add_argument("--model-source", choices=("deployed", "public-reference"), default="deployed",
+                        help="Deployed model pack, or the public reference ASR export with the identical public speaker model.")
     parser.add_argument("--prepare-only", action="store_true",
                         help="Verify/cache frozen public inputs and weights before the expensive inference stage.")
     args = parser.parse_args()
@@ -326,8 +361,13 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     cache = args.cache / manifest["dataset"]["revision"]
     metadata = fetch_sources(manifest, cache, args.download_workers)
-    model_dir = args.cache / "models" / manifest["models"]["manifest_sha256"]
-    model = fetch_models(manifest["models"], model_dir)
+    public = args.model_source == "public-reference"
+    if public:
+        model_dir = args.cache / "models" / "public-reference"
+        model = fetch_public_models(model_dir)
+    else:
+        model_dir = args.cache / "models" / manifest["models"]["manifest_sha256"]
+        model = fetch_models(manifest["models"], model_dir)
     if args.prepare_only:
         print(f"Prepared and hash-verified {manifest['selection']['source_files']} public payloads and pinned models; "
               "speech inference has not run.", flush=True)
@@ -338,18 +378,24 @@ def main():
     import soundfile
     from scipy.signal import resample_poly
 
-    tokens = json.loads((model_dir / "tokens.json").read_text())
-    options = ort.SessionOptions()
-    options.intra_op_num_threads = args.threads
-    options.inter_op_num_threads = 1
-    options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-    session = ort.InferenceSession(str(model_dir / "asr.onnx"), sess_options=options, providers=["CPUExecutionProvider"])
+    if public:
+        import reference_asr
+        tokens = reference_asr.load_tokens(model_dir / PUBLIC_VOCAB)
+        session = reference_asr.ReferenceSession(model_dir / PUBLIC_ASR, args.threads, ort, np)
+    else:
+        tokens = json.loads((model_dir / "tokens.json").read_text())
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = args.threads
+        options.inter_op_num_threads = 1
+        options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        session = ort.InferenceSession(str(model_dir / "asr.onnx"), sess_options=options,
+                                       providers=["CPUExecutionProvider"])
     config = sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=str(model_dir / "speaker.onnx"),
                                                        num_threads=args.threads, debug=False, provider="cpu")
     if not config.validate():
         raise ValueError("Invalid production speaker model configuration")
     extractor = sherpa_onnx.SpeakerEmbeddingExtractor(config)
-    cache_key = fingerprint(manifest)
+    cache_key = fingerprint(manifest, args.model_source)
     summaries = []
     totals = {"word_errors": 0, "words": 0, "char_errors": 0, "chars": 0}
     unique_sources, source_duration_ms = set(), 0
@@ -400,14 +446,21 @@ def main():
         summaries.append({"id": block_id, "file": path.name})
     if source_duration_ms < 7200000 or len(unique_sources) != manifest["selection"]["source_files"]:
         raise ValueError("Actual unique source audio does not meet the two-hour requirement")
+    provenance = {"repository": manifest["dataset"]["repository"],
+                  "revision": manifest["dataset"]["revision"],
+                  "model_manifest_sha256": "public-reference" if public else manifest["models"]["manifest_sha256"],
+                  "asr_source": args.model_source,
+                  "asr_sha256": model["files"]["asr.onnx"]["sha256"],
+                  "speaker_sha256": model["files"]["speaker.onnx"]["sha256"],
+                  "scope": "Russian acted dialogue clips, original turn order with synthetic gaps; clip-time attribution, not natural-conversation DER"}
+    if public:
+        provenance["asr_reference"] = {"repository": reference_asr.REFERENCE["repository"],
+                                       "revision": reference_asr.REFERENCE["revision"], "variant": "float32"}
+        provenance["environment"] = reference_asr.environment_fingerprint(ort, np, args.threads)
     index = {"schema_version": 1, "source_manifest_sha256": sha256_file(MANIFEST),
              "cache_fingerprint": cache_key, "source_duration_ms": source_duration_ms,
              "source_files": len(unique_sources), "tokens": tokens, "sessions": summaries,
-             "asr_metrics": totals, "provenance": {"repository": manifest["dataset"]["repository"],
-             "revision": manifest["dataset"]["revision"], "model_manifest_sha256": manifest["models"]["manifest_sha256"],
-             "asr_sha256": model["files"]["asr.onnx"]["sha256"],
-             "speaker_sha256": model["files"]["speaker.onnx"]["sha256"],
-             "scope": "Russian acted dialogue clips, original turn order with synthetic gaps; clip-time attribution, not natural-conversation DER"}}
+             "asr_metrics": totals, "provenance": provenance}
     write_json(args.output / "evaluation.json", index)
     print(f"Dialogs ASR TOTAL: source_ms={source_duration_ms}, unique_files={len(unique_sources)}, "
           f"blocks={len(summaries)}, words={totals['words']}, word_errors={totals['word_errors']}, "

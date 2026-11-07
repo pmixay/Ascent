@@ -8,7 +8,8 @@ permissions:
 
 concurrency:
   group: android-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # On the default branch a newer push must not cancel the long one-time inference that creates the cache.
+  cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
 jobs:
   build:
@@ -229,8 +230,49 @@ jobs:
               print('No failed testcase XML found; inspect the failed step above.')
           PY
 
+  dialog-inference:
+    name: Create public two-hour speech inference cache
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+        working-directory: prototypes/phone-transcriber
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Reuse or create inferred public speech inputs
+        id: dialog-results
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: prototypes/phone-transcriber/android/app/build/generated/long-evaluation
+          key: ${{ runner.os }}-dialog-inference-v1-${{ hashFiles('prototypes/phone-transcriber/tools/fixtures/dialogs/manifest.json', 'prototypes/phone-transcriber/tools/evaluate_dialogs.py', 'prototypes/phone-transcriber/tools/evaluate_speech.py', 'prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tools/reference_asr.py', 'prototypes/phone-transcriber/tests/requirements-dialog-evaluation.txt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/AsrChunking.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/CtcDecoder.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/SpeakerSpeechSupport.kt') }}
+
+      - name: Set up Python
+        if: steps.dialog-results.outputs.cache-hit != 'true'
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned evaluation dependencies
+        if: steps.dialog-results.outputs.cache-hit != 'true'
+        run: python3 -m pip install -r tests/requirements-dialog-evaluation.txt
+
+      - name: Run frozen public-corpus inference
+        if: steps.dialog-results.outputs.cache-hit != 'true'
+        run: >-
+          python3 tools/evaluate_dialogs.py
+          --cache "$RUNNER_TEMP/dialog-sources"
+          --output android/app/build/generated/long-evaluation
+          --model-source public-reference
+          --threads 4
+
   speech-evaluation:
     name: Score cached two-hour Russian speech evaluation
+    needs: dialog-inference
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     defaults:
@@ -248,12 +290,12 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: prototypes/phone-transcriber/android/app/build/generated/long-evaluation
-          key: ${{ runner.os }}-dialog-inference-v1-${{ hashFiles('prototypes/phone-transcriber/tools/fixtures/dialogs/manifest.json', 'prototypes/phone-transcriber/tools/evaluate_dialogs.py', 'prototypes/phone-transcriber/tools/evaluate_speech.py', 'prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tests/requirements-dialog-evaluation.txt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/AsrChunking.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/CtcDecoder.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/SpeakerSpeechSupport.kt') }}
+          key: ${{ runner.os }}-dialog-inference-v1-${{ hashFiles('prototypes/phone-transcriber/tools/fixtures/dialogs/manifest.json', 'prototypes/phone-transcriber/tools/evaluate_dialogs.py', 'prototypes/phone-transcriber/tools/evaluate_speech.py', 'prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tools/reference_asr.py', 'prototypes/phone-transcriber/tests/requirements-dialog-evaluation.txt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/AsrChunking.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/CtcDecoder.kt', 'prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/SpeakerSpeechSupport.kt') }}
 
       - name: Require a completed local-improvement inference cache
         if: steps.dialog-results.outputs.cache-hit != 'true'
         run: |-
-          echo 'No completed speech-inference cache is available. Generate it on the development machine; CI does not download audio or run models.'
+          echo 'The dialog-inference job did not leave a speech-inference cache; inspect its log.'
           exit 1
 
       - name: Restore native dependency download
