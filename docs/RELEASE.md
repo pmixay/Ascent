@@ -21,7 +21,11 @@ This identifies builds; it does not promise identical bytes under ephemeral keys
 
 After `check_apk.py` succeeds, `record_apk_identity.py` uses CI's already installed
 `aapt2` and `apksigner` to verify the actual package/version/ABI/non-debuggable flag
-and APK signature. It prints one `ASCENT_APK_IDENTITY` JSON line plus a short step
+and APK signature. The certificate SHA-256 is calculated from the verified signer's
+PEM/DER bytes, not the tool's human-readable fingerprint or label formatting.
+Exactly one signer and one distinct certificate across SDK ranges are required;
+different rotated keys and source-stamp certificate output fail closed.
+It prints one `ASCENT_APK_IDENTITY` JSON line plus a short step
 summary: raw APK size/hash, certificate fingerprint, signing mode, commit/run/
 attempt and (offline only) bundle/file hashes and export-validation producer.
 Signature verification is independent of ZIP hashing. No signer distinguished

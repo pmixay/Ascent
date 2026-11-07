@@ -7,6 +7,8 @@ inference or signing is performed; apksigner/aapt2 come from CI's existing SDK.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import hashlib
 import json
 import os
@@ -25,20 +27,32 @@ class IdentityCheckError(ValueError):
 
 
 def signer_certificate(signing: str) -> str:
-    # SDK apksigner prints either numbered signers or v3.1 SDK-range signers.
-    # A single certificate may occur in both v3/v3.1 ranges; key rotation to a
-    # different certificate is intentionally NOT accepted by this identity policy.
+    # Hash the actual certificate DER rather than relying on human-readable
+    # fingerprint formatting or signer labels. SDK verification must already have
+    # succeeded. One cert can repeat across v3/v3.1 ranges; key rotation is not
+    # accepted by this single-certificate identity policy.
+    if len(signing) > 1024 * 1024:
+        raise IdentityCheckError("APK certificate output exceeds its inspection bound")
     counts = re.findall(r"^Number of signers: ([0-9]+)\s*$", signing, re.M)
     if counts != ["1"]:
         raise IdentityCheckError("APK verbose verification must report exactly one signer")
-    label = (r"(?:#[1-9][0-9]*|\(minSdkVersion=[0-9]+(?: \(dev release=true\))?, "
-             r"maxSdkVersion=[0-9]+\))")
-    certificates = re.findall(r"^Signer " + label + r" certificate SHA-256 digest: ([0-9a-fA-F:]+)\s*$", signing, re.M)
-    digests = {certificate_digest(value) for value in certificates}
+    if re.search(r"^Source Stamp", signing, re.M):
+        raise IdentityCheckError("Source-stamp certificate output is outside the single-signer policy")
+    certificates = re.findall(r"-----BEGIN CERTIFICATE-----\s*(.*?)-----END CERTIFICATE-----", signing, re.S)
+    if not 1 <= len(certificates) <= 16 or signing.count("-----BEGIN CERTIFICATE-----") != len(certificates):
+        raise IdentityCheckError("Missing, truncated or excessive APK signer PEM certificates")
+    digests = set()
+    for certificate in certificates:
+        encoded = re.sub(r"[ \t\r\n]", "", certificate)
+        try:
+            der = base64.b64decode(encoded, validate=True)
+        except (ValueError, binascii.Error):
+            raise IdentityCheckError("APK signer PEM certificate is not valid base64") from None
+        if not 1 <= len(der) <= 64 * 1024:
+            raise IdentityCheckError("APK signer certificate exceeds its size bound")
+        digests.add(hashlib.sha256(der).hexdigest())
     if len(digests) != 1:
-        digest_lines = sum("certificate SHA-256 digest:" in line for line in signing.splitlines())
-        raise IdentityCheckError(f"APK must have one verified certificate; parsed certificate count={len(certificates)}; "
-                                 f"distinct={len(digests)}; certificate digest lines={digest_lines}")
+        raise IdentityCheckError("APK has different signer certificates across SDK ranges")
     return digests.pop()
 
 
@@ -111,7 +125,7 @@ def record(apk: Path, kind: str, build_tools: Path, environment: dict[str, str])
             raise IdentityCheckError(f"{name} verification failed (exit={process.returncode})")
         return process.stdout
     badging = tool("aapt2", ["dump", "badging"])
-    signing = tool("apksigner", ["verify", "--verbose", "--print-certs"])
+    signing = tool("apksigner", ["verify", "--verbose", "--print-certs-pem"])
     result = identity(apk, kind, badging, signing, environment)
     print(PREFIX + json.dumps(result, sort_keys=True, separators=(",", ":")))
     if environment.get("GITHUB_STEP_SUMMARY"):

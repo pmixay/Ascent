@@ -20,6 +20,13 @@ import ci_signing
 import collect_ci_evidence as collect
 import record_apk_identity as apk_identity
 
+SYNTHETIC_CERTIFICATE = b"synthetic DER supplied by a mocked SDK, never a real key"
+SYNTHETIC_CERTIFICATE_SHA256 = hashlib.sha256(SYNTHETIC_CERTIFICATE).hexdigest()
+
+
+def certificate_pem(data=SYNTHETIC_CERTIFICATE):
+    return "-----BEGIN CERTIFICATE-----\n" + base64.b64encode(data).decode() + "\n-----END CERTIFICATE-----\n"
+
 
 class SigningTests(unittest.TestCase):
     def environment(self, root, protected=False):
@@ -106,7 +113,7 @@ class IdentityTests(unittest.TestCase):
         suffix = ".offline" if kind == "offline" else ""
         version_suffix = "-offline-baseline" if kind == "offline" else ""
         badging = f"package: name='com.pmixay.ascent{suffix}' versionCode='140' versionName='0.1.140-aaaaaaaa{version_suffix}'\nnative-code: 'arm64-v8a'\n"
-        signing = "Number of signers: 1\nSigner #1 certificate SHA-256 digest: " + "e" * 64 + "\n"
+        signing = "Number of signers: 1\n" + certificate_pem()
         return apk, env, badging, signing
 
     def test_exact_versions_certificate_raw_apk_and_bundle_are_independent(self):
@@ -115,7 +122,7 @@ class IdentityTests(unittest.TestCase):
                 apk, env, badging, signing = self.fixture(Path(directory), kind)
                 result = apk_identity.identity(apk, kind, badging, signing, env)
                 self.assertEqual(hashlib.sha256(apk.read_bytes()).hexdigest(), result["apk_sha256"])
-                self.assertEqual("e" * 64, result["certificate_sha256"])
+                self.assertEqual(SYNTHETIC_CERTIFICATE_SHA256, result["certificate_sha256"])
                 self.assertEqual(140, result["version_code"])
                 self.assertIs(False, result["release_accepted"])
                 if kind == "offline":
@@ -141,25 +148,30 @@ class IdentityTests(unittest.TestCase):
             apk, env, badging, signing = self.fixture(Path(directory))
             env.update(ASCENT_SIGNING_MODE="protected-key", ASCENT_EXPECTED_CERT_SHA256="f" * 64)
             with self.assertRaises(ValueError): apk_identity.identity(apk, "compact", badging, signing, env)
-            env["ASCENT_EXPECTED_CERT_SHA256"] = "e" * 64
+            env["ASCENT_EXPECTED_CERT_SHA256"] = SYNTHETIC_CERTIFICATE_SHA256
             self.assertEqual("protected-key", apk_identity.identity(apk, "compact", badging, signing, env)["signing_mode"])
 
     def test_apksigner_sdk_range_labels_accept_one_certificate_not_key_rotation(self):
-        digest = "e" * 64
         for label in ("#1", "(minSdkVersion=33, maxSdkVersion=2147483647)",
                       "(minSdkVersion=33 (dev release=true), maxSdkVersion=2147483647)"):
             with self.subTest(label=label):
-                signing = f"Number of signers: 1\nSigner {label} certificate SHA-256 digest: {digest}\n"
-                self.assertEqual(digest, apk_identity.signer_certificate(signing))
-        ranged = (f"Number of signers: 1\nSigner (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: {digest}\n"
-                  f"Signer (minSdkVersion=31, maxSdkVersion=32) certificate SHA-256 digest: {digest}\n")
-        self.assertEqual(digest, apk_identity.signer_certificate(ranged))
+                signing = f"Number of signers: 1\nSigner {label} certificate SHA-256 digest: ignored-human-readable-field\n" + certificate_pem()
+                self.assertEqual(SYNTHETIC_CERTIFICATE_SHA256, apk_identity.signer_certificate(signing))
+        ranged = "Number of signers: 1\n" + certificate_pem() * 2
+        self.assertEqual(SYNTHETIC_CERTIFICATE_SHA256, apk_identity.signer_certificate(ranged))
         with self.assertRaises(ValueError):
-            apk_identity.signer_certificate(ranged.replace(digest, "f" * 64, 1))
+            apk_identity.signer_certificate("Number of signers: 1\n" + certificate_pem() + certificate_pem(b"different certificate"))
         with self.assertRaises(ValueError):
             apk_identity.signer_certificate(ranged.replace("Number of signers: 1", "Number of signers: 2"))
         with self.assertRaises(ValueError):
-            apk_identity.signer_certificate("Source Stamp Signer certificate SHA-256 digest: " + digest)
+            apk_identity.signer_certificate("Number of signers: 1\nSource Stamp Signer\n" + certificate_pem())
+
+    def test_missing_truncated_invalid_or_oversized_pem_certificate_is_rejected(self):
+        for body in ("", certificate_pem().replace("-----END CERTIFICATE-----", ""),
+                     "-----BEGIN CERTIFICATE-----\n!invalid!\n-----END CERTIFICATE-----\n",
+                     certificate_pem(b""), certificate_pem(b"x" * (64 * 1024 + 1))):
+            with self.subTest(size=len(body)), self.assertRaises(ValueError):
+                apk_identity.signer_certificate("Number of signers: 1\n" + body)
 
     def test_version_failure_diagnostic_is_bounded_and_sanitizes_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -177,6 +189,17 @@ class IdentityTests(unittest.TestCase):
             with patch.object(apk_identity.subprocess, "run", return_value=Mock(returncode=1, stderr="private DN")), redirect_stdout(output):
                 with self.assertRaises(ValueError): apk_identity.record(apk, "compact", Path(directory), env)
             self.assertEqual("", output.getvalue())
+
+    def test_sdk_certificate_request_and_identity_output_use_pem_without_printing_certificate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk, env, badging, signing = self.fixture(Path(directory))
+            output = io.StringIO()
+            responses = [Mock(returncode=0, stdout=badging), Mock(returncode=0, stdout=signing)]
+            with patch.object(apk_identity.subprocess, "run", side_effect=responses) as command, redirect_stdout(output):
+                result = apk_identity.record(apk, "compact", Path(directory), env)
+            self.assertIn("--print-certs-pem", command.call_args_list[1].args[0])
+            self.assertNotIn("BEGIN CERTIFICATE", output.getvalue())
+            self.assertEqual(SYNTHETIC_CERTIFICATE_SHA256, result["certificate_sha256"])
 
 
 class CollectorTests(unittest.TestCase):

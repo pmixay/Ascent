@@ -115,6 +115,16 @@ marks, end-to-end first-launch time, PSS/RSS, ASR quality or processing RTF.
   count and one unique certificate across all ranges, and still rejects different
   rotated keys, multiple signers, source-stamp-only output and incorrect cert pins.
   New synthetic regressions cover these formats; actual corrected CI remains required.
+  That SDK-label attempt `5c34010` / [42416839672](https://github.com/pmixay/Ascent/actions/runs/42416839672)
+  also failed: verbose SDK verification reported one signer/one certificate digest
+  line, but the human-readable text parser still matched no certificate. It did
+  not establish which text-format difference caused that mismatch. The next
+  change removes that formatting dependency: request `--print-certs-pem` and
+  calculate SHA-256 from the verified certificate's DER bytes. One signer/unique
+  certificate, size/base64 bounds and independent pinned-cert comparison remain;
+  a different rotated key, missing/truncated PEM or source-stamp-only output fails.
+  Actual new CI and real evidence collection still need inspection; no failed
+  iteration's APK is an accepted candidate or uploaded download.
 
 ## Tasks that require another person
 
