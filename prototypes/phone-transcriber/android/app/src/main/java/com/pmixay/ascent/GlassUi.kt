@@ -182,9 +182,10 @@ internal fun ConversationScreen(
             spacedItem("status") { ConversationStatus(state) }
             if (state.processingAudio) spacedItem("processing-cancel") {
                 TextButton(onClick = onCancelProcessing,
+                    enabled = !state.cancellingProcessing && state.processingState != ProcessingState.Saving,
                     modifier = Modifier.widthIn(max = 620.dp).fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("cancel-processing")) {
-                    Text("Отменить обработку", fontSize = 16.sp)
+                    Text(if (state.cancellingProcessing) "Завершаю отмену…" else "Отменить обработку", fontSize = 16.sp)
                 }
             }
             spacedItem("models") { ModelsStatus(state) }
@@ -300,13 +301,41 @@ private fun WatchStatus(
 
 @Composable
 private fun ConversationStatus(state: ConversationState) {
-    Row(Modifier.widthIn(max = 620.dp).fillMaxWidth().glass(20).padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), color = Amber, strokeWidth = 2.dp)
-        else Box(Modifier.size(8.dp).background(if (state.recording) Amber else Secondary, CircleShape))
-        Text(state.status,
-            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("conversation-status"),
-            fontSize = 16.sp, lineHeight = 23.sp, color = Ink)
+    val stage = if (state.cancellingProcessing) "Отменяю обработку…" else when (state.processingState) {
+        ProcessingState.PreparingModels -> "Подготавливаю модели…"
+        ProcessingState.ReadingInput -> "Читаю выбранный файл…"
+        ProcessingState.Recognizing -> "Распознаю речь…"
+        ProcessingState.Diarizing -> "Определяю участников…"
+        ProcessingState.Formatting -> "Оформляю текст…"
+        ProcessingState.Saving -> "Сохраняю расшифровку…"
+        else -> state.status
+    }
+    Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().glass(20).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (state.busy && !state.processingAudio)
+                CircularProgressIndicator(Modifier.size(18.dp), color = Amber, strokeWidth = 2.dp)
+            else if (!state.processingAudio)
+                Box(Modifier.size(8.dp).background(if (state.recording) Amber else Secondary, CircleShape))
+            Text(if (state.processingAudio) stage else state.status,
+                modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite }
+                    .testTag("conversation-status"),
+                fontSize = 16.sp, lineHeight = 23.sp, color = Ink)
+        }
+        if (state.processingAudio) {
+            val progress = state.jobProgress?.takeIf { it.isFinite() && !state.cancellingProcessing }
+                ?.coerceIn(0f, 1f)
+            val progressModifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape)
+                .testTag("processing-progress")
+            if (progress != null) {
+                LinearProgressIndicator(progress = { progress }, modifier = progressModifier,
+                    color = Amber, trackColor = Amber.copy(alpha = 0.15f))
+                Text("Этап: ${(progress * 100).toInt()}%", fontSize = 15.sp, color = Ink)
+            } else LinearProgressIndicator(modifier = progressModifier,
+                color = Amber, trackColor = Amber.copy(alpha = 0.15f))
+            if (state.cancellingProcessing) Text("Текущий шаг завершится перед отменой. Дождитесь остановки.",
+                fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
+        }
     }
 }
 
@@ -423,6 +452,10 @@ private fun ConversationHeader(conversation: SavedConversation, expanded: Boolea
             Column(Modifier.weight(1f)) {
                 Text(conversationDate(conversation.startedAtMs), fontSize = 18.sp,
                     fontWeight = FontWeight.Medium, color = Ink)
+                conversation.sourceName?.let { name ->
+                    Text(name, fontSize = 16.sp, lineHeight = 23.sp, color = Ink,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 Spacer(Modifier.height(5.dp))
                 Text("Длительность ${formatTime(conversation.durationMs)}", fontSize = 14.sp, color = Ink)
                 Text("Участников: ${conversation.participantCount}", fontSize = 14.sp, color = Ink)

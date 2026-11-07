@@ -30,7 +30,10 @@ copy. His latest packaging revision `082113c` fails instrumentation execution
 gates in run 42378802074 and is not a release candidate. Pasha's
 `claude/pasha-work-lh3bs1` supplies the job API in `docs/interfaces/app-pipeline.md`;
 UI integration must preserve the existing source-safe import, watch coordination
-and retention behavior. No real ARM device is currently connected to this host.
+and retention behavior. That API is now integrated with the picker/progress/cancel
+UI, retaining watch locks, bounded compressed decoding and repeat-import expiry.
+The user confirmed they will install and test the phone APK later; no ARM result
+is claimed here. See [the prioritized handoff](PETYA_HANDOFF.md).
 
 Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
 

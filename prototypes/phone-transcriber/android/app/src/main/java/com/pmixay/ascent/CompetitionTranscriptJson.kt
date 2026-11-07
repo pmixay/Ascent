@@ -14,12 +14,12 @@ internal object CompetitionTranscriptJson {
             require(turn.startMs >= 0 && turn.startMs < turn.endMs && turn.endMs <= conversation.durationMs) {
                 "Некорректное время фразы"
             }
-            require(turn.text.isNotBlank()) { "Пустая фраза" }
+            require(turn.recognizedText.isNotBlank()) { "Пустая фраза" }
             transcript.put(JSONObject()
                 .put("speaker_id", turn.speakerId)
                 .put("start_ms", turn.startMs)
                 .put("end_ms", turn.endMs)
-                .put("text", turn.text))
+                .put("text", turn.recognizedText))
         }
         return JSONObject().put("transcript", transcript).toString(2)
     }

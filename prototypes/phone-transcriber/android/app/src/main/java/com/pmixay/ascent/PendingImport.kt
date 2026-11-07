@@ -7,7 +7,8 @@ import java.nio.file.StandardCopyOption
 
 /**
  * A content-free marker that survives process death, not an audio/job recovery archive.
- * The random operation ID prevents an old job from clearing a newer import's marker.
+ * The random operation ID prevents an old job from clearing a newer job's marker.
+ * Shared by imported-file and stopped-microphone jobs; neither persists its source here.
  */
 internal class PendingImportStore(root: File) {
     private val marker = File(root, "pending-import")

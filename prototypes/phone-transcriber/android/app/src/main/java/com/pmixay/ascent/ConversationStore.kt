@@ -16,6 +16,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 internal const val HISTORY_RETENTION_MS = 7L * 24 * 60 * 60 * 1000
+internal const val MAX_SOURCE_NAME = 120
 
 /** Text only. Timestamps belong to capture and never change when a participant is renamed. */
 data class SavedConversation(
@@ -24,6 +25,12 @@ data class SavedConversation(
     val durationMs: Long,
     val segments: List<TranscriptSegment>,
     val speakerNames: Map<String, String>,
+    /**
+     * Display name of an imported audio file; null for microphone sessions. For an import,
+     * [startedAtMs] is the import time, not the unknown original capture date, so source-based
+     * expiry runs from the import and no recording date is invented.
+     */
+    val sourceName: String? = null,
 ) {
     fun speakerName(id: String): String = speakerNames[id] ?: "Участник"
     val participantCount: Int get() = segments.map { it.speakerId }.distinct().count { it != UNKNOWN_SPEAKER }
@@ -159,6 +166,7 @@ internal class ConversationStore(
                 put("id", conversation.id)
                 put("startedAtMs", conversation.startedAtMs)
                 put("durationMs", conversation.durationMs)
+                conversation.sourceName?.let { put("sourceName", it) }
                 put("speakers", JSONArray().apply { conversation.speakerNames.forEach { (id, name) ->
                     if (id != UNKNOWN_SPEAKER) put(JSONObject().put("id", id).put("name", name))
                 } })
@@ -166,7 +174,8 @@ internal class ConversationStore(
                     put(JSONObject().put("speakerId", segment.speakerId).put("speakerName", conversation.speakerName(segment.speakerId))
                         .put("speakerKnown", !segment.speakerInferred).put("speakerInferred", segment.speakerInferred)
                         .put("startMs", segment.startMs)
-                        .put("endMs", segment.endMs).put("text", segment.text))
+                        .put("endMs", segment.endMs).put("text", segment.text)
+                        .apply { segment.rawText?.let { put("rawText", it) } })
                 } })
             }
         }
@@ -186,7 +195,8 @@ internal class ConversationStore(
             val start = json.getLong("startedAtMs")
             val duration = json.getLong("durationMs")
             require(id.isNotBlank() && id.length <= 100 && start > 0 && duration >= 0)
-            return SavedConversation(id, start, duration, segments(json), names(json))
+            val source = if (json.has("sourceName")) json.getString("sourceName").take(MAX_SOURCE_NAME) else null
+            return SavedConversation(id, start, duration, segments(json), names(json), source)
         }
         private fun segments(json: JSONObject): List<TranscriptSegment> {
             val items = json.getJSONArray("segments")
@@ -196,7 +206,7 @@ internal class ConversationStore(
                 val end = it.getLong("endMs")
                 require(start >= 0 && end >= start)
                 TranscriptSegment(it.getString("speakerId"), start, end, it.getString("text"),
-                    it.optBoolean("speakerInferred", false))
+                    it.optBoolean("speakerInferred", false), if (it.has("rawText")) it.getString("rawText") else null)
             } }
         }
         private fun names(json: JSONObject): Map<String, String> {

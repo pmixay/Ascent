@@ -68,7 +68,10 @@ milestones is complete merely because this source or an APK exists.
   unidentified phrases receive a stable participant label without changing their
   text or timestamps or reconstructing audio.
 - Multiple encrypted text conversations, collapsible connected timelines,
-  participant renaming and explicit per-conversation TXT/JSON export.
+  participant renaming and explicit per-conversation TXT/JSON export. The competition
+  JSON carries raw recognized words; the interface/TXT use local text-stage edits.
+  The [pipeline contract](../../docs/interfaces/app-pipeline.md) describes job states
+  and truthful text-model outcomes; Android/ARM execution remains to be checked.
 - A source-level Wear OS 6.0 companion preview: a visible watch action starts
   microphone capture, bounded encrypted frames travel over bonded Bluetooth to
   the phone, and the watch displays phone-produced text. It has no CI build or
