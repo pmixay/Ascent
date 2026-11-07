@@ -82,6 +82,13 @@ and test R8 configurations, since shared runtime dependencies can be de-duplicat
 between the separately optimized APKs. This does not disable app optimization,
 drop a test or accept an empty report. Its exact-head CI remains mandatory.
 
+Run [42379934118](https://github.com/pmixay/Ascent/actions/runs/42379934118)
+at `3225459` passed the earlier tracing startup point, then both runners failed
+in `TestDirCalculator$outputDir$2` on the shared Kotlin lambda superclass's
+`<init>(int)` method. The next correction preserves `kotlin.jvm.internal.Lambda`
+across the APK boundary as well. It does not retain all Kotlin or application
+classes. The evidence gate continues to reject the pre-test crash.
+
 ## Can it merge?
 
 **Pending exact merged-revision CI.** Static review and conflict resolution alone
