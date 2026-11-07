@@ -49,6 +49,7 @@ internal class ModelLease(val directory: File, val textDirectory: File? = null, 
 internal object ModelSelection {
     private val lock = Any()
     private val leases = mutableMapOf<String, Int>()
+    internal fun isLeased(directory: File): Boolean = synchronized(lock) { (leases[directory.absolutePath] ?: 0) > 0 }
     fun root(context: Context) = File(context.filesDir, "models").canonicalFile.apply { mkdirs() }
     fun current(context: Context): File? = synchronized(lock) {
         if (BuildConfig.EMBEDDED_MODELS) return@synchronized EmbeddedModels.current(context)

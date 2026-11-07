@@ -13,7 +13,8 @@ import java.io.File
 /** Process-owned bootstrap; no WorkManager, DNS or service start is required. */
 internal object EmbeddedModels {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val state = MutableStateFlow(ModelTransferState(null, "Подготавливаю встроенные модели…", phase = ModelTransferPhase.VERIFYING))
+    // Existing model UI uses `downloading` as its active-preparation flag; no network transfer occurs here.
+    private val state = MutableStateFlow(ModelTransferState(null, "Подготавливаю встроенные модели…", downloading = true, phase = ModelTransferPhase.VERIFYING))
     val states = state.asStateFlow()
     @Volatile private var selected: EmbeddedInstallation? = null
     @Volatile private var stamps: Map<String, Pair<Long, Long>> = emptyMap()
@@ -22,15 +23,16 @@ internal object EmbeddedModels {
     @Synchronized fun prepare(context: Context) {
         if (preparing || current(context) != null) return
         preparing = true
-        state.value = ModelTransferState(null, "Подготавливаю встроенные модели…", phase = ModelTransferPhase.VERIFYING)
+        state.value = ModelTransferState(null, "Подготавливаю встроенные модели…", downloading = true, phase = ModelTransferPhase.VERIFYING)
         val app = context.applicationContext
         scope.launch {
+            var completedState: ModelTransferState? = null
             try {
                 var lastProgress = 0L
                 ModelDownloads.installEmbedded(app) { completed, total ->
                     val now = System.nanoTime()
                     if (now - lastProgress >= 250_000_000 || completed == total) {
-                        state.value = ModelTransferState(null, "Подготавливаю встроенные модели…", completedBytes = completed,
+                        state.value = ModelTransferState(null, "Подготавливаю встроенные модели…", downloading = true, completedBytes = completed,
                             totalBytes = total, phase = ModelTransferPhase.VERIFYING)
                         lastProgress = now
                     }
@@ -38,7 +40,7 @@ internal object EmbeddedModels {
                     selected = installed
                     stamps = snapshot(installed)
                     ModelSelection.cleanup(app)
-                    state.value = ModelTransferState(installed.acoustic, "Встроенные модели готовы", phase = ModelTransferPhase.READY)
+                    completedState = ModelTransferState(installed.acoustic, "Встроенные модели готовы", phase = ModelTransferPhase.READY)
                 }
             } catch (error: Exception) {
                 selected = null
@@ -48,8 +50,13 @@ internal object EmbeddedModels {
                     error is IllegalArgumentException -> "Повреждён встроенный комплект моделей. Переустановите проверенный офлайн-APK."
                     else -> "Не удалось подготовить встроенные модели. Откройте приложение снова."
                 }
-                state.value = ModelTransferState(null, message, phase = ModelTransferPhase.ERROR)
-            } finally { synchronized(this@EmbeddedModels) { preparing = false } }
+                completedState = ModelTransferState(null, message, phase = ModelTransferPhase.ERROR)
+            } finally {
+                synchronized(this@EmbeddedModels) {
+                    preparing = false
+                    completedState?.let { state.value = it }
+                }
+            }
         }
     }
 
@@ -77,6 +84,7 @@ internal object EmbeddedModels {
         val saved = preferences.getString("modelPath", null)?.let { acoustic ->
             preferences.getString("modelTextPath", null)?.let { EmbeddedInstallation(File(acoustic), File(it)) }
         }
-        EmbeddedModelInstaller(root, bundle, { context.assets.open("models/$it") }).install(saved, progress)
+        EmbeddedModelInstaller(root, bundle, { context.assets.open("models/$it") }, isLeased = ModelSelection::isLeased)
+            .install(saved, progress)
     }
 }

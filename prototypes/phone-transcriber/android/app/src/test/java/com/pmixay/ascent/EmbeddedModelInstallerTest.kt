@@ -67,6 +67,35 @@ class EmbeddedModelInstallerTest {
         assertEquals(installed, next)
     }
 
+    @Test fun deathAfterBothRenamesReusesVerifiedOrphanWithoutExtraDisk() = inRoot { root ->
+        val (bundle, data) = fixture()
+        val orphan = EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(data.getValue(it)) }) { Long.MAX_VALUE }.install()
+        val recovered = EmbeddedModelInstaller(root, bundle, { error("Verified orphan needs no new copy") }) { 0 }.install()
+        assertEquals(orphan, recovered)
+    }
+
+    @Test fun deathBetweenRenamesReclaimsOnlyUnleasedUnselectedPartialPromotion() = inRoot { root ->
+        val (bundle, data) = fixture()
+        val partial = EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(data.getValue(it)) }) { Long.MAX_VALUE }.install()
+        partial.text.deleteRecursively()
+        val recovered = EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(data.getValue(it)) }) {
+            if (partial.acoustic.exists()) 0 else Long.MAX_VALUE
+        }.install()
+        assertFalse(partial.acoustic.exists())
+        assertNotEquals(partial.acoustic, recovered.acoustic)
+        assertTrue(recovered.text.isDirectory)
+    }
+
+    @Test fun incompleteLeasedPromotionIsNeverReclaimed() = inRoot { root ->
+        val (bundle, data) = fixture()
+        val leased = EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(data.getValue(it)) }) { Long.MAX_VALUE }.install()
+        leased.text.deleteRecursively()
+        assertThrows(IllegalArgumentException::class.java) {
+            EmbeddedModelInstaller(root, bundle, { error("No space") }, isLeased = { it == leased.acoustic }) { 0 }.install()
+        }
+        assertTrue(leased.acoustic.exists())
+    }
+
     @Test fun sameSizeCorruptionNeverReturnsExistingReadiness() = inRoot { root ->
         val (bundle, data) = fixture()
         val installer = EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(data.getValue(it)) }) { Long.MAX_VALUE }

@@ -16,6 +16,8 @@ from prepare_embedded_models import PIN
 
 
 def verify_embedded(archive, assets: Path, pin_path: Path = PIN):
+    if (assets / "bundle.json").stat().st_size > 128 * 1024 or archive.getinfo("assets/models/bundle.json").file_size > 128 * 1024:
+        raise ValueError("Embedded manifest exceeds the supported size")
     bundle_bytes = (assets / "bundle.json").read_bytes()
     if archive.read("assets/models/bundle.json") != bundle_bytes:
         raise ValueError("APK embedded manifest differs from the checked build input")

@@ -60,7 +60,9 @@ requires full verification.
 
 The offline application schedules no model-download or periodic-update workers,
 starts no model-download service and never falls back to network if assets are
-bad. Preparation is process-owned IO, not an Activity or ViewModel child job.
+bad. Its manifest overlay removes Internet/network-state permission and disables
+the download service; compact permission/transfer behavior is unchanged.
+Preparation is process-owned IO, not an Activity or ViewModel child job.
 Killing the process interrupts preparation; it does not continue while stopped.
 The next launch recovers. No delete-model/reinstall/server-selection UI is added.
 

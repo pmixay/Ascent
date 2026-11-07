@@ -47,7 +47,11 @@ android {
     // Built-in Kotlin follows compileOptions.targetCompatibility.
     // CI-only public speech and real embeddings: JVM resources never enter the phone APK.
     sourceSets.getByName("test").resources.srcDir(layout.buildDirectory.dir("generated/speaker-fixtures").get().asFile)
-    if (embeddedModels) sourceSets.getByName("main").assets.srcDir(embeddedAssets)
+    if (embeddedModels) {
+        sourceSets.getByName("main").assets.srcDir(embeddedAssets)
+        sourceSets.getByName("debug").manifest.srcFile("src/offline/AndroidManifest.xml")
+        sourceSets.getByName("release").manifest.srcFile("src/offline/AndroidManifest.xml")
+    }
     buildFeatures { compose = true; buildConfig = true }
     androidResources { noCompress += "onnx" }
     lint { abortOnError = true }

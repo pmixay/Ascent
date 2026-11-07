@@ -1,5 +1,7 @@
 package com.pmixay.ascent
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.WorkManager
@@ -17,6 +19,7 @@ class EmbeddedModelRuntimeTest {
     @Test fun coldBootstrapSelectsBothGroupsWithoutDownloadWork() = runBlocking {
         assertTrue(BuildConfig.EMBEDDED_MODELS)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertEquals(PackageManager.PERMISSION_DENIED, context.checkSelfPermission(Manifest.permission.INTERNET))
         assertNull(ModelSelection.current(context))
         ModelDownloads.schedule(context)
         assertTrue(ModelDownloads.startFromVisible(context))
@@ -36,5 +39,24 @@ class EmbeddedModelRuntimeTest {
             assertEquals(ModelManifest.payloadNames + "manifest.json", lease.directory.list()!!.toSet())
             assertEquals(lease.directory, ModelSelection.current(context))
         }
+
+        // Deliberate model-file corruption, never application audio. A replacement
+        // must preserve BOTH old directories while a job still holds their lease.
+        val old = ModelSelection.acquire(context)
+        val oldText = requireNotNull(old.textDirectory)
+        try {
+            File(oldText, "NOTICE.txt").writeText("corrupted test notice")
+            assertNull(ModelSelection.current(context))
+            ModelDownloads.schedule(context)
+            val recovered = withTimeout(240_000) {
+                EmbeddedModels.states.first { it.phase == ModelTransferPhase.READY || it.phase == ModelTransferPhase.ERROR }
+            }
+            assertEquals(recovered.message, ModelTransferPhase.READY, recovered.phase)
+            assertNotEquals(old.directory, ModelSelection.current(context))
+            assertTrue(old.directory.isDirectory)
+            assertTrue(oldText.isDirectory)
+        } finally { old.close() }
+        assertFalse(old.directory.exists())
+        assertFalse(oldText.exists())
     }
 }

@@ -32,7 +32,8 @@ competition release.** No device acceptance or completed LLM pipeline is claimed
 
 `ModelDownloads.schedule/observe/startFromVisible` routes the offline build to
 process-owned IO preparation, without scheduling download/update work or starting
-the download foreground service. Compact behavior is unchanged. Both model groups
+the download foreground service. An offline-only manifest overlay removes Internet/
+network-state permission and disables that service. Compact behavior is unchanged. Both model groups
 are streamed with bounded buffers, space checks, exact lengths and hashes into
 app-private staging, promoted into immutable revision directories, then selected.
 Interrupted staging is removed on the next launch; no imported source is touched.
@@ -57,6 +58,21 @@ are disabled in the offline build for deterministic evaluation.
   or establish ARM memory, speed, codec or competition acceptance.
 - CI results and APK/bundle hashes: **pending**. Local work is editing/static
   inspection only, no Android build/toolchain/tests/model export/inference.
+
+### Initial inspected CI iteration
+
+[Run 42372529303](https://github.com/pmixay/Ascent/actions/runs/42372529303),
+`ad0f997`: Python packaging tests and source export/parity/speaker checks passed.
+The offline asset preparer produced **1,476,434,947 expanded payload bytes**,
+including actual acoustic metadata/report and text notice; bundle SHA-256
+`14b601dcbe15e721f21ecbef81a45ce7f106e401266e228fba86fe1f9cca0528`.
+This is that run's generated asset set, not an APK/installed-size measurement.
+
+The workflow failed because Gradle's `java` DSL accessor shadowed the package
+in `java.security.MessageDigest`. Explicit import fixed it in `5f11823`;
+the failure was not skipped or converted to success. Later recovery/permission
+tests need their own exact-commit run. No APK acceptance is inferred from this
+initial failed iteration.
 
 ## Assigned cross-role blockers — kept open
 

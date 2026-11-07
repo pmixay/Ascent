@@ -76,6 +76,8 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
   raw/presentation export choice and real success/fallback counters. Packaging
   leaves this meaningful-pipeline requirement open until implemented and tested.
 
+#### Existing acceptance floor
+
 - [ ] Bounded source seam preserves original-media offsets, words and existing segmenter behavior.
 - [ ] Pushed grammar and independent validator actually run with the bundled text model on ARM; lexical content, numbers, negation, IDs and times stay unchanged. Record successful operation, fallbacks and incremental time.
 - [ ] Existing stricter regressions remain passing on compatible inputs; missing cache stays a blocker for Timofey, not a waived check.

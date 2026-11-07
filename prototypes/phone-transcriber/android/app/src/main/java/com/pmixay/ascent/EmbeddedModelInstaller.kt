@@ -49,6 +49,7 @@ internal class EmbeddedModelInstaller(
     private val root: File,
     private val bundle: EmbeddedBundle,
     private val open: (String) -> InputStream,
+    private val isLeased: (File) -> Boolean = { false },
     private val availableBytes: () -> Long = { root.usableSpace },
 ) {
     private fun interrupted() {
@@ -83,6 +84,23 @@ internal class EmbeddedModelInstaller(
             }
         }
         if (existing != null && valid(existing)) return existing
+        // Process death may happen after either atomic rename but before selection.
+        // Reuse a fully verified pair; reclaim only our unselected, unleased partial
+        // promotions so a cold install does not permanently lose its disk budget.
+        root.listFiles()?.filter { it.name.startsWith("gigaam-embedded-") }?.forEach { acoustic ->
+            val candidate = EmbeddedInstallation(acoustic, File(root, "text-${acoustic.name.removePrefix("gigaam-")}"))
+            if (valid(candidate)) return candidate
+            if (acoustic != existing?.acoustic && !isLeased(acoustic)) {
+                if (Files.isSymbolicLink(acoustic.toPath())) acoustic.delete() else acoustic.deleteRecursively()
+                if (Files.isSymbolicLink(candidate.text.toPath())) candidate.text.delete() else candidate.text.deleteRecursively()
+            }
+        }
+        root.listFiles()?.filter { it.name.startsWith("text-embedded-") }?.forEach { text ->
+            val acoustic = File(root, "gigaam-${text.name.removePrefix("text-")}")
+            if (!acoustic.exists() && !isLeased(acoustic)) {
+                if (Files.isSymbolicLink(text.toPath())) text.delete() else text.deleteRecursively()
+            }
+        }
         require(availableBytes() >= bundle.totalBytes + RESERVE) { "Недостаточно места для встроенных моделей" }
         val id = "embedded-${bundle.digest}-${UUID.randomUUID()}"
         val staging = File(root, ".embedded-stage-$id")
