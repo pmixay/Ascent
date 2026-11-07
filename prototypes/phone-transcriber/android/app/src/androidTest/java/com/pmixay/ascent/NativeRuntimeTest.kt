@@ -95,21 +95,21 @@ class NativeRuntimeTest {
             waitForUiIdle()
             for ((label, stored) in listOf("Русский" to "RUSSIAN_CIS", "Другие языки" to "MULTILINGUAL")) {
                 clickText(if (stored == "RUSSIAN_CIS") "Язык: Авто" else "Язык: Русский")
-                assertTrue("Language dialog is visible", uiHasText("Язык распознавания"))
+                assertTrue("Language dialog is visible", awaitUiText("Язык распознавания"))
                 clickText(label)
                 assertEquals(stored, preferences.getString("recognitionMode", null))
-                assertTrue(uiHasText("Язык: $label"))
+                assertTrue("Language row shows $label", awaitUiText("Язык: $label"))
             }
-            assertTrue(uiHasText("Модели для других языков не установлены. Выберите «Авто» или «Русский»."))
+            assertTrue("Missing multilingual models are reported", awaitUiText("Модели для других языков не установлены. Выберите «Авто» или «Русский»."))
             instrumentation.runOnMainSync { activity?.finish() }
             instrumentation.waitForIdleSync()
             activity = instrumentation.startActivitySync(
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
             waitForUiIdle()
-            assertTrue("The selected language survives ViewModel/activity recreation", uiHasText("Язык: Другие языки"))
+            assertTrue("The selected language survives ViewModel/activity recreation", awaitUiText("Язык: Другие языки"))
             clickText("Язык: Другие языки")
-            assertTrue("Language dialog is visible after recreation", uiHasText("Язык распознавания"))
+            assertTrue("Language dialog is visible after recreation", awaitUiText("Язык распознавания"))
             clickText("Авто")
             assertEquals("AUTO", preferences.getString("recognitionMode", null))
         } finally {
@@ -129,6 +129,21 @@ class NativeRuntimeTest {
     }
 
     private fun uiHasText(text: String): Boolean = findUiLabel(text) != null
+
+    /**
+     * Polls for a label for up to [timeoutMs]. One lookup right after a click races Compose's next frame and the
+     * dialog's appearance on a loaded CI emulator, so assertions that a label appears wait for it. A label that
+     * never appears still fails, after the bound.
+     */
+    private fun awaitUiText(text: String, timeoutMs: Long = 10_000): Boolean {
+        val deadline = System.nanoTime() + timeoutMs * 1_000_000
+        var found = uiHasText(text)
+        while (!found && System.nanoTime() - deadline < 0) {
+            waitForUiIdle()
+            found = uiHasText(text)
+        }
+        return found
+    }
 
     private fun findUiLabel(text: String): AccessibilityNodeInfo? = findUiNode { hasExactLabel(it, text) }
 
