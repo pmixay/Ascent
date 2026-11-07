@@ -66,6 +66,11 @@ OnnxTextModel(File(dir, TextModelFiles.MODEL), TextPunctuator.instructionPrefix(
   text in the export needs either the jury's confirmation that WER is normalized or the team's
   explicit choice; in both cases the stage still runs and its output is shown in the interface.
 - Report whether the stage ran, how many phrases fell back and the added processing time.
+- **Time budget.** `TextStages.run` stops asking the model once `max(30 s, 50% of the media duration)` has elapsed
+  after the model loaded; remaining phrases keep their recognized words and are reported as `timedOut`. The check is
+  between phrases, so the stage can exceed the budget by at most one phrase. The two numbers are a policy default
+  chosen without any ARM measurement (the floor lets a short clip finish even at ten times the host cost, the share
+  bounds added real-time factor on long recordings); tune them from the device stage timings.
 
 ## Rules for packaging (release lead)
 
