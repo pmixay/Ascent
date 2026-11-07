@@ -21,7 +21,12 @@ remains separate from these host/code outputs.
   evaluation on a development machine when those measurements are needed.
 - **P2 local text model:** host feasibility study and edit contract in
   [text-model feasibility](../../prototypes/phone-transcriber/docs/text-model-feasibility.md).
-  No model is integrated, packaged or measured on ARM.
+  **Provisional choice at 14:30 (final after the team's model comparison):** Qwen2.5 0.5B int8 ONNX, single word-preserving pass on the existing
+  ONNX Runtime, with Kotlin stage, tokenizer and JVM tests pushed; see
+  [text-punctuation.md](../interfaces/text-punctuation.md). Not yet packaged, integrated or
+  measured on ARM; CI has not yet run the new tests.
+- **Report:** [model-report.md](../hackathon/model-report.md) holds models, licences, the
+  inspected historical CI two-hour scores and host results; its device table is still empty.
 - **P3 diarization:** no candidate measured; the short-reply hypothesis still
   needs development-machine evaluation.
 - **CI change (`6a078e3`):** the user removed the dedicated public inference and
