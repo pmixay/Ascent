@@ -16,16 +16,19 @@ class TranscriptionEngine(private val modelDirectory: File) {
     fun transcribe(audio: File, onProgress: (String) -> Unit): List<TranscriptSegment> =
         transcribeWithSpeakers(audio, onProgress).segments
 
-    fun transcribeWithSpeakers(audio: File, onProgress: (String) -> Unit): TranscriptionResult =
-        PcmWave(audio).use { wave -> transcribeWithSpeakers(wave, onProgress) }
+    fun transcribeWithSpeakers(audio: File, onProgress: (String) -> Unit): TranscriptionResult {
+        return PcmWave(audio).use { wave ->
+            transcribeWithSpeakers(wave, onProgress)
+        }
+    }
 
-    /** The caller owns [source] and closes it; the engine only reads bounded windows from it. */
     fun transcribeWithSpeakers(source: PcmWindowSource, onProgress: (String) -> Unit): TranscriptionResult {
         checkCancelled()
         val model = ModelSpec.load(modelDirectory)
         val words = recognize(model, source, onProgress)
         checkCancelled()
-        return if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList()) else attribute(model, source, words, onProgress)
+        return if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList())
+        else attribute(model, source, words, onProgress)
     }
 
     private fun recognize(model: ModelSpec, wave: PcmWindowSource, progress: (String) -> Unit): List<TimedWord> {
@@ -47,10 +50,10 @@ class TranscriptionEngine(private val modelDirectory: File) {
                     val end = window.end
                     val input = wave.read(start, (end - start).toInt())
                     val samples = if (input.size < 4000) input.copyOf(4000) else input
-                    // Recognizer input only: speaker embeddings read the window source again.
-                    AsrGain.normalizeInPlace(samples)
-                    progress("Распознаю речь: ${(100 * coreStart / wave.sampleCount).toInt()}%")
                     try {
+                        // Recognizer input only: speaker embeddings read the original source again.
+                        AsrGain.normalizeInPlace(samples)
+                        progress("Распознаю речь: ${(100 * coreStart / wave.sampleCount).toInt()}%")
                         OnnxTensor.createTensor(environment, FloatBuffer.wrap(samples), longArrayOf(1, samples.size.toLong())).use { signal ->
                             OnnxTensor.createTensor(environment, LongBuffer.wrap(longArrayOf(samples.size.toLong())), longArrayOf(1)).use { lengths ->
                                 session.run(mapOf("audio" to signal, "audio_lengths" to lengths)).use { result ->

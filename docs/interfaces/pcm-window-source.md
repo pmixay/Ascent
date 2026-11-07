@@ -1,14 +1,18 @@
 # PcmWindowSource: how audio reaches the recognition engine
 
-Status: the interface and the engine overload are in `9127e20`. Lint, the JVM unit tests and
-the APK build passed in [CI run 42366154116](https://github.com/pmixay/Ascent/actions/runs/42366154116),
-which ran on the same content before the commits were re-attributed (then `b058a1e`). No
-implementation other than `PcmWave` has been verified, and nothing here has run on a device.
+Status: the interface and engine overload arrived in `9127e20` (the re-attributed form of
+`7782992`). The merged branch extends the same seam to the import decoder and encrypted live
+watch window. The complete unified implementation passed lint, JVM unit tests, app/wear APK
+builds in [CI run 42372716867](https://github.com/pmixay/Ascent/actions/runs/42372716867)
+at `78e4190`. That older instrumentation task did not prove all methods executed;
+the combined branch now requires explicit non-skipped XML evidence. No physical-device
+or ARM-emulator result is established.
 
 This is the engine side of plan item A2 ("Connect the existing engine to a bounded URI/WAV
-source"). Source files are in
-`prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`:
-`PcmWindowSource.kt`, `PcmWave.kt` and `TranscriptionEngine.kt`.
+source"). The seam is `PcmWindowSource.kt`, the engine overload lives in
+`TranscriptionEngine.kt`, the WAV reader in `PcmWave.kt`, the import factory and codec
+decoder in `AudioSource.kt` and `CodecAudioWindowSource.kt`, and the encrypted live watch
+window in `LiveAudioCoordinator.kt`.
 
 ## The contract
 
@@ -16,12 +20,21 @@ source"). Source files are in
 interface PcmWindowSource : Closeable {
     val sampleCount: Long                       // total samples at 16 kHz
     val durationMs: Long                        // default: sampleCount * 1000 / 16000
+    val formatDescription: String               // default: "Формат не определён"
     fun read(start: Long, count: Int): FloatArray
 }
 ```
 
 Entry point: `TranscriptionEngine.transcribeWithSpeakers(source, onProgress)`. The older
 `transcribeWithSpeakers(file, onProgress)` still exists and wraps the file in a `PcmWave`.
+
+Import sources implement the same seam: `AudioSources.open(context, uri)` peeks at the
+stream header and returns a seekable `PcmWave` for RIFF/WAVE (mono or stereo, 8/16-bit PCM
+at 8–96 kHz, resampled through the bounded kernel) or a `CodecAudioWindowSource` that decodes
+through the Android codec. Both read the user-selected URI in place, without copying the file
+into application storage. The live `WatchPcmWindow` decrypts bounded watch frames on demand
+and zero-fills them after each return, so live capture, imported files and the microphone
+session all share one engine boundary.
 
 ## What an implementation must do
 

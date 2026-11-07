@@ -8,11 +8,11 @@ import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 
-/** Dedicated CI job only. Public dialogue resources never enter an APK or report artifact. */
+/** Opt-in development-machine evaluation only. Public dialogue resources never enter an APK or report artifact. */
 class TwoHourSpeechEvaluationTest {
     @Test fun evaluateFrozenRussianDialoguesWithTheProductionAttributionPolicy() {
         val location = System.getenv("ASCENT_DIALOG_EVALUATION")
-        assumeTrue("The two-hour evaluation runs in its dedicated CI job", !location.isNullOrBlank())
+        assumeTrue("The two-hour evaluation runs only with development-machine inputs", !location.isNullOrBlank())
         val indexFile = File(requireNotNull(location)).canonicalFile
         val root = requireNotNull(indexFile.parentFile)
         val index = JSONObject(indexFile.readText())

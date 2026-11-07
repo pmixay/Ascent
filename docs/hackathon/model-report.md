@@ -38,7 +38,18 @@ Qwen2.5 1.5B, Qwen3 0.6B and Qwen3.5 0.8B on the same stage and clips and kept
 ([text-punctuation.md](../interfaces/text-punctuation.md)). The acoustic model stays GigaAM
 Multilingual 220M for this release; the Large comparison is below.
 
-## CI evidence: two hours of Russian dialogue
+The application branch packages and integrates both model groups. Pre-gain
+[Android CI 42387321849](https://github.com/pmixay/Ascent/actions/runs/42387321849)
+at `32e3bc8` passed compact and embedded checks, including a synthetic invocation
+of the bundled text stage on x86_64. The latest candidate after merging `AsrGain`
+and its APK identities/checks are recorded in
+[PR #4](https://github.com/pmixay/Ascent/pull/4). This is integration evidence;
+the physical ARM quality/performance table below remains open.
+
+## Historical CI evidence: two hours of Russian dialogue
+
+These are retained historical measurements. The user removed long inference and
+scoring from push CI; `CI=true` also excludes the opt-in two-hour JVM scorer.
 
 [CI run 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969), commit
 `6a078e3`, job *Score cached two-hour Russian speech evaluation*. The same job also passed from the
@@ -131,9 +142,9 @@ The level rule is neutral on Russian (Dialogs clips already peak near -10 dBFS) 
 quiet English input, so the app applies it. The large model is better on both languages but
 about three times slower (RTF 0.114 at 4 threads on validation, against 0.07-0.09 for the
 current model at 2 threads); it is not packaged, its public int8 export is not the deployed
-pack, and switching is a team model decision. The CI Dialogs cache still measures recognition
-without `AsrGain`, because the rule lives outside the cache-key inputs; the host table above
-is the evidence for its effect.
+pack, and switching is a team model decision. The historical CI Dialogs scores measured
+recognition without `AsrGain`; that CI job is now removed. The host table above is the
+evidence for the rule's effect, and the current bounded CI does not rescore the corpus.
 
 **Script guard, measured and not adopted.** Re-decoding a window without Cyrillic letters when
 Latin letters dominate its greedy path (frozen on ES2011a: 38.67% -> 37.86%) moved EN2002a

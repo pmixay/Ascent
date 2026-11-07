@@ -35,6 +35,15 @@ class QwenTokenizerTest {
         assertThrows(IllegalArgumentException::class.java) { tokenizer.specialId("<|unknown|>") }
     }
 
+    @Test fun unicodeWhitespaceSeparatesPunctuationAndPreservesLineBreaks() {
+        fun pieces(text: String): List<String> {
+            val matcher = QwenTokenizer.SPLIT.matcher(text)
+            return buildList { while (matcher.find()) add(matcher.group()) }
+        }
+        assertEquals(listOf("!", "\u00a0", "?", "\u0085", "!", "\u2003", "?"), pieces("!\u00a0?\u0085!\u2003?"))
+        assertEquals(listOf(" \t\u0085\u2003\r\n"), pieces(" \t\u0085\u2003\r\n"))
+    }
+
     @Test fun instructionPrefixIsTheChatTemplateOpening() {
         val prefix = TextPunctuator.instructionPrefix(tokenizer)
         assertEquals(151644, prefix.first())

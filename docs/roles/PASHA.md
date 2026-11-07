@@ -10,11 +10,33 @@ Deliver the application path from a selected local audio file to a safely retain
 
 At fetched `origin/main` `4b16e3a`, the application already has local acoustic inference, encrypted conversation/voice storage, model leases/downloads and timeline UI. PR #2 adds the segmenter/tests, frozen speech/English manifests, host ASR/timestamp study and text-model shortlist/grammar contract. Do not rewrite those components or wait for another model-selection study. **Remaining:** reachable source-safe import, competition JSON, job safeguards and the actual Android text stage. Andrey is the ML owner; this role remains the application/acceptance owner after the pushed role swap.
 
+## Status at 16:30 MSK (whole CI workflow green; nothing run on a phone)
+
+Contract and details: [app-pipeline.md](../interfaces/app-pipeline.md). No checkbox below is ticked.
+
+**CI evidence, inspected.** Run [42376061272](https://github.com/pmixay/Ascent/actions/runs/42376061272)
+(commit `2545310`, branch rebased onto the current main) concluded **success** for all three jobs: *Build and
+validate Android app* (lint, JVM unit tests, R8 assemble, ARM64 APK inspection, and the x86_64 emulator
+instrumentation tests on Android 16 including `ImportRuntimeTest` with its MP3/M4A decode test, whose assets
+and test code were built in that run), the public inference job and the cache scoring job. Its build job
+produced the checked ARM64 APK artifact `debug-25453108`. The first run of this code (42373255631)
+compiled and failed one of my own tests, because the test tokenizer lacked a capital letter; that was fixed.
+The emulator log shows the task succeeding, not per-test counts. Nothing ran on an ARM emulator or a phone.
+
+| Item | In source, with CI status | Still open |
+| --- | --- | --- |
+| A1 serializer | `CompetitionJsonExporter`, wired to the JSON export, silence gives `{"transcript":[]}`; contract tests pass in CI | Petya's independent validation of a real device export |
+| A2 import | `AudioSources` (descriptor read in place), WAV any rate/channels/sample format, `Pcm16Stream`, `CompressedAudio` (MP3/AAC/M4A, in memory, 30 min); the copying `AudioImporter` is deleted. WAV conversion, rejection cases and the no-write guard pass JVM tests; reading a picked file and decoding synthetic MP3 and M4A tone files (tone found at its original time, correct pitch and level) pass the emulator tests | No picker button (Petya); device and ARM trials; real speech files, telephone-band and unusual encodings, and which formats the target emulator decodes are unmeasured |
+| A3 job safety | `launchJob` shared by import and recording: one job, job IDs, cancel, stale-callback guard, handles closed on every path, interrupted-job notice, atomic non-cancellable save. Only the job tracker and progress mapping have tests | No foreground service (process death needs reselecting the file); the ViewModel job path itself, rotation, background, cancel and kill/reopen are untested |
+| A4 text stage | `TextStages` calls the pushed `TextPunctuator` after the acoustic lease is released, keeps raw text, reports counts; unit tests use a fake model | **Nothing installs the model files yet (Timofey); the stage reports `UNAVAILABLE`, so the local-LLM requirement is not met.** Never run with the real model, on Android or ARM |
+
+Not done by this change: UI wiring, text-model packaging, English and call/meeting evidence, RTF.
+
 ## Ownership
 
 Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
 
-- Own `ConversationViewModel.kt`, `AudioImporter.kt`, `PcmWave.kt`, `ConversationStore.kt` and new source/coordinator/export/text-model adapter files.
+- Own `ConversationViewModel.kt`, `AudioSource.kt`, `WavAudio.kt`, `PcmStream.kt`, `CompressedAudio.kt`, `ProcessingJob.kt`, `PcmWave.kt`, `ConversationStore.kt` and the export/text-model adapter files (`CompetitionJsonExporter.kt`, `TextStage.kt`). `AudioImporter.kt` was removed because it copied audio into app storage.
 - Own shared domain contract changes; agree signatures before others implement adapters.
 - Petya owns `MainActivity.kt`/`GlassUi.kt`; provide callable APIs and state definitions.
 - Andrey owns `TranscriptionEngine.kt`/speaker algorithms; coordinate its input adapter rather than editing it concurrently.
@@ -108,6 +130,29 @@ Final application code handoff/push is **17:00**. After that only a release-bloc
 - **19:30–20:00:** shared submission/link verification reserve, not feature development.
 
 ## Handoffs and blockers
+
+### T2 application integration handoff — still required
+
+- [ ] Use the embedded bootstrap via existing `ModelDownloads.schedule/observe`;
+  do not add a parallel installer or make first-run readiness wait for networking.
+  `ModelSelection.acquire` now supplies one lease with `directory` (unchanged
+  acoustic file set) and nullable `textDirectory` (separate versioned text assets).
+- [ ] Connect the real `OnnxTextModel`/`TextPunctuator` stage after acoustic
+  sessions close, consuming `lease.textDirectory` for the entire job. Keep that
+  lease until both acoustic and text stages stop; expose real execution/fallback
+  counts and elapsed time. Merely bundling weights does not close H07.
+- [ ] Preserve raw ASR text, lexical/ID/time invariants and encrypted history.
+  Propagate installation failures/cancellation safely; never delete imported
+  source audio. Coordinate job/background/reopen behavior with Petya's real-device
+  tests. Agree the export raw/presentation-text choice with Andrey.
+
+These cross-role prerequisites are not implemented by Timofey's T2 packaging.
+Petya now owns real-device verification and server repair; no task is waived.
+Callable details: [embedded-models.md](../interfaces/embedded-models.md).
+The first packaged baseline and its run/APK identities are available in
+[T2 status](TIMOFEY_T2_STATUS.md); do not wait for another host/model search or
+reimplement the installer. Use the implementation branch and the final tested
+revision identified there for integration.
 
 | Need | From | Deliver to others |
 | --- | --- | --- |

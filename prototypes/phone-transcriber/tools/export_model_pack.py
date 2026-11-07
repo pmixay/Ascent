@@ -23,6 +23,7 @@ from model_pack import (
     UPSTREAM_COMMIT, ctc_decode, sha256_file, validate_directory, validate_manifest, validate_zip,
 )
 from evaluate_speech import measure_public_speech
+from checkpoint_source import load_huggingface
 
 UPSTREAM_REPOSITORY = "https://github.com/salute-developers/GigaAM"
 UPSTREAM_MODEL = "multilingual_ctc"
@@ -32,11 +33,15 @@ MIN_SAMPLES = 4000
 MAX_SAMPLES = 400000
 
 
-def arguments():
+def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", required=True, type=Path,
+    parser.add_argument("--output", type=Path,
                         help="Verified ZIP transport for the model server; users download files in-app.")
     parser.add_argument("--cache-dir", type=Path, default=Path(".cache/gigaam"))
+    parser.add_argument("--directory-output", type=Path,
+                        help="Validated flat export for embedded-APK preparation; may be used without --output.")
+    parser.add_argument("--checkpoint-source", choices=("upstream", "huggingface"), default="upstream",
+                        help="Pinned CDN checkpoint or separately identified official Hugging Face state dictionary.")
     parser.add_argument("--speaker-model", required=True, type=Path)
     parser.add_argument("--speaker-sha256", required=True)
     parser.add_argument("--speaker-license", required=True, type=Path)
@@ -45,7 +50,10 @@ def arguments():
     parser.add_argument("--smoke-wav", action="append", type=Path, required=True,
                         help="16 kHz mono speech WAV for required ASR/speaker checks; may be repeated (0.5–25 s).")
     parser.add_argument("--threads", type=int, default=2)
-    return parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.output is None and args.directory_output is None:
+        parser.error("At least one of --output or --directory-output is required")
+    return args
 
 
 def check_installation():
@@ -258,7 +266,7 @@ def smoke_test(model, exported, session, tokens, paths):
 def main():
     args = arguments()
     destination = args.output
-    if destination.exists():
+    if destination is not None and destination.exists():
         raise FileExistsError(f"Refusing to replace existing output: {destination}")
     if not re.fullmatch(r"[0-9a-f]{64}", args.speaker_sha256):
         raise ValueError("--speaker-sha256 must be the verified lowercase SHA-256 of the ONNX asset")
@@ -286,8 +294,17 @@ def main():
         raise RuntimeError("Pinned upstream checkpoint checksum changed")
     args.cache_dir.mkdir(parents=True, exist_ok=True)
     print("Loading pinned GigaAM Multilingual 220M on CPU", flush=True)
-    model = gigaam.load_model(UPSTREAM_MODEL, device="cpu", fp16_encoder=False,
-                              use_flash=False, download_root=str(args.cache_dir))
+    if args.checkpoint_source == "huggingface":
+        model, checkpoint_source = load_huggingface(args.cache_dir / "huggingface")
+    else:
+        model = gigaam.load_model(UPSTREAM_MODEL, device="cpu", fp16_encoder=False,
+                                  use_flash=False, download_root=str(args.cache_dir))
+        checkpoint_source = {
+            "checkpoint_format": "upstream-ckpt",
+            "checkpoint_url": CHECKPOINT_URL, "checkpoint_md5": UPSTREAM_CHECKPOINT_MD5,
+            "checkpoint_sha256": sha256_file(args.cache_dir / f"{UPSTREAM_MODEL}.ckpt"),
+        }
+    print(f"Checkpoint source: {args.checkpoint_source}; SHA-256: {checkpoint_source['checkpoint_sha256']}", flush=True)
     if not model.decoding.tokenizer.charwise:
         raise RuntimeError("This exporter requires a character tokenizer")
     tokens = list(model.decoding.tokenizer.vocab)
@@ -297,8 +314,9 @@ def main():
     if not 180_000_000 < parameter_count < 300_000_000:
         raise RuntimeError("Loaded model is not the expected 220M family")
     exported = make_export_model(model)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=".ascent-model-export-", dir=destination.parent) as directory:
+    output_parent = (destination or args.directory_output).parent
+    output_parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".ascent-model-export-", dir=output_parent) as directory:
         staging = Path(directory) / "files"
         staging.mkdir()
         export_path = staging / "asr.onnx"
@@ -364,8 +382,7 @@ def main():
             "source": {
                 "repository": UPSTREAM_REPOSITORY, "commit": UPSTREAM_COMMIT,
                 "model": UPSTREAM_MODEL, "release": "2026-06", "license": "MIT",
-                "checkpoint_url": CHECKPOINT_URL, "checkpoint_md5": UPSTREAM_CHECKPOINT_MD5,
-                "checkpoint_sha256": sha256_file(args.cache_dir / f"{UPSTREAM_MODEL}.ckpt"),
+                **checkpoint_source,
             },
             "speaker_source": {"url": args.speaker_source, "sha256": args.speaker_sha256,
                                "license": args.speaker_license_id},
@@ -376,19 +393,30 @@ def main():
         validate_manifest(manifest)
         write_json(staging / "manifest.json", manifest)
         validate_directory(staging)
-        temporary_output = destination.with_name(destination.name + ".part")
-        try:
-            with zipfile.ZipFile(temporary_output, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
-                for file in sorted(staging.iterdir()):
-                    archive.write(file, arcname=file.name)
-            validate_zip(temporary_output)
-            temporary_output.replace(destination)
-        finally:
-            temporary_output.unlink(missing_ok=True)
-    digest = sha256_file(destination)
-    destination.with_name(destination.name + ".sha256").write_text(
-        f"{digest}  {destination.name}\n", encoding="utf-8")
-    print(f"Created verified deployment transport: {destination}\nSHA-256: {digest}", flush=True)
+        if args.directory_output:
+            if args.directory_output.exists():
+                raise FileExistsError("Refusing to replace existing directory export")
+            args.directory_output.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(staging, args.directory_output)
+            validate_directory(args.directory_output)
+        print(f"Verified model manifest SHA-256: {sha256_file(staging / 'manifest.json')}", flush=True)
+        for name, record in files.items():
+            print(f"Verified model payload: {name}; bytes={record['bytes']}; SHA-256={record['sha256']}", flush=True)
+        if destination is not None:
+            temporary_output = destination.with_name(destination.name + ".part")
+            try:
+                with zipfile.ZipFile(temporary_output, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
+                    for file in sorted(staging.iterdir()):
+                        archive.write(file, arcname=file.name)
+                validate_zip(temporary_output)
+                temporary_output.replace(destination)
+            finally:
+                temporary_output.unlink(missing_ok=True)
+    if destination is not None:
+        digest = sha256_file(destination)
+        destination.with_name(destination.name + ".sha256").write_text(
+            f"{digest}  {destination.name}\n", encoding="utf-8")
+        print(f"Created verified deployment transport: {destination}\nSHA-256: {digest}", flush=True)
 
 
 if __name__ == "__main__":

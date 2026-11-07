@@ -47,7 +47,7 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 | --- | --- |
 | **11:00–11:20** | Agree only the missing bounded engine/source seam with Pasha; preserve existing timed words, segmenter and attribution provenance. |
 | **11:20–12:00** | Hand Pasha/Timofey existing Qwen2.5 1.5B Q4_K_M hashes/licenses/grammar/validator and the measured 0.5B fallback; hand Petya the pushed scoring protocol and manifests. No new shortlist, corpus freeze or host benchmark. |
-| **12:00–13:00** | Implement the engine seam; review the pushed cache job's accepted recognizer/speaker provenance with Timofey, not another bootstrap. Existing ASR-only host checkpoints cannot replace its complete inference inputs. Submit seam for the 13:00 push; freeze cache-key inputs by 14:00. |
+| **12:00–13:00** | Implement the engine seam; review the retained development-evaluation provenance with Timofey, not another bootstrap. Existing ASR-only host checkpoints cannot replace complete development inference inputs. Submit seam for the 13:00 push. |
 | **13:00–14:30** | Review Android grammar/lexical preservation with Pasha; verify actual CI-built ARM text inference as the APK arrives. Measure cost with Timofey; host feasibility alone is not acceptance. |
 | **14:30–15:00** | Freeze the viable text model/runtime/config from ARM evidence; preserve acoustic models/thresholds. Escalate failed LLM/CI as qualification blockers, not reasons to relabel ASR. |
 | **15:00–16:00** | Review candidate regressions, raw/presentation text projection and source-relative timing; prepare missing Android scoring using existing tools. No algorithm sweep. |
@@ -59,19 +59,36 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 ### Remaining acceptance checklist
 
-- [x] Bounded source seam preserves original-media offsets, words and existing segmenter
-  behavior (`9127e20`, CI run 42366154116). The import path that uses it is Pasha's.
-- [ ] Text model runs with the bundled model on ARM inside the export, with lexical checks and
-  incremental time recorded. Blocked: no packaged model or integration yet.
-- [x] Existing stricter regressions pass on compatible inputs: cached two-hour scorer and
-  regressions green in run 42379171322.
-- [ ] Android RU call/meeting, short-reply/speaker and English measurements with build,
-  model and device identifiers. Blocked: no APK with embedded models. Host AMI English is
-  reported separately and does not close this item.
-- [ ] Checked natural-recording boundaries. Open: no hand-annotated recordings.
-- [x] Final report and model/licence review in the repository by 19:00; unmeasured
-  conditions are explicitly open. Defense notes:
-  [ml-defense-notes.md](../hackathon/ml-defense-notes.md).
+#### T2 model handoff from Timofey
+
+- [ ] Review the pinned acoustic export provenance/identical graph hashes in
+  [T1 evidence](TIMOFEY_T1_STATUS.md); packaging must not change acoustic weights,
+  thresholds or scorer pins.
+- [ ] Approve or reject the provisional ONNX Qwen 0.5B choice from
+  [text-punctuation.md](../interfaces/text-punctuation.md), using Petya's exact
+  APK real-ARM execution/time/memory evidence. Hand Timofey any changed immutable
+  asset/runtime contract; host scores and bundled bytes alone are not acceptance.
+- [ ] Review the integrated text stage's lexical/ID/time preservation, raw versus
+  presentation export and real success/fallback counters on ARM. The synthetic
+  x86_64 invocation verifies integration without replacing that device review.
+
+#### Existing acceptance floor
+
+- [x] Bounded source seam implemented with historical evidence (`9127e20`, CI run
+  42366154116). Its import consumers and the gain change also need the merged
+  revision's checks recorded in PR #4.
+- [ ] Bundled text model runs on ARM inside the complete import/export pipeline,
+  with lexical checks, preserved IDs/times, fallbacks and incremental time recorded.
+  Packaging/integration is present; exact-build ARM evidence remains open.
+- [ ] Current merged candidate passes existing bounded regressions. Historical
+  cached two-hour scores remain in the report; do not restore their CI job or
+  present them as a measurement of `AsrGain`.
+- [ ] Android RU call/meeting, short-reply/speaker and English measurements include
+  denominators and build/model/device identifiers. Host AMI English is separate.
+- [ ] Checked natural-recording boundaries report start/end errors, matched and
+  unmatched counts and annotation uncertainty. No hand-annotated recordings yet.
+- [x] Model/licence report and [ML defense notes](../hackathon/ml-defense-notes.md)
+  are published. Unmeasured conditions remain explicit; device sign-off is open.
 
 ## Deferred beyond 20:00 — not assigned today
 

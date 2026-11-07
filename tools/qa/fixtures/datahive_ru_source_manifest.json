@@ -1,0 +1,26 @@
+{
+  "status": "source-only holdout; manual word and turn references required before scoring",
+  "selected_before_application_inference": "2026-11-07",
+  "dataset": "DataHive — Russian Conversations (Sample)",
+  "repository": "https://huggingface.co/datasets/datahiveai/russian-conversations-sample",
+  "revision": "1d22534f5a9ef4a377bc42faeb456d456ce29850",
+  "license": "CC BY 4.0",
+  "license_evidence": "README.md at the pinned repository revision",
+  "metadata_path": "preview/metadata.jsonl",
+  "metadata_bytes": 5037,
+  "metadata_sha256": "c5118393782ae5988165f6fb705ddbdb1ff1713a914b703336a6517be2c593e9",
+  "duration_source": "duration_seconds in the pinned metadata; decoded media duration not independently checked",
+  "selection_rule": "The first six released conversations with duration between 7.5 and 15 minutes, in ascending file ID; no model predictions were inspected.",
+  "language": "Russian",
+  "condition": "unscripted remote two-person calls, caller left and callee right in stereo MP3",
+  "clips": [
+    {"file": "ru_000003.mp3", "duration_ms": 659448, "bytes": 10551596, "sha256": "a1149d132ddca22a70de658cca59e609b4595df74855b074b2d1ed9cf6889d7f"},
+    {"file": "ru_000008.mp3", "duration_ms": 678072, "bytes": 10849580, "sha256": "591495fc0ecd605b3fa0336cc22f1299195de154b0628abb74ad6375c7a61ed1"},
+    {"file": "ru_000009.mp3", "duration_ms": 611112, "bytes": 9778220, "sha256": "1966945b3fd4c38460533a7c05a2e7f64d96343dd86d1a6e4a746799c3374a42"},
+    {"file": "ru_000011.mp3", "duration_ms": 633096, "bytes": 10129964, "sha256": "b1aa350f145a96a3f6a03d8dab708bd89d3ebed62c971ed3ec34d24caad69481"},
+    {"file": "ru_000015.mp3", "duration_ms": 550560, "bytes": 8809388, "sha256": "04edb9ff4b5ff67cea9a54c0b7a22ca959db0a6230ce74fd7ad23585e55b0d99"},
+    {"file": "ru_000016.mp3", "duration_ms": 809040, "bytes": 12945068, "sha256": "734e6c14a4c46f41975ef2b35c7538d2efaf3fe57b4b889c6d1b416a0ece4a2f"}
+  ],
+  "total_unique_source_duration_ms": 3941328,
+  "reference_status": "No transcript is supplied by the source; independently transcribe and time-align before WER, cpWER or DER claims. Speaker IDs are the two channel roles only; verify bleed and overlap manually."
+}

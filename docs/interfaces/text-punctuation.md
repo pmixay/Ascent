@@ -76,6 +76,13 @@ OnnxTextModel(File(dir, TextModelFiles.MODEL), TextPunctuator.instructionPrefix(
 - ONNX Runtime needs a file path. Extract the file from the APK to app storage once and verify
   its size and hash before first use.
 
+T2 packaging seam: APK assets use `models/text-model/`, while installed immutable
+revision directory names are versioned. Obtain the actual directory from
+`ModelSelection.acquire(context).textDirectory`, not a hard-coded files-dir path
+or `TextModelFiles.DIRECTORY`. Keep that paired lease through the text stage.
+See [embedded-models.md](embedded-models.md). Packaging does not execute the stage;
+Pasha owns that job integration and Petya owns exact-build ARM validation.
+
 ## Host measurement
 
 Run on the same 4-core x86 container as the ASR baseline, 2 threads, with the 120 development

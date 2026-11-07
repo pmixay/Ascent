@@ -40,8 +40,8 @@ internal data class ModelTransferState(
     val lastCheckedAtMs: Long = 0,
 )
 
-/** A lease protects the selected revision until both inference passes release it. */
-internal class ModelLease(val directory: File, private val release: () -> Unit) : Closeable {
+/** A lease protects the selected acoustic/text pair through every inference stage. */
+internal class ModelLease(val directory: File, val textDirectory: File? = null, private val release: () -> Unit) : Closeable {
     private val closed = AtomicBoolean(false)
     override fun close() { if (closed.compareAndSet(false, true)) release() }
 }
@@ -49,8 +49,10 @@ internal class ModelLease(val directory: File, private val release: () -> Unit) 
 internal object ModelSelection {
     private val lock = Any()
     private val leases = mutableMapOf<String, Int>()
+    internal fun isLeased(directory: File): Boolean = synchronized(lock) { (leases[directory.absolutePath] ?: 0) > 0 }
     fun root(context: Context) = File(context.filesDir, "models").canonicalFile.apply { mkdirs() }
     fun current(context: Context): File? = synchronized(lock) {
+        if (BuildConfig.EMBEDDED_MODELS) return@synchronized EmbeddedModels.current(context)
         try {
             val path = context.getSharedPreferences("ascent", Context.MODE_PRIVATE).getString("modelPath", null)
                 ?: return@synchronized null
@@ -62,26 +64,40 @@ internal object ModelSelection {
     }
     fun acquire(context: Context): ModelLease = synchronized(lock) {
         val file = checkNotNull(current(context)) { "Модели ещё загружаются" }
+        val text = if (BuildConfig.EMBEDDED_MODELS) checkNotNull(EmbeddedModels.textDirectory(file)) {
+            "Встроенная текстовая модель ещё не готова"
+        } else null
         leases[file.absolutePath] = (leases[file.absolutePath] ?: 0) + 1
-        ModelLease(file) { synchronized(lock) {
+        ModelLease(file, text) { synchronized(lock) {
             val count = (leases[file.absolutePath] ?: 1) - 1
             if (count == 0) leases.remove(file.absolutePath) else leases[file.absolutePath] = count
             // Delete only this released revision; a worker may be promoting a new one.
-            if (count == 0 && file != current(context)) file.deleteRecursively()
+            if (count == 0 && file != current(context)) deleteRevision(file)
         } }
     }
-    fun select(context: Context, file: File) = synchronized(lock) {
+    fun select(context: Context, file: File, textDirectory: File? = null) = synchronized(lock) {
         val selected = file.canonicalFile
         check(selected.parentFile == root(context) && selected.name.startsWith("gigaam-"))
         ModelSpec.load(selected)
+        if (textDirectory != null) check(textDirectory.canonicalFile.parentFile == root(context) &&
+            textDirectory.name == "text-${selected.name.removePrefix("gigaam-")}")
         check(context.getSharedPreferences("ascent", Context.MODE_PRIVATE).edit()
-            .putString("modelPath", selected.absolutePath).commit()) { "Не удалось сохранить выбор моделей" }
+            .putString("modelPath", selected.absolutePath).putString("modelTextPath", textDirectory?.absolutePath)
+            .commit()) { "Не удалось сохранить выбор моделей" }
     }
     fun cleanup(context: Context) = synchronized(lock) {
         val selected = current(context)
         root(context).listFiles()?.filter {
             it.name.startsWith("gigaam-") && it != selected && (leases[it.absolutePath] ?: 0) == 0
+        }?.forEach(::deleteRevision)
+        // Interrupted promotion can leave only the text directory; never delete a leased pair.
+        root(context).listFiles()?.filter { it.name.startsWith("text-embedded-") &&
+            !File(root(context), "gigaam-${it.name.removePrefix("text-")}").exists()
         }?.forEach { it.deleteRecursively() }
+    }
+    private fun deleteRevision(file: File) {
+        file.deleteRecursively()
+        if (file.name.startsWith("gigaam-embedded-")) File(file.parentFile, "text-${file.name.removePrefix("gigaam-")}").deleteRecursively()
     }
 }
 
@@ -128,6 +144,7 @@ internal object ModelDownloads {
 
     /** Persisted fallback and daily checks do not attempt to start a service from the background. */
     fun schedule(context: Context) {
+        if (BuildConfig.EMBEDDED_MODELS) { EmbeddedModels.prepare(context); return }
         enqueue(context)
         WorkManager.getInstance(context).enqueueUniquePeriodicWork("ascent-model-updates", ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<ModelUpdateWorker>(24, TimeUnit.HOURS)
@@ -136,6 +153,7 @@ internal object ModelDownloads {
 
     /** Called directly from a visible Activity; foreground ownership outlives its window. */
     fun startFromVisible(context: Context): Boolean {
+        if (BuildConfig.EMBEDDED_MODELS) { EmbeddedModels.prepare(context); return true }
         // REPLACE removes stale retry delays, and cancellation releases the shared transfer lock.
         recovery(context, replace = true, delaySeconds = 60)
         return try {
@@ -151,7 +169,7 @@ internal object ModelDownloads {
         }
     }
 
-    fun enqueue(context: Context) { request(context, ExistingWorkPolicy.KEEP) }
+    fun enqueue(context: Context) { if (!BuildConfig.EMBEDDED_MODELS) request(context, ExistingWorkPolicy.KEEP) }
     fun recovery(context: Context, replace: Boolean = false, delaySeconds: Long = 0) =
         request(context, if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP, delaySeconds)
     fun continueDownload(context: Context, delaySeconds: Long = 0) =
@@ -162,10 +180,18 @@ internal object ModelDownloads {
                 .setInitialDelay(delaySeconds, TimeUnit.SECONDS)
                 .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.SECONDS).build())
 
+    internal suspend fun installEmbedded(context: Context, progress: (Long, Long) -> Unit): EmbeddedInstallation =
+        transferMutex.withLock {
+            val installed = EmbeddedModels.extract(context, progress)
+            ModelSelection.select(context, installed.acoustic, installed.text)
+            installed
+        }
+
     fun cancelRecovery(context: Context) { WorkManager.getInstance(context).cancelUniqueWork(UNIQUE) }
 
     internal suspend fun transfer(context: Context, control: ModelTransferControl,
         onStatus: (String) -> Unit = {}, progress: (ModelDownloadProgress) -> Unit) = transferMutex.withLock {
+        check(!BuildConfig.EMBEDDED_MODELS) { "Обновления отключены в офлайн-сборке" }
         fun status(message: String, phase: String) {
             publish(context, message, phase)
             onStatus(message)
@@ -256,14 +282,15 @@ internal object ModelDownloads {
             values["lastCheckedAtMs"] as? Long ?: 0, values["latestManifestSha256"] as? String)
     }.distinctUntilChanged().flowOn(Dispatchers.IO)
 
-    fun observe(context: Context): Flow<ModelTransferState> = combine(
-        selection(context), persisted(context), transferActive,
-    ) { selected, saved, active -> resolveModelTransfer(selected.directory, saved, active, selected.manifestSha256) }
-        .distinctUntilChanged().flowOn(Dispatchers.IO)
+    fun observe(context: Context): Flow<ModelTransferState> = if (BuildConfig.EMBEDDED_MODELS) EmbeddedModels.states else combine(
+            selection(context), persisted(context), transferActive,
+        ) { selected, saved, active -> resolveModelTransfer(selected.directory, saved, active, selected.manifestSha256) }
+            .distinctUntilChanged().flowOn(Dispatchers.IO)
 }
 
 class ModelUpdateWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
+        if (BuildConfig.EMBEDDED_MODELS) return Result.success()
         ModelDownloads.enqueue(applicationContext)
         return Result.success()
     }
@@ -272,6 +299,7 @@ class ModelUpdateWorker(context: Context, params: WorkerParameters) : CoroutineW
 /** Recovery after reboot/process loss; an active foreground service remains the sole download owner. */
 class ModelDownloadWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
+        if (BuildConfig.EMBEDDED_MODELS) return Result.success()
         if (ModelDownloadService.running.value) {
             withContext(Dispatchers.IO) { ModelDownloads.continueDownload(applicationContext, 60).result.get() }
             return Result.success()

@@ -10,7 +10,33 @@ Make the evaluator's task obvious, reproduce failures independently and deliver 
 
 At fetched `origin/main` `4b16e3a`, participant timeline/result UI and model-status UI already exist. PR #2 supplies frozen RU/English study manifests, normalization/scoring tools, host ASR/timestamp/telephone/English results, model feasibility/description and segmenter/tests. Link/reuse them; do not assign a new corpus selection, host benchmark report or timeline redesign. Remaining UX is picker/job-state/cancel/exact-export wiring; remaining evidence is real final Android/offline operation, missing natural call/meeting references and submission material. Pasha owns app APIs; Andrey owns ML.
 
+Prepared on 7 November 2026: the [three-file offline judge script](../QA_JUDGE_SCRIPT.md), [test evidence register](../TEST_RESULTS.md), [holdout custody protocol](../HOLDOUT_CUSTODY.md), [input/output protocol](../PROTOCOL.md), independent [JSON validator](../../tools/qa/validate_transcript.py) and its CI-ready contract cases. Six AMI English meeting excerpts have supplied but unreviewed human annotations; six DataHive Russian call sources are hash-pinned but have no transcripts. Neither set has app inference or device evidence. [Installation](../INSTALLATION.md), [architecture](../ARCHITECTURE.md), [limitations](../LIMITATIONS.md), and [demo record/storyboard](../../artifacts/demo/README.md) are draft judge-facing material. They need exact final APK, model, CI, device and video evidence before H11/H12 can close.
+
 ## Ownership
+
+### Continued local work — 7 November 2026
+
+The processing path now commits a content-free random operation marker before opening
+the provider and removes it after success, failure or cancellation. On the next
+launch an interrupted job is reported once; saved history remains available
+and the user reselects the source. No source URI, filename, audio or transcript is
+stored in the marker. Focused JVM regression cases are submitted to the existing
+Android CI; process-kill/device acceptance remains unrun.
+
+Recent handoffs on Timofey's `timofey/t2-embedded-bootstrap` assign model-server
+repair and exact-build ARM/offline measurements to Petya. Prioritize authenticated
+publication repair, then ARM/offline/lifecycle evidence and embedded-readiness
+copy. The full Timofey branch through `a989b2e` is now integrated; the combined
+revision requires its own CI result. Pasha's
+`claude/pasha-work-lh3bs1` supplies the job API in `docs/interfaces/app-pipeline.md`;
+UI integration must preserve the existing source-safe import, watch coordination
+and retention behavior. That API is now integrated with the picker/progress/cancel
+UI, retaining watch locks, bounded compressed decoding and repeat-import expiry.
+Offline-oriented status copy now uses the installed Internet permission: a
+network-disabled build shows local readiness and disabled updates without an
+online catalog-check age. The existing compact network behavior is retained.
+The user confirmed they will install and test the phone APK later; no ARM result
+is claimed here. See [the prioritized handoff](PETYA_HANDOFF.md).
 
 Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
 
@@ -21,11 +47,11 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 ## 11:00–11:20 — agree the missing evaluator flow
 
-- [ ] Read audit and supplied JSON/three-file acceptance procedure.
-- [ ] Write a step-by-step script: install → offline first launch → import → process → inspect → export → repeat twice.
+- [x] Read audit and supplied JSON/three-file acceptance procedure.
+- [x] Write a step-by-step script: install → offline first launch → import → process → inspect → export → repeat twice.
 - [ ] Agree commands/state/error categories with Pasha and model-readiness statuses with Timofey.
 - [ ] Identify at least one primary physical ARM64 phone and a second device where available; record Android/RAM/storage.
-- [ ] Create a test-results table with explicit `not run`, `pass`, `fail`, `blocked` states and APK/model identifiers.
+- [x] Create a test-results table with explicit `not run`, `pass`, `fail`, `blocked` states and APK/model identifiers.
 - [ ] Reuse Andrey's pushed protocol/manifests; identify only missing natural call/meeting references and predeclare the small final app subset before its predictions. Do not restart source selection.
 
 **Checkpoint:** the team has a single visible acceptance script and device/test ownership before UI polishing starts.
@@ -141,7 +167,7 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
 
 - From Pasha: commands/state/error contract, source/export semantics and recovery expectations.
 - From Andrey: scoring/annotation protocol and frozen candidate identity.
-- From Timofey: exact CI APK/model hashes, install instructions and device benchmark measurements.
+- From Timofey: exact CI APK/model hashes, install instructions and measurement procedures. You now execute and record the real-device measurements; Timofey reviews provenance.
 - To all: reproducible failures, retest outcomes and final acceptance matrix.
 
 ## Final personal checklist
@@ -152,3 +178,15 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
 - [ ] Negative/lifecycle/repeated-use cases have recorded outcomes.
 - [ ] Holdout results are independent and honestly scoped.
 - [ ] Complete submission and demonstration match the final APK.
+
+### Explicit T2 handoff from Timofey — user-assigned
+
+- [ ] Perform exact-build ARM cold-offline acoustic and text inference; record
+  commit/APK/bundle hashes, OS/ABI/RAM/storage, cold/warm RTF and peak memory.
+  The user will do phone trials later; x86_64 extraction is separate evidence.
+- [ ] Exercise corrupted/missing assets, low storage, kill during extraction and
+  processing, reopen and three consecutive files. Original inputs stay unchanged.
+- [x] Repair authenticated model publication and verify live HTTPS payloads.
+  See [server evidence](PETYA_SERVER_STATUS.md), including successful CI publication.
+- [ ] Validate Russian preparation/readiness/error UI on the exact offline APK.
+  Source now separates local readiness from online checks; phone evidence is open.

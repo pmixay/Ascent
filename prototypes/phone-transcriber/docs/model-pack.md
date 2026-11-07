@@ -15,9 +15,40 @@ installed library versions, and each packaged file's SHA-256. MD5 is the upstrea
 revision check; it is not advertised as a cryptographic signature. The pack's
 hashes detect corruption and do not establish who published a pack.
 
+### T1 secure checkpoint recovery
+
+The CDN certificate expired, blocking run `42257595048`. Model CI now explicitly
+selects `--checkpoint-source huggingface`, the official
+`ai-sage/GigaAM-Multilingual` CTC revision
+`2f8a57144e6ec3adfd32fe0484d9ea9913305bc8`. `checkpoint_source.py` pins the byte
+counts and SHA-256 of both config and weights, rechecks warm caches and atomically
+promotes verified downloads. Redirects must remain HTTPS. No downloaded Python
+code is executed: the four config classes map to the pinned upstream GigaAM
+implementation, and tensor keys only lose the `model.` wrapper prefix before
+strict loading. Frontend, logits, CTC and speaker validation remain required.
+
+The Hugging Face state dictionary is a separately identified source serialization,
+not a byte-identical `.ckpt` mirror. The manifest records its actual source format,
+repository revision, config hash and weight hash; it does not assign the CDN MD5
+to these bytes. `--checkpoint-source upstream` remains available (and is the CLI
+default) for the original loader. Source-level compatibility and retained parity
+checks do not establish equality to the historical deployed ONNX hash. Andrey
+must review the new export evidence before integration; frozen dialogue-model
+hashes and its existing two accepted provenances remain unchanged.
+
+The recovery's export/parity/speaker checks passed at `46f00e9` in
+[run 42367250167](https://github.com/pmixay/Ascent/actions/runs/42367250167)
+and with identity logging at `a83fdff` in
+[run 42369233159](https://github.com/pmixay/Ascent/actions/runs/42369233159).
+The latter's ASR and speaker graph hashes exactly match the historical deployed
+pins. Both workflows failed only at SSH publication because the server host key
+differs from the pinned secret. See [T1 evidence](../../../docs/roles/TIMOFEY_T1_STATUS.md).
+The fixed deployment host has a separate TLS/access blocker; repairing checkpoint
+acquisition alone does not make the catalog reachable.
+
 ## Download in the app
 
-The APK contains no model weights. Opening the visible app starts its catalog
+The compact APK contains no model weights. Opening the visible app starts its catalog
 check and model download in a `dataSync` foreground service from the fixed host at
 `https://ascent.arbuz.lol/models/catalog.json`. An ongoing notification reports
 progress while the service continues after ordinary activity closure. WorkManager
@@ -124,7 +155,10 @@ workflow uses strict host-key checking, writes the private key only to a
 restricted temporary directory, and removes it at step exit. No application
 release tag is created. The deployment archive is internal transport: it is not
 uploaded as a GitHub artifact and users do not import it into the app. Android
-CI publishes only its compact APK ZIP.
+CI preserves its compact APK ZIP and separately checks/publishes the internal
+T2 offline-assets APK. No standalone model archive or evaluation report is an
+Android artifact. See [embedded bootstrap contract](../../../docs/interfaces/embedded-models.md)
+and [T2 evidence](../../../docs/roles/TIMOFEY_T2_STATUS.md).
 
 Model export and executable checks run only in CI under the repository's
 [engineering contract](../../../AGENTS.md). Do not install local export or

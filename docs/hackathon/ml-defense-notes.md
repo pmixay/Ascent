@@ -25,10 +25,11 @@ Everything runs on the phone, offline, one stage after another:
    punctuation and capitals with one forward pass: at each word boundary the model scores
    ", . ? !" against the next word. It can only choose marks and capitals, so it cannot
    change, drop or invent words, speakers or times. It runs on the ONNX Runtime the
-   recognizer already ships, with no extra native library. **Status:** implemented and
-   JVM-tested; packaging into the APK and wiring into the export belong to the application
-   and release roles and were not finished at the time of writing. Say which is true at the
-   defense.
+   recognizer already ships, with no extra native library. **Status:** packaged and integrated
+   in the embedded APK, including raw-word competition JSON export. Pre-gain Android CI
+   [42387321849](https://github.com/pmixay/Ascent/actions/runs/42387321849) passed an actual
+   synthetic text-model call on x86_64. The latest merged candidate is recorded in
+   [PR #4](https://github.com/pmixay/Ascent/pull/4); physical ARM acceptance remains open.
 
 ## Why these choices
 

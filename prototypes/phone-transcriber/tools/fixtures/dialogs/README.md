@@ -4,7 +4,7 @@ The frozen selection contains **1,134 distinct audio payloads** and **7,233.107
 seconds** of source duration according to the publisher's metadata. All payload
 SHA-256 values are unique. It covers three actors and both male/female and
 female/female pairings. The actual resampled PCM duration must still exceed
-7,200 seconds before CI can accept a complete evaluation.
+7,200 seconds before the development evaluator accepts a complete evaluation.
 
 The source is [Dialogs by Ilya Shigabeev and Ilya Latyshev](https://huggingface.co/datasets/langswap/dialogs-ru-emotional-conversations),
 revision `a74ff44d8d27ca3d21098ea3ed4d31a32923fbdd`. The authors describe
@@ -28,8 +28,10 @@ from the publisher's rounded duration was below 0.023 ms. Speaker D contributes
 seconds. Public input files are outside the Git checkout and are not artifacts.
 
 The acquisition checks establish input integrity separately from the measured
-GitHub CI recognition baseline below. No accuracy result is inferred from
-download hashes or header inspection.
+recognition baseline below. No accuracy result is inferred from download hashes
+or header inspection. The baseline was produced by the former CI scoring job;
+those long jobs have since been removed and evaluation now runs on a development
+machine.
 
 ## Selection frozen before inference
 
@@ -73,7 +75,7 @@ A separately selected recording set now exists in
 `masha_sveta_part3`, chosen by a mechanical rule and committed before inference
 on them. Its protocol and measurements are in the
 [ASR, timestamp and speed baseline](../../../docs/asr-baseline.md). It does not
-change the two-hour manifest or the CI scoring inputs above.
+change the two-hour manifest or the development evaluation inputs above.
 
 This split separates source recordings, not all identities: M and D appear in
 both subsets, while S is validation-only. The small number of actors and shared
@@ -122,11 +124,11 @@ showed that this candidate does not solve female/female merging.
 ## Measurement and limitations
 
 The local evaluator downloads and verifies every selected recording and the
-exact production GigaAM/ERes2NetV2 model revision. A dedicated GitHub CI job
-(`dialog-inference`) can create the same cache with `--model-source public-reference`,
-which uses the hash-pinned public GigaAM reference export and the byte-identical
-public ERes2NetV2 file; the scoring job then restores the cache and scores the
-current Android attribution code. The index records which recognizer produced it.
+exact production GigaAM/ERes2NetV2 model revision. Use `--model-source
+public-reference` only when the deployed pack is unreachable; it uses the
+hash-pinned public GigaAM reference export and the byte-identical public
+ERes2NetV2 file. The generated index records which recognizer produced the
+output, and public-reference results are not deployed-pack measurements.
 The evaluator mixes source channels to mono, resamples to
 16 kHz using SciPy's polyphase filter, quantizes to PCM16, and removes at most
 15 resampled tail samples per source to obtain exact millisecond boundaries.
@@ -160,13 +162,10 @@ diversity. Publisher train/validation/test labels do not determine this frozen
 application selection or its development/validation split. Model weights are
 not trained on this selection; upstream training exclusion cannot be established.
 
-The **Score cached two-hour Russian speech evaluation** job scores the inference
-cache that the **Create public two-hour speech inference cache** job creates when
-none exists for the current cache key. Model inference for algorithm improvement
-may also run on the development machine; Android builds and application tests
-remain CI only. In CI, the harness scores the actual application attribution code. For
-local public-corpus inference, use the pinned environment from
-`prototypes/phone-transcriber`:
+The evaluation is a development-machine workflow. Run the inference once, then
+score the completed output against the current application attribution code;
+Android builds and application tests remain CI only. Use the pinned environment
+from `prototypes/phone-transcriber`:
 
 ```sh
 python3 -m pip install -r tests/requirements-dialog-evaluation.txt
@@ -181,23 +180,28 @@ com.pmixay.ascent.TwoHourSpeechEvaluationTest` from `android`, with
 `ASCENT_DIALOG_EVALUATION` set to the absolute path of the generated
 `evaluation.json`. A skipped or missing test is a failed evaluation.
 
+The long inference, scoring and any cache bootstrap do not run in push CI. Keep
+the completed output local and verify it against the current frozen
+source/model/evaluator fingerprint before scoring; do not present a development
+run as CI evidence.
+
 Per-block checkpoints bind the source selection, model revision, dependency
 pins, evaluator code and audio hashes. Valid checkpoints resume inference
 without changing the evaluation denominator. Hash-verified sources and weights
 remain in the local evaluation cache; public recordings, transcripts, vectors
-and reports are not GitHub download artifacts. CI only restores completed
-recognition inputs and fails if that cache is missing. The scorer always runs
-against the current application code. On CI 40391014542 at
-`409bb5f`, the fixed corpus measured 438/15,740 word errors (WER 2.78%),
+and reports are not GitHub download artifacts. The scorer always runs
+against the current application code. Historical CI 40391014542 at
+`409bb5f` measured 438/15,740 word errors (WER 2.78%),
 642/81,890 character errors (CER 0.78%), 1,615/15,740 joint cpWER errors
 (10.26%), 6,502,041/7,232,648 ms strict attribution (89.90%) and
 6,893,230/7,232,648 ms completed attribution (95.31%). Actor completed attribution was 96.27% for D, 94.73% for M and 96.18% for S.
 The original diagnostic recordings measured 93.86% completed attribution and
 13.11% cpWER after spectral partitioning; the set has been inspected and is no
-longer held out. The CI test fails if strict or completed full-corpus attribution
+longer held out. The test fails if strict or completed full-corpus attribution
 is at or below 75%. Console summaries carry the measurements; public recordings,
-transcripts, vectors and reports are not uploaded as download artifacts. Inspect
-the actual CI result before reporting this evaluation as run.
+transcripts, vectors and reports are not uploaded as download artifacts. These
+figures are historical CI results, not a current CI gate; rerun them locally
+before reporting a new measurement.
 
 ## Local model rerun and ASR reproducibility
 

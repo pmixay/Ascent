@@ -47,9 +47,12 @@ class QwenTokenizer private constructor(
     }
 
     companion object {
-        private val SPLIT: Pattern = Pattern.compile(
-            "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+",
-            Pattern.UNICODE_CHARACTER_CLASS,
+        // Unicode White_Space = separator categories plus TAB..CR and NEL.
+        // Android rejects UNICODE_CHARACTER_CLASS. Explicit classes keep Android
+        // and JVM token boundaries identical without that unsupported flag.
+        private const val SPACE = "\\p{Z}\\u0009-\\u000d\\u0085"
+        internal val SPLIT: Pattern = Pattern.compile(
+            "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^$SPACE\\p{L}\\p{N}]+[\\r\\n]*|[$SPACE]*[\\r\\n]+|[$SPACE]+(?![^$SPACE])|[$SPACE]+",
         )
 
         /** GPT-2 byte map: printable bytes keep their code point, the rest move above U+00FF. */

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""CI-only evaluation inputs from >2 h of checksum-pinned Russian acted dialogue.
+"""Development-machine evaluation inputs from >2 h of checksum-pinned Russian acted dialogue.
 
 This command never accepts application audio. It downloads the frozen public
 selection and either the deployed model revision or, with
 ``--model-source public-reference``, the public GigaAM reference export plus the
 byte-identical public speaker model. It runs the app's ASR/context mirrors and
-exports private resources for the actual Kotlin attribution implementation. The
-dedicated CI job uses the public source to create the inference cache. No corpus,
-weights, transcripts, embeddings or reports are APK artifacts.
+exports private resources for the actual Kotlin attribution implementation. Run
+it on a development machine; no push-CI job performs this long inference. No
+corpus, weights, transcripts, embeddings or reports are APK artifacts.
 """
 from __future__ import annotations
 

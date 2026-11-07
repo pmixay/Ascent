@@ -17,11 +17,11 @@ The deployed model pack could not be obtained when this study was run on
   [run 42257595048](https://github.com/pmixay/Ascent/actions/runs/42257595048)
   because the upstream checkpoint host `cdn.chatwm.opensmodel.sberdevices.ru`
   presented an expired TLS certificate. Nothing was published from that run.
-- The scoring job in
+- The former scoring job in
   [run 42257595068](https://github.com/pmixay/Ascent/actions/runs/42257595068)
   stopped at "Require a completed local-improvement inference cache": no
-  inference cache existed for `main`. Local inference cannot create a GitHub
-  Actions cache, so that job will keep failing until its inputs are restored.
+  inference cache existed for `main`. That job was later removed; the two-hour
+  evaluation now runs on a development machine and is not a push-CI gate.
 
 The contract forbids running the exporter locally, so the baseline uses the
 public ONNX conversion
@@ -49,8 +49,8 @@ repository's LFS records and are pinned in `tools/reference_asr.py`.
 - On the development subset, the reference export made 162 word errors against
   160 for the deployed pack in the earlier CI baseline (5,572 reference words).
   That is evidence of a close proxy, not of identity: the two graphs, extractors
-  and runtimes differ, and the CI figure came from earlier CI inference outputs
-  of the deployed pack.
+  and runtimes differ, and the deployed-pack figure came from the former CI
+  scoring job's inference outputs.
 
 Re-run the same protocol with the deployed pack once it is reachable; the
 `evaluate_dialogs.py` path is unchanged.
@@ -270,7 +270,7 @@ hypothesis still needs its own paired development measurement.
    earlier fixed evaluation scored 800 ms replies at 33.33%. Hypothesis: add
    embeddings for word groups split by short internal pauses that may vote but
    never seed, and let the narrowest covering window win. Measuring it needs fresh
-   embedding inference and the CI scorer, whose cache is currently missing.
+   embedding inference and the Kotlin scorer on a development machine.
 2. **Inflection and spelling substitutions (transcription, 40 points).** Close
    forms and other substitutions are 92 of 162 development errors. The text model
    is not allowed to change words, so this needs an acoustic or decoding change.
@@ -313,8 +313,9 @@ No accuracy improvement was found, so none is claimed.
   need device measurement.
 - Speaker attribution was not re-measured. The earlier CI figures (for example
   97.6839% completed clip-time attribution on development) are clip-time
-  attribution, not diarization error rate, and the Kotlin scorer needs a
-  restored inference cache to run.
+  attribution, not diarization error rate. The former CI scorer and its inference
+  cache were removed; rerun the Kotlin scorer on a development machine when a new
+  measurement is needed.
 - Other speech models (for example the Russian-only GigaAM v3 CTC or RNNT
   variants) were not compared. The hackathon plan allows a new model only with a
   new provenance record and fresh inference inputs.

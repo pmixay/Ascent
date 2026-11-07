@@ -20,8 +20,8 @@ honest evidence reporting remain in force. Imported user-owned audio is a source
 to read, not permission for an app recording archive or deletion of the source.
 No additional app-owned audio-persistence exception is introduced by this plan.
 The older watch-first production requirements remain a separate future track.
-The plan is not implementation evidence. Reconcile its identified CI-inference
-policy inconsistency explicitly before changing inference behavior or checks.
+The plan is not implementation evidence. The user resolved the CI-inference
+policy on 7 November: long public-corpus inference and scoring stay off CI.
 
 The user fixed today's deadline at **7 November 2026, 20:00 MSK (UTC+3)**,
 with a nine-hour planning window, **11:00–20:00 MSK**. The delivery plan and
@@ -32,25 +32,56 @@ Petya owns UX/QA/submission. Subtract already pushed work: reuse PR #2's frozen
 study selections, reference ASR/scoring tools, host RU/telephone/English and
 text-model studies, grammar contract and segmenter/tests. Only missing Android
 integration, packaging, device evidence and submission work remain assigned.
-The dedicated public inference/cache job and provenance-aware scorer are also
-already pushed in `6a078e3`; verify their completed run rather than reimplementing
-them, and freeze cache-key inputs by 14:00 for the 150 + 45 minute cold path.
-Pushed host studies and a passing build job do not establish full CI/offline ARM
+The dedicated CI inference/cache and scoring jobs pushed in `6a078e3` were
+removed by user instruction because they made push CI too slow. Keep the existing
+bounded build, lint, unit, APK and emulator checks fast and useful.
+The user's later CI optimization request allows shared Python/JVM tests and lint
+to run once in the compact job. The embedded job retains its independent ARM64
+build, manifest/payload checks and offline instrumentation. Reuse acoustic exports
+only under an exact input/dependency/fixture cache key and always reverify pinned
+payload hashes and successful export provenance before packaging. Exclude the
+two-hour JVM evaluation whenever `CI=true`, even if evaluation inputs are supplied.
+Pushed host studies and a passing build job do not establish full offline ARM
 acceptance. No deadline exception weakens checks, privacy or LLM requirements.
+
+T2 ownership update from the user: Petya owns real Android/ARM device validation
+and the model-server repair (TLS, authenticated SSH host-key verification and
+publication). Timofey owns embedded preparation/bootstrap and CI, Pasha the job/
+text-stage integration, and Andrey model/runtime approval. Record cross-role
+blockers in the corresponding role checklists, never as completed acceptance.
+The existing Android workflow may reuse the unchanged fixed model-export
+validation in its embedded-APK job; this is the same bounded export validation,
+not a new corpus/quality inference job. It may publish a separately named
+`offline-baseline-<8-character commit>` APK artifact in addition to the unchanged
+compact artifact. This internal baseline embeds acoustic and provisional text
+assets; it is not a compliant competition release until actual text-pipeline
+integration and Petya's exact-build ARM/offline evidence are complete.
 
 Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation. Write project documentation in English; the app's user-facing language remains Russian.
 
 ## Review prototype scope
 
-The current user request publishes the phone transcription prototype for review under `prototypes/phone-transcriber/`, with the corrected Ascent name. Stopping listening automatically transcribes a temporary WAV and deletes it after processing or failure; abandoned audio is removed on the next launch after process death. Multiple conversations and confirmed voice templates use encrypted local storage and source-based seven-day retention filtering. There is no Wear OS app. Temporary audio still reaches disk, and expiry cleanup cannot run while the app process is stopped, so this does not establish the production no-persistence or full retention guarantees. Preserve the production requirements below and do not mark their acceptance work complete or extend the prototype exception into production.
+The current user request publishes the phone transcription prototype for review under `prototypes/phone-transcriber/`, with the corrected Ascent name. Stopping listening automatically transcribes a temporary WAV and deletes it after processing or failure; abandoned audio is removed on the next launch after process death. The branch also has source-level import from a user-selected URI through bounded PCM/Android codec readers and a separate jury JSON serializer; device format support and export remain unverified. Multiple conversations and confirmed voice templates use encrypted local storage and source-based seven-day retention filtering. A separate Wear OS 6.0 companion preview now exists in source: it starts watch microphone capture from a visible watch action, sends bounded encrypted frames over bonded Bluetooth to the phone, and displays phone-produced text. Its CI build and paired-device behavior remain unverified until inspected. Temporary phone microphone audio still reaches disk, and expiry cleanup cannot run while the app process is stopped, so this does not establish the production no-persistence or full retention guarantees. Preserve the production requirements below and do not mark their acceptance work complete or extend the prototype exception into production.
 
 The user authorizes downloading at least two hours of labeled public multi-speaker
-speech for evaluation. Licensed public benchmark audio may be cached on the development machine or in GitHub CI;
-never substitute application recordings or upload evaluation files as artifacts.
+speech for evaluation. Licensed public benchmark audio may be cached on the
+development machine, not in push CI; never substitute application recordings or
+upload evaluation files as artifacts.
 Freeze source selection and report unique source duration, annotation quality,
 transcription errors, speaker errors and inferred assignments. Reassembled dialogue
 turns must be identified as constructed sequences, not original continuous recordings.
-Run public-corpus model inference on the development machine for algorithm improvement. As authorized on 7 November 2026, one dedicated GitHub CI job (`dialog-inference` in **Ascent Android CI**) may run the same frozen public-corpus inference, using the hash-pinned public reference models when the deployed pack is unreachable, to create the cache that the scoring job reads; no other CI job runs model inference, and CI never processes application audio or uploads corpus, weights, transcripts, embeddings or reports as artifacts. Keep Android builds and executable application tests in GitHub CI under the build-only rule below. The CI evaluation job scores that completed inference cache. The scoring test accepts exactly two recognizer provenances (deployed pack or public reference export) and reports which one produced the cache; a cache from the public export is not a measurement of the deployed pack.
+Run public-corpus model inference and scoring on the development machine for
+algorithm improvement. Do not run the long Dialogs inference, scoring or a cache
+bootstrap in GitHub CI; the user removed those jobs on 7 November 2026 because
+they made push CI too slow. Preserve the existing narrowly scoped CI validations:
+pinned six-reader regression fixture generation on a fixture-cache miss, and
+numerical/real-speech/speaker smoke and fixed-reader regression checks during
+model export. Those checks are export and regression validation, not permission
+to move the long dialogue study into CI. Keep Android builds and executable
+application tests in GitHub CI under the build-only rule below. Keep the
+development evaluation tooling and opt-in Kotlin scorer, but do not present an
+unrun or locally measured result as CI evidence. CI never processes application
+audio or uploads corpus, weights, transcripts, embeddings or reports as artifacts.
 Use measured development errors to improve the algorithms, then validate the
 selected changes without adjusting them to validation scores. Before baseline
 inference, freeze `masha_dima_part1` as the Dialogs development subset and reserve
@@ -110,7 +141,8 @@ feature, until an inspected CI run or device result says otherwise.
   servers or prepared transcripts, and do not call the application backend or
   OpenRouter from this build. Internet permission stays limited to model catalog
   downloads.
-- **Local LLM.** The brief requires a local LLM. None is selected or implemented. Choose
+- **Local LLM.** The brief requires a local LLM. Provisional text-runtime code and
+  T2 assets do not establish an integrated or ARM-qualified text stage. Select
   it from measured on-device evidence, give it a real task in the processing pipeline,
   and never present a placeholder or remote call as satisfying this requirement.
 - **Languages.** Russian is the first priority and English the second for speech input.
@@ -137,7 +169,7 @@ feature, until an inspected CI run or device result says otherwise.
 - Inspect the repository's actual GitHub workflow files, triggers, commands, and required checks before using CI. Do not invent workflow names or assume a pipeline exists in a supplied document-only workspace.
 - Use the existing workflow. Do not create a replacement, weaken checks, bypass CI, or fall back to a local build unless the user explicitly changes this instruction.
 - Both workflows trigger only on pushes; do not add a separate pull-request or manual-dispatch trigger. Model export filters relevant model/export/server paths.
-- Ascent Android CI publishes only `debug-<8-character commit>.zip`, containing the compact ARM64 `ascent.apk`. Use R8 code/resource optimization and keep model weights outside this compact network APK; the separate verification APK that embeds weights is described in the Hackathon verification section and is not yet published by any workflow. The separately optimized x86_64 emulator variant must pass its checks but is not a download artifact. Keep test and lint diagnostics in the workflow console; do not upload report artifacts. Build dependency caches may reduce repeated work but must preserve verification and required checks.
+- Ascent Android CI preserves `debug-<8-character commit>.zip`, containing the compact ARM64 `ascent.apk`, with no model weights. T2 may additionally publish `offline-baseline-<8-character commit>.zip`, containing the separately checked ARM64 `ascent-offline.apk` with embedded assets; it is an internal baseline, not final local-LLM/device acceptance. Use R8 code/resource optimization in both. The separately optimized x86_64 emulator variants must pass their checks but are not download artifacts. Keep test and lint diagnostics in the workflow console; do not upload report artifacts or standalone weights. Build dependency caches may reduce repeated work but must preserve verification and required checks.
 - Report CI as not run or unverified unless an actual run and its result have been inspected. When available, identify the run and commit. Static review does not establish a successful build or passing tests.
 
 - The app automatically downloads models from `https://ascent.arbuz.lol/models/catalog.json` using a `dataSync` foreground service started while the activity is visible. Keep an ongoing progress notification, preserve transfer ownership when the activity closes, and reconnect promptly through validated-network callbacks and per-request retries. WorkManager remains the fallback for process recovery and approximate daily checks; background jobs must not attempt an unrestricted foreground-service start. Independent gzip chunks represent up to 4 MiB each of expanded data; verify compressed and expanded hashes, resume only verified prefixes, and verify complete files before activation. Check for compatible updates on open and through approximate daily background work. Keep the current revision usable until verification succeeds and protect revisions held by active inference leases. Show model status without install, reinstall, cancel, archive-import or server-selection controls; only the hackathon verification build may add removal of its embedded model. Internet permission for weights does not authorize audio uploads. Model CI may use a private archive solely as authenticated deployment transport.

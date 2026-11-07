@@ -39,7 +39,12 @@ class OnnxTextModel(modelFile: File, prefix: IntArray, threads: Int = 2) : TextM
         setIntraOpNumThreads(threads)
         setInterOpNumThreads(1)
     }
-    private val session: OrtSession = environment.createSession(modelFile.absolutePath, options)
+    private val session: OrtSession = try {
+        environment.createSession(modelFile.absolutePath, options)
+    } catch (error: Throwable) {
+        options.close()
+        throw error
+    }
     private val pastNames: List<String> = session.inputNames.filter { it.startsWith("past_key_values.") }.sorted()
     private val prefixLength = prefix.size
     private lateinit var prefixCache: Map<String, OnnxTensor>

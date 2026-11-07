@@ -14,6 +14,9 @@ interface PcmWindowSource : Closeable {
     val sampleCount: Long
     val durationMs: Long get() = sampleCount * 1000 / SAMPLE_RATE
 
+    /** Short user-facing description of the decoded input format. */
+    val formatDescription: String get() = "Формат не определён"
+
     /** Returns exactly [count] samples starting at sample [start]; both must lie inside the source. */
     fun read(start: Long, count: Int): FloatArray
 
