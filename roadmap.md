@@ -65,9 +65,22 @@ baseline/candidate results separately for development and validation.
 Its original-order, constructed sequences of acted studio dialogue do not
 establish natural-conversation DER, overlap separation or phone performance.
 The inspected development baseline is 2.8715% WER, 0.8730% CER, 4.9892% cpWER
-and 97.6839% completed clip-time attribution (not DER). Candidate comparisons
-remain pending and validation results remain reserved; see the
+and 97.6839% completed clip-time attribution (not DER). The original reserved
+recordings have since been inspected and are diagnostic data; see the
 [selection, baseline and limitations](prototypes/phone-transcriber/tools/fixtures/dialogs/README.md).
+
+The original reserved recordings were later inspected, so the
+[ASR, timestamp and speed study](prototypes/phone-transcriber/docs/asr-baseline.md)
+validates on `masha_dima_part3` and `masha_sveta_part3`, frozen by a mechanical
+rule before inference. It uses a public reference export of the model family
+(the deployed pack was unreachable), so it neither verifies the deployed pack nor
+completes any Milestone 2 acceptance criterion. Its one frozen timing candidate
+failed validation and was rejected; int8 weights matched float32 accuracy, with
+phone speed unmeasured. Diarization was not re-measured. Telephone-channel and
+English smoke slices are reported separately, and the
+[text-model feasibility study](prototypes/phone-transcriber/docs/text-model-feasibility.md)
+proposes a constrained punctuation model for the hackathon build; neither
+completes a hackathon or production task.
 
 - [x] Support Android 12 and later with `minSdk 31`; choose distribution `targetSdk` separately against release-time requirements.
 - [x] Support Wear OS 6.0, with the watch as primary microphone and continuous background capture in the first vertical slice.

@@ -68,6 +68,13 @@ use a separately selected recording set and clearly state its limitations. Keep
 the existing six-reader regressions independent with unchanged acceptance
 thresholds.
 
+A separately selected recording set now exists in
+[study_selection.json](study_selection.json): `masha_dima_part3` and
+`masha_sveta_part3`, chosen by a mechanical rule and committed before inference
+on them. Its protocol and measurements are in the
+[ASR, timestamp and speed baseline](../../../docs/asr-baseline.md). It does not
+change the two-hour manifest or the CI scoring inputs above.
+
 This split separates source recordings, not all identities: M and D appear in
 both subsets, while S is validation-only. The small number of actors and shared
 identities limit claims about generalization to unseen people. Upstream model

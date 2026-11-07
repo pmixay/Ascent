@@ -6,6 +6,32 @@ Maximize measured Russian transcription, speaker and timestamp quality while kee
 
 All tasks are pending. Relative schedule: 5–7 focused working days, revised after baseline measurements. Application builds/tests/lint use GitHub CI. Only approved public-corpus development inference may run locally under `AGENTS.md`; actual judge inputs are processed on Android.
 
+## Status — 7 November 2026
+
+Evidence so far; checklist boxes below stay unchecked until the acceptance they
+describe is met.
+
+- **P1 baseline:** [ASR, timestamp and speed baseline](../../prototypes/phone-transcriber/docs/asr-baseline.md)
+  with frozen development and fresh validation recordings, telephone-channel and
+  English smoke slices, error inventory and three ranked hypotheses. It used a
+  public reference export because the deployed pack was unreachable, ran on an
+  x86 container, and did not re-measure diarization, cpWER or speaker counts: the
+  CI scorer's inference cache is missing (needs Timofey).
+- **P2 local text model:** host feasibility study and edit contract in
+  [text-model feasibility](../../prototypes/phone-transcriber/docs/text-model-feasibility.md).
+  No model is integrated, packaged or measured on ARM.
+- **P3 diarization:** no candidate measured; the short-reply hypothesis is blocked
+  on the same cache.
+- **P4 timestamps:** frame-to-time mapping audited (no offset bug found); a
+  constant start shift failed validation and was rejected. Manually checked
+  boundaries in continuous recordings are still needed.
+- **Code:** `TranscriptSegmenter` replaces inline phrase grouping and splits runs
+  over 20 s at their longest pause. In CI run 42353343464 for commit `cb1f4b6`, the
+  job "Build and validate Android app" passed (Python and Kotlin unit tests, lint,
+  APK build, emulator runtime check). The run's overall conclusion is failure,
+  because "Score cached two-hour Russian speech evaluation" stops at its missing
+  inference cache, as it does on `main`.
+
 ## Ownership
 
 Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
