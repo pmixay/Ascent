@@ -3,15 +3,17 @@
 Speech lead's report for the hackathon verification build, 7 November 2026. It separates
 four kinds of evidence: an inspected GitHub CI run, host measurements on a development
 container, decisions without measurements, and Android device results. **No Android
-device or ARM measurement exists yet**; the last section is the table to fill.
+device measurement exists yet**; ARM is covered only by a software-emulation worst case.
+The last section is the table to fill.
 
 ## Pipeline
 
 All stages run on the phone, one after another, so only one model family is loaded at a time.
 
 1. **Recognition.** GigaAM CTC over 20 s windows with 1.25 s of context on each side and a
-   quiet-seam search (`AsrChunking`), greedy CTC decoding into timed words (`CtcDecoder`),
-   stitched across windows (`CtcChunkStitcher`).
+   quiet-seam search (`AsrChunking`), per-window level normalization of the recognizer
+   input (`AsrGain`: peak to -1 dBFS, at most +30 dB), greedy CTC decoding into timed words
+   (`CtcDecoder`), stitched across windows (`CtcChunkStitcher`).
 2. **Speakers.** ERes2NetV2 embeddings over short windows around recognized speech, stable
    seeds, agglomerative clustering and completion so that every word carries a label;
    assignments without enough evidence are marked inferred internally (`Speaker*.kt`).
@@ -34,7 +36,18 @@ own isolated ONNX Runtime 1.28.2 (speaker embeddings). No weights were trained o
 and no benchmark actor was enrolled into voice memory. The text model is provisional until
 the team's independent model comparison.
 
-## CI evidence: two hours of Russian dialogue
+The application branch packages and integrates both model groups. Pre-gain
+[Android CI 42387321849](https://github.com/pmixay/Ascent/actions/runs/42387321849)
+at `32e3bc8` passed compact and embedded checks, including a synthetic invocation
+of the bundled text stage on x86_64. The latest candidate after merging `AsrGain`
+and its APK identities/checks are recorded in
+[PR #4](https://github.com/pmixay/Ascent/pull/4). This is integration evidence;
+the physical ARM quality/performance table below remains open.
+
+## Historical CI evidence: two hours of Russian dialogue
+
+These are retained historical measurements. The user removed long inference and
+scoring from push CI; `CI=true` also excludes the opt-in two-hour JVM scorer.
 
 [CI run 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969), commit
 `6a078e3`, job *Score cached two-hour Russian speech evaluation*. The same job also passed from the
@@ -87,6 +100,57 @@ same public reference export. RTF excludes file decoding and model loading. Sour
 The energy proxy is a labelled stand-in, not human annotation. English output is lowercase
 with numbers spelled out; read audiobook speech is easier than conversation.
 
+## English conversation and recognizer level (host)
+
+Same container and runtime, 2 threads unless stated. Utterances of the AMI meeting corpus
+(`edinburghcstr/ami` `46f28f25`, CC-BY-4.0), frozen in `tools/fixtures/ami_english.json`
+before inference and run with `tools/ami_english_study.py`: development meeting ES2011a
+(IHM headsets, 364 utterances, 954 s) chose the level rule; test meeting EN2002a (1,367
+utterances, 2,634 s, 8,015 reference words, 4 speakers) was then measured once per
+configuration on the IHM headset channel (call-like) and the single distant microphone
+(SDM, meeting-like). Each utterance is recognized on its own, so this is recognition only.
+
+| EN2002a WER | IHM | SDM | RTF |
+| --- | --- | --- | --- |
+| GigaAM Multilingual 220M (current), float32 | 60.36% (4,838) | 83.91% (6,725) | 0.122 |
+| same, with `AsrGain` | 54.65% (4,380) | 74.96% (6,008) | 0.121 |
+| GigaAM Multilingual Large 600M, public int8 | 56.66% (4,541) | 71.28% (5,713) | 0.27 * |
+| same, with `AsrGain` | 52.80% (4,232) | 65.39% (5,241) | 0.30 * |
+
+\* two runs shared the 4 cores; not a clean speed measurement. AMI RTF is higher than the
+Dialogs figure (0.069) because every short utterance is padded and run as its own window.
+
+Conversational English is much harder than the read LibriSpeech smoke (6.73%). AMI audio is
+quiet (median utterance RMS about -43 dBFS); without the level rule 277 of 1,367 IHM
+hypotheses were empty (mostly short backchannels) and 524 contained Cyrillic letters: the
+multilingual character decoder drifts into Russian spelling on accented English. On the
+development meeting the peak rule lowered WER from 42.67% to 38.67% and an RMS rule (-23 dBFS)
+to 39.06%; the peak rule was frozen before the test meeting was run.
+
+Russian check of the frozen rule, applied per recognizer window exactly as `AsrGain` does
+(`tools/asr_study.py infer --asr-gain peak`), and of the large model:
+
+| Russian Dialogs WER | Development (5,572 words) | Validation (10,053 words) |
+| --- | --- | --- |
+| Current, float32 | 2.9074% (162) | 4.2972% (432) |
+| Current with `AsrGain` | 2.8715% (160) | 4.3271% (435) |
+| Large, public int8 | 2.3510% (131) | 3.2030% (322) |
+
+The level rule is neutral on Russian (Dialogs clips already peak near -10 dBFS) and helps
+quiet English input, so the app applies it. The large model is better on both languages but
+about three times slower (RTF 0.114 at 4 threads on validation, against 0.07-0.09 for the
+current model at 2 threads); it is not packaged, its public int8 export is not the deployed
+pack, and switching is a team model decision. The historical CI Dialogs scores measured
+recognition without `AsrGain`; that CI job is now removed. The host table above is the
+evidence for the rule's effect, and the current bounded CI does not rescore the corpus.
+
+**Fine-tuned GigaAM models.** A search of Hugging Face (7 November 2026) for models derived
+from `ai-sage/GigaAM-Multilingual` or `ai-sage/GigaAM-v3` found no usable English
+fine-tune. `nur-dev/asr-220m-kk-ru-en` (Kazakh/Russian/English) is gated with manual approval
+under a non-commercial licence and publishes no English figures; the others are Kazakh,
+Uzbek or Bashkir fine-tunes, Russian-only GigaAM-v3 derivatives, or format conversions
+without retraining. GigaAM Multilingual Large is the only stronger model of the same family.
+
 ## Worst case: software ARM emulation on an x86 host
 
 A lower bound on speed if the jury's ARM emulator runs on an x86 host with pure
@@ -124,11 +188,14 @@ therefore a risk, unobserved on real hardware.
   audio and background talk are not represented. Natural-conversation DER is not reported.
 - **Short replies and similar voices** are the known weak point of attribution; tuning is
   deferred after the deadline.
+- **`AsrGain` is host-evidence only.** The CI two-hour Dialogs scores above were produced
+  without it, and its effect on the device is unmeasured.
 - **Timestamps** are CTC-derived and approximate; no human-checked boundaries exist yet.
 - **Text model** improves presentation only. If the jury does not normalize text before
   WER, punctuation could add word errors; the integration contract recommends exporting the
   raw ASR text.
-- **English** is a smoke test of read speech only.
+- **English** conversation is weak: 54.65% WER on AMI headsets and 74.96% on a distant
+  microphone with the current model, and English diarization is unmeasured.
 
 ## Device measurements (to fill)
 

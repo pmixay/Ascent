@@ -211,6 +211,26 @@ def energy_bounds(clip, np, margins=(25, 30, 35)):
 PREPROCESSORS = {"none": lambda samples, np: samples}
 
 
+def peak_gain(samples, np):
+    """Mirror of the app's AsrGain: peak to -1 dBFS, at most +30 dB, back on the 16-bit grid."""
+    top = float(np.abs(samples).max()) if samples.size else 0.0
+    if not np.isfinite(top) or top <= 0.0:
+        return samples
+    gain = min(10 ** (-1 / 20) / top, 10 ** (30 / 20))
+    return (np.clip(np.rint(samples * gain * 32768.0), -32768, 32767) / 32768.0).astype(np.float32)
+
+
+class WindowGainSession:
+    """Applies ``peak_gain`` to each recognizer window, as TranscriptionEngine does before GigaAM."""
+
+    def __init__(self, inner, np):
+        self.inner, self.np = inner, np
+
+    def run(self, outputs, feeds):
+        audio = feeds["audio"]
+        return self.inner.run(outputs, dict(feeds, audio=peak_gain(audio[0], self.np)[None]))
+
+
 def telephone_channel(samples, np):
     """Narrowband call simulation: 8 kHz, 300 Hz high-pass, 8-bit mu-law (G.711-like), back to 16 kHz.
 
@@ -358,6 +378,8 @@ def infer(args):
     tokens = load_tokens(model_dir / "multilingual_vocab.txt")
     model_file = VARIANTS[args.variant]
     inner = ReferenceSession(model_dir / model_file, args.threads, ort, np)
+    if args.asr_gain == "peak":
+        inner = WindowGainSession(inner, np)
     session = TimedSession(inner)
     environment = environment_fingerprint(ort, np, args.threads)
     fingerprint = code_fingerprint(study)
@@ -376,6 +398,7 @@ def infer(args):
                 if existing.get("checkpoint_sha256") == checkpoint_digest(existing) and existing.get("code_fingerprint") == fingerprint \
                         and existing.get("threads") == args.threads and existing.get("condition") == args.condition \
                         and existing.get("preprocess") == args.preprocess \
+                        and existing.get("asr_gain", "none") == args.asr_gain \
                         and existing.get("reference_model", {}).get("variant") == args.variant \
                         and existing.get("environment") == environment:
                     continue
@@ -397,7 +420,8 @@ def infer(args):
         words, windows = recognize(session, audio, tokens, block_id, np)
         elapsed = time.perf_counter() - started
         record = {"schema_version": 1, "kind": "asr-study-block", "id": block_id, "role": args.role,
-                  "condition": args.condition, "preprocess": args.preprocess, "threads": args.threads,
+                  "condition": args.condition, "preprocess": args.preprocess, "asr_gain": args.asr_gain,
+                  "threads": args.threads,
                   "reference_model": {"repository": REFERENCE["repository"], "revision": REFERENCE["revision"],
                                       "variant": args.variant, "onnx_sha256": REFERENCE["files"][model_file]["sha256"]},
                   "environment": environment, "code_fingerprint": fingerprint,
@@ -479,6 +503,8 @@ def main():
     cmd.add_argument("--condition", default="clean", choices=["clean", "gain035", "noise20db", "channel", "telephone"])
     cmd.add_argument("--variant", default="float32", choices=sorted(VARIANTS))
     cmd.add_argument("--preprocess", default="none", choices=sorted(PREPROCESSORS))
+    cmd.add_argument("--asr-gain", default="none", choices=["none", "peak"],
+                     help="per-window recognizer level normalization (the app's AsrGain)")
     cmd.add_argument("--max-blocks", type=int, default=0)
     cmd.add_argument("--force", action="store_true")
     cmd.set_defaults(run=infer)

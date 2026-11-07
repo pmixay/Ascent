@@ -6,41 +6,43 @@ Maximize measured Russian transcription, speaker and timestamp quality while kee
 
 **Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Personal handoff/sign-off: 19:30; 19:30–20:00 is shared submission reserve.** This replaces all former working-day estimates. Only the remaining work below is assigned; pushed studies are not to be repeated. Application builds/tests/lint use existing GitHub CI; no local Android build/toolchain. Approved public-corpus host inference remains distinct from actual judge processing on Android.
 
-## Status — 7 November 2026
+## Status — 7 November 2026, main integration
 
-Already pushed in PR #2 (`e1a27f7`) and present in fetched `origin/main`
-`4b16e3a`; excluded from today's implementation workload. Android acceptance
-remains separate from these host/code outputs.
+Main through `6b02188` is integrated with the application branch. Host studies,
+historical CI and Android emulator checks are separate evidence; no physical
+ARM Android result exists. The latest merged candidate and artifact identities
+are recorded in [PR #4](https://github.com/pmixay/Ascent/pull/4).
 
-- **P1 baseline:** [ASR, timestamp and speed baseline](../../prototypes/phone-transcriber/docs/asr-baseline.md)
-  with frozen development and fresh validation recordings, telephone-channel and
-  English smoke slices, error inventory and three ranked hypotheses. It used a
-  public reference export because the deployed pack was unreachable, ran on an
-  x86 container, and did not re-measure diarization, cpWER or speaker counts. The
-  former CI scorer's inference cache no longer exists as a gate; rerun the
-  evaluation on a development machine when those measurements are needed.
-- **P2 local text model:** host feasibility study and edit contract in
-  [text-model feasibility](../../prototypes/phone-transcriber/docs/text-model-feasibility.md).
-  **Provisional choice at 14:30 (final after the team's model comparison):** Qwen2.5 0.5B int8 ONNX, single word-preserving pass on the existing
-  ONNX Runtime, with Kotlin stage, tokenizer and JVM tests pushed; see
-  [text-punctuation.md](../interfaces/text-punctuation.md). The merged source now packages and integrates the paired text stage;
-  combined CI and actual ARM measurements remain open.
-- **Report:** [model-report.md](../hackathon/model-report.md) holds models, licences, the
-  inspected historical CI two-hour scores and host results; its device table is still empty.
-- **P3 diarization:** no candidate measured; the short-reply hypothesis still
-  needs development-machine evaluation.
-- **CI change (`6a078e3`):** the user removed the dedicated public inference and
-  scoring jobs because they made push CI too slow. The development tooling and
-  opt-in scorer remain; do not restore long inference or a cache bootstrap to CI.
-  Public-reference scores do not measure the deployed pack.
-- **P4 timestamps:** frame-to-time mapping audited (no offset bug found); a
-  constant start shift failed validation and was rejected. Manually checked
-  boundaries in continuous recordings are still needed.
-- **Code:** `TranscriptSegmenter` replaces inline phrase grouping and splits runs
-  over 20 s at their longest pause. Historical inspected [CI run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042)
-  at `4b16e3a` has a successful build/validation job, but the overall run failed
-  because the since-removed two-hour scorer lacked matching inference inputs.
-  Do not rewrite the segmenter or treat that historical failure as a current gate.
+- **CI:** pre-gain integration [run 42387321849](https://github.com/pmixay/Ascent/actions/runs/42387321849)
+  at `32e3bc8` passed compact and embedded jobs, all 25 required compact runtime
+  cases, and offline extraction/recovery with one actual synthetic text-model call.
+  The merged `AsrGain` revision needs its own inspected CI result. The two-hour
+  scores in the report are historical; the user removed long inference/scoring
+  jobs from push CI, and `CI=true` explicitly excludes the opt-in JVM scorer.
+- **Report:** [model-report.md](../hackathon/model-report.md) preserves model
+  licences/hashes, historical two-hour Dialogs scores, host Russian/telephone/
+  noise/English results, AMI English conversation, the larger GigaAM comparison,
+  fine-tune search and software-ARM-emulation worst case. Its device table is empty.
+- **Recognizer level (`AsrGain`):** per-window peak normalization, chosen on AMI
+  ES2011a and measured once on EN2002a (headset WER 60.36% -> 54.65%, distant
+  microphone 83.91% -> 74.96%); Russian Dialogs within noise. The merged engine
+  applies it only to recognizer input, preserving original source reads for speaker
+  embeddings and timing. Its quality and performance remain unmeasured on a device.
+- **Local text model:** provisional Qwen2.5 0.5B int8 ONNX word-preserving
+  punctuation, see [text-punctuation.md](../interfaces/text-punctuation.md).
+  The embedded APK packages both model groups and the pipeline uses one paired
+  lease; competition JSON preserves recognized words. Synthetic x86_64 runtime
+  evidence exists as linked above. Qwen3.5 0.8B was measured and not chosen;
+  final approval still needs the team's comparison and exact-build ARM evidence.
+- **Acoustic model decision open:** GigaAM Multilingual Large is better on Russian
+  (validation 3.20% vs 4.30%) and English but about three times slower and not packaged.
+- **Device scoring tool:** `tools/score_competition_json.py` is ready for exported
+  JSON and hand-made references.
+- **Earlier work kept:** [P1 baseline](../../prototypes/phone-transcriber/docs/asr-baseline.md),
+  [text feasibility](../../prototypes/phone-transcriber/docs/text-model-feasibility.md),
+  rejected constant start shift, segmenter and bounded `PcmWindowSource` seam.
+  Public-reference scores do not measure the deployed pack. Short-reply
+  diarization and manually checked natural-recording boundaries remain open.
 
 ## Ownership
 
@@ -78,18 +80,27 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
   [text-punctuation.md](../interfaces/text-punctuation.md), using Petya's exact
   APK real-ARM execution/time/memory evidence. Hand Timofey any changed immutable
   asset/runtime contract; host scores and bundled bytes alone are not acceptance.
-- [ ] Review Pasha's actual text-stage integration, lexical/ID/time preservation,
-  raw/presentation export choice and real success/fallback counters. Packaging
-  leaves this meaningful-pipeline requirement open until implemented and tested.
+- [ ] Review the integrated text stage's lexical/ID/time preservation, raw versus
+  presentation export and real success/fallback counters on ARM. The synthetic
+  x86_64 invocation verifies integration without replacing that device review.
 
 #### Existing acceptance floor
 
-- [ ] Bounded source seam preserves original-media offsets, words and existing segmenter behavior.
-- [ ] Pushed grammar and independent validator actually run with the bundled text model on ARM; lexical content, numbers, negation, IDs and times stay unchanged. Record successful operation, fallbacks and incremental time.
-- [ ] Existing stricter regressions remain passing on compatible inputs; missing development evaluation inputs stay a local blocker, not a waived check or a restored CI job.
-- [ ] Missing Android RU call/meeting, short-reply/speaker and English smoke measurements have denominators and build/model/device identifiers. Do not repeat the already published host baseline/error inventory.
-- [ ] Checked natural-recording boundaries report start/end errors, matched/unmatched counts and annotation uncertainty; do not call the existing energy proxy human ground truth.
-- [ ] Final report and model/license review reach Petya by 19:00; personal sign-off by 19:30. Unmeasured conditions are explicitly open.
+- [x] Bounded source seam implemented with historical evidence (`9127e20`, CI run
+  42366154116). Its import consumers and the gain change also need the merged
+  revision's checks recorded in PR #4.
+- [ ] Bundled text model runs on ARM inside the complete import/export pipeline,
+  with lexical checks, preserved IDs/times, fallbacks and incremental time recorded.
+  Packaging/integration is present; exact-build ARM evidence remains open.
+- [ ] Current merged candidate passes existing bounded regressions. Historical
+  cached two-hour scores remain in the report; do not restore their CI job or
+  present them as a measurement of `AsrGain`.
+- [ ] Android RU call/meeting, short-reply/speaker and English measurements include
+  denominators and build/model/device identifiers. Host AMI English is separate.
+- [ ] Checked natural-recording boundaries report start/end errors, matched and
+  unmatched counts and annotation uncertainty. No hand-annotated recordings yet.
+- [x] Model/licence report and [ML defense notes](../hackathon/ml-defense-notes.md)
+  are published. Unmeasured conditions remain explicit; device sign-off is open.
 
 ## Deferred beyond 20:00 — not assigned today
 
