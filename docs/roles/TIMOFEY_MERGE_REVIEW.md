@@ -54,6 +54,16 @@ Earlier passing emulator **jobs** remain historical job results; exact execution
 of the intended methods requires the strengthened checks on this merged revision.
 No observed runtime failure is invented from this static finding.
 
+The exact merge `eadcd19` was inspected in run
+[42376420459](https://github.com/pmixay/Ascent/actions/runs/42376420459).
+Inference and scoring passed; both emulator jobs failed the new XML gate because
+none of the required original test identities appeared. Gradle itself returned
+success. This is missing execution evidence, not a demonstrated app crash.
+The follow-up retains the gate, adds content-free report/discovery diagnostics
+and test-APK-only R8 rules preserving reflective JUnit/AndroidX Test entry points.
+Application R8 optimization remains enabled and unchanged. The follow-up needs
+its own full CI before promotion.
+
 ## Can it merge?
 
 **Pending exact merged-revision CI.** Static review and conflict resolution alone

@@ -15,8 +15,11 @@ def verify(root: Path, required: list[str]) -> int:
         raise ValueError("At least one required instrumentation case must be declared")
     found = set()
     executed = set()
-    for path in sorted(root.rglob("*.xml")):
+    reports = sorted(root.rglob("*.xml"))
+    print(f"Instrumentation result root: {root}; XML reports: {len(reports)}", flush=True)
+    for path in reports:
         document = ET.parse(path)
+        print(f"Instrumentation report: {path.relative_to(root)}", flush=True)
         for case in document.iter("testcase"):
             key = f"{case.get('classname', '')}#{case.get('name', '')}"
             found.add(key)
@@ -27,6 +30,8 @@ def verify(root: Path, required: list[str]) -> int:
     missing = set(required) - executed
     if missing:
         skipped = missing & found
+        # Infrastructure-only identities; never dump captured stdout or app content.
+        print(f"Discovered instrumentation cases: {sorted(found)}", flush=True)
         raise ValueError(f"Required instrumentation cases did not execute successfully: {sorted(missing)}; skipped={sorted(skipped)}")
     print(f"Verified instrumentation XML: {len(executed)} distinct executed cases; {len(required)} required cases passed without skips.")
     return len(executed)

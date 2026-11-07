@@ -32,6 +32,9 @@ android {
         versionCode = 1
         versionName = "0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // JUnit discovers these entry points reflectively in the optimized test APK.
+        // Test-only rules do not change shrinking/optimization of the application APK.
+        testProguardFiles("instrumentation-rules.pro")
         if (embeddedModels) {
             applicationIdSuffix = ".offline"
             versionNameSuffix = "-offline-baseline"
