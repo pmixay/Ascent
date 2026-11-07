@@ -48,7 +48,7 @@ acquisition alone does not make the catalog reachable.
 
 ## Download in the app
 
-The APK contains no model weights. Opening the visible app starts its catalog
+The compact APK contains no model weights. Opening the visible app starts its catalog
 check and model download in a `dataSync` foreground service from the fixed host at
 `https://ascent.arbuz.lol/models/catalog.json`. An ongoing notification reports
 progress while the service continues after ordinary activity closure. WorkManager
@@ -155,7 +155,10 @@ workflow uses strict host-key checking, writes the private key only to a
 restricted temporary directory, and removes it at step exit. No application
 release tag is created. The deployment archive is internal transport: it is not
 uploaded as a GitHub artifact and users do not import it into the app. Android
-CI publishes only its compact APK ZIP.
+CI preserves its compact APK ZIP and separately checks/publishes the internal
+T2 offline-assets APK. No standalone model archive or evaluation report is an
+Android artifact. See [embedded bootstrap contract](../../../docs/interfaces/embedded-models.md)
+and [T2 evidence](../../../docs/roles/TIMOFEY_T2_STATUS.md).
 
 Model export and executable checks run only in CI under the repository's
 [engineering contract](../../../AGENTS.md). Do not install local export or

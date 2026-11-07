@@ -56,7 +56,8 @@ are disabled in the offline build for deterministic evaluation.
 - The new x86_64 instrumentation check disables Wi-Fi/data, extracts actual APK
   assets and acquires both model groups. It does **not** run speech/text inference
   or establish ARM memory, speed, codec or competition acceptance.
-- CI results and APK/bundle hashes: **pending**. Local work is editing/static
+- Final-revision CI and identities remain **pending**; the first complete baseline
+  and its exact identities are recorded below. Local work is editing/static
   inspection only, no Android build/toolchain/tests/model export/inference.
 
 ### Initial inspected CI iteration
@@ -73,6 +74,30 @@ in `java.security.MessageDigest`. Explicit import fixed it in `5f11823`;
 the failure was not skipped or converted to success. Later recovery/permission
 tests need their own exact-commit run. No APK acceptance is inferred from this
 initial failed iteration.
+
+### First complete offline baseline — 5f11823
+
+[Run 42372944155](https://github.com/pmixay/Ascent/actions/runs/42372944155),
+`5f11823791983612b0d5acd7807cf0f80331b124`: **all four jobs passed** — compact
+build/native checks, embedded baseline, inference-cache guards and required
+two-hour scoring. Embedded job `128404618780` reused real export validation,
+verified every APK payload and completed x86_64 first-launch asset extraction with
+Wi-Fi/mobile data disabled. This does not measure ARM inference or execute the
+application's text stage.
+
+| Identity | Value |
+| --- | --- |
+| APK bytes | 1,495,589,086 (not installed size) |
+| APK SHA-256 | `d0b939e1894c95e16ce5e9e6deb73b6a3d743f658295e5b2524c82d7ead02511` |
+| Bundle SHA-256 | `d27d4bf4062761164eb8a18f0c68f4da1e6fcd688660a4c5e4e17f1c0fe4ed94` |
+| Expanded payload bytes | 1,476,434,947 |
+| Internal artifact | [offline-baseline-5f118237](https://github.com/pmixay/Ascent/actions/runs/42372944155/artifacts/13574414548) |
+
+The artifact's 14-day retention is for team handoff only, not durable submission
+publication. Final code `43c83cd` adds offline-only network-permission removal,
+real-asset corruption/paired-lease recovery and interrupted-promotion regression
+checks; its own complete CI result is pending. An earlier APK does not certify
+those subsequent changes.
 
 ## Assigned cross-role blockers — kept open
 

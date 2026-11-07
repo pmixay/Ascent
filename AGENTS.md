@@ -123,7 +123,8 @@ feature, until an inspected CI run or device result says otherwise.
   servers or prepared transcripts, and do not call the application backend or
   OpenRouter from this build. Internet permission stays limited to model catalog
   downloads.
-- **Local LLM.** The brief requires a local LLM. None is selected or implemented. Choose
+- **Local LLM.** The brief requires a local LLM. Provisional text-runtime code and
+  T2 assets do not establish an integrated or ARM-qualified text stage. Select
   it from measured on-device evidence, give it a real task in the processing pipeline,
   and never present a placeholder or remote call as satisfying this requirement.
 - **Languages.** Russian is the first priority and English the second for speech input.

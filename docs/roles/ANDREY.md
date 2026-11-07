@@ -18,14 +18,19 @@ remains separate from these host/code outputs.
   public reference export because the deployed pack was unreachable, ran on an
   x86 container, and did not re-measure diarization, cpWER or speaker counts: the
   CI scorer's inference cache is missing (needs Timofey).
+  **T1 update:** the cold inference/cache/scoring path is now verified on main
+  and the task branch; see [T1 evidence](TIMOFEY_T1_STATUS.md). Do not recreate it.
 - **P2 local text model:** host feasibility study and edit contract in
   [text-model feasibility](../../prototypes/phone-transcriber/docs/text-model-feasibility.md).
   **Provisional choice at 14:30 (final after the team's model comparison):** Qwen2.5 0.5B int8 ONNX, single word-preserving pass on the existing
   ONNX Runtime, with Kotlin stage, tokenizer and JVM tests pushed; see
-  [text-punctuation.md](../interfaces/text-punctuation.md). Not yet packaged, integrated or
-  measured on ARM; CI has not yet run the new tests.
+  [text-punctuation.md](../interfaces/text-punctuation.md). T2's first internal
+  baseline now packages these assets and passes CI; actual application-stage
+  integration and ARM measurement remain open. See [T2 evidence](TIMOFEY_T2_STATUS.md).
 - **P3 diarization:** no candidate measured; the short-reply hypothesis is blocked
   on the same cache.
+  That historical cache blocker is now resolved by T1; it is not an assignment
+  to start new tuning today. Keep the acoustic configuration/gates frozen.
 - **CI bootstrap update (`6a078e3`):** dedicated public inference/cache generation and a two-provenance scorer are now pushed. Their first inspected run was in progress, not accepted. Help Timofey verify results/provenance instead of implementing bootstrap again; public-reference scores do not measure the deployed pack.
 - **P4 timestamps:** frame-to-time mapping audited (no offset bug found); a
   constant start shift failed validation and was rejected. Manually checked

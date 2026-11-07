@@ -127,6 +127,10 @@ Final application code handoff/push is **17:00**. After that only a release-bloc
 These cross-role prerequisites are not implemented by Timofey's T2 packaging.
 Petya now owns real-device verification and server repair; no task is waived.
 Callable details: [embedded-models.md](../interfaces/embedded-models.md).
+The first packaged baseline and its run/APK identities are available in
+[T2 status](TIMOFEY_T2_STATUS.md); do not wait for another host/model search or
+reimplement the installer. Use the implementation branch and the final tested
+revision identified there for integration.
 
 | Need | From | Deliver to others |
 | --- | --- | --- |

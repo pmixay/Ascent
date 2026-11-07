@@ -165,7 +165,7 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
 
 - From Pasha: commands/state/error contract, source/export semantics and recovery expectations.
 - From Andrey: scoring/annotation protocol and frozen candidate identity.
-- From Timofey: exact CI APK/model hashes, install instructions and device benchmark measurements.
+- From Timofey: exact CI APK/model hashes, install instructions and measurement procedures. You now execute and record the real-device measurements; Timofey reviews provenance.
 - To all: reproducible failures, retest outcomes and final acceptance matrix.
 
 ## Final personal checklist
