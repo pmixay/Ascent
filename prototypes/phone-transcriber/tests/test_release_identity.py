@@ -176,6 +176,19 @@ class IdentityTests(unittest.TestCase):
                 with self.assertRaises(ValueError): apk_identity.record(apk, "compact", Path(directory), env)
             self.assertEqual("", output.getvalue())
 
+    def test_signer_format_diagnostic_excludes_certificate_subjects(self):
+        signing = ("Verifies\nNumber of signers: 1\n"
+                   "Signer unknown certificate DN: CN=private-subject, OU=private-team\n"
+                   "Signer unknown certificate SHA-256 digest: " + "e" * 64 + "\n")
+        with self.assertRaises(apk_identity.IdentityError) as failure:
+            apk_identity.signer_certificate(signing)
+        message = str(failure.exception)
+        self.assertIn('"signer_counts":["1"]', message)
+        self.assertIn('"certificate_labels":["Signer unknown"]', message)
+        self.assertNotIn("private-subject", message)
+        self.assertNotIn("private-team", message)
+        self.assertNotIn(apk_identity.PREFIX, message)
+
 
 class CollectorTests(unittest.TestCase):
     def fixture(self):

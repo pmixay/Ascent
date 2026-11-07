@@ -33,12 +33,27 @@ def signer_certificate(signing: str) -> str:
              if line.startswith("Signer ") and " certificate SHA-256 digest:" in line]
     records = [re.fullmatch(r"Signer (" + label + r") certificate SHA-256 digest: ([0-9a-fA-F:]+)", line)
                for line in lines]
+    # Only SDK-generated public counts/labels are diagnostic; never emit a DN,
+    # arbitrary stdout/stderr or an unverified ASCENT_APK_IDENTITY record.
+    public_labels = []
+    for line in signing.splitlines():
+        candidate = line.split(" certificate SHA-256 digest:", 1)
+        if len(candidate) == 2 and re.fullmatch(r"Signer [A-Za-z0-9 #(),=._-]{1,120}", candidate[0].strip()):
+            public_labels.append(candidate[0].strip())
+    diagnostic = json.dumps({"signer_counts": re.findall(r"Number of signers:\s*([0-9]+)", signing),
+                             "certificate_labels": public_labels,
+                             "stdout_lines": len(signing.splitlines()),
+                             "sha256_lines": sum("SHA-256" in line for line in signing.splitlines()),
+                             "sdk_fields": sorted({line.split(":", 1)[0].strip() for line in signing.splitlines()
+                                                   if re.fullmatch(r"(?:Signer |Number of signers|Verified using |Verifies)[A-Za-z0-9 #(),=._-]{0,120}",
+                                                                   line.split(":", 1)[0].strip())}),
+                             "recognized_records": sum(record is not None for record in records)}, separators=(",", ":"))
     if (re.findall(r"^Number of signers: ([0-9]+)$", signing, re.M) != ["1"]
             or not records or any(record is None for record in records)):
-        raise IdentityError("APK must have one verified signer")
+        raise IdentityError("APK must have one verified signer; SDK format " + diagnostic)
     labels = [record[1] for record in records]
     if any(value.startswith("#") for value in labels) and labels != ["#1"]:
-        raise IdentityError("APK must have one verified signer")
+        raise IdentityError("APK must have one verified signer; SDK format " + diagnostic)
     certificates = {certificate_digest(record[2]) for record in records}
     if len(certificates) != 1:
         raise IdentityError("APK signer must stay the same across verified SDK ranges")
