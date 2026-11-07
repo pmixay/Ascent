@@ -207,6 +207,31 @@ validation against clips recognized one by one; the Russian default mode stays G
 mainly bounds Russian quality in the multilingual mode. Word times are as close to the energy
 proxy as GigaAM's (start median +87 ms, end -14.5 ms).
 
+**Continuous English meetings: Petya's AMI holdout (host, one run).** The six frozen
+10-minute headset-mix excerpts of `tools/qa/fixtures/ami_holdout_manifest.json` (ES2008a,
+ES2009a, IS1008a, IS1009a, TS3003a, TS3004a; 60 min, 8,539 reference words, 4 speakers each),
+reproduced and hash-checked with `tools/qa/prepare_ami_holdout.py`, run once with
+`tools/ami_holdout_asr_study.py` after the models, `AsrGain` and the probe were frozen. The
+reference policy was fixed before inference: all non-punctuation `<w>` words (fillers and
+truncated words kept) ending by 600 s, all speakers merged in start order. WER is
+speaker-agnostic, so overlapping talk inflates it for both models; speaker attribution runs
+only in Kotlin and is not measured here. 4 threads.
+
+| AMI holdout, 6 meetings | GigaAM 220M with `AsrGain` | Parakeet v3 (windowed) | Automatic mode |
+| --- | --- | --- | --- |
+| WER | 32.32% (2,760) | **28.62% (2,444)** | 28.62%: multilingual chosen for 6 of 6, after 19-60 s |
+| CER | **19.33%** | 23.52% | 23.52% |
+| Word start error, median / p95 (matched words) | 182 / 627 ms | **80 / 240 ms** | 80 / 240 ms |
+| Word starts within 250 ms | 63.4% | **96.2%** | 96.2% |
+| RTF (4 threads) | 0.059 | 0.084 | 0.084 plus the probe |
+
+Parakeet has the lower WER on 5 of 6 meetings (IS1009a: 36.68% vs 34.73% for GigaAM). On
+continuous meeting audio the English gain is about 11% of word errors, far smaller than on
+the quiet single-headset utterances above, where GigaAM fails on short isolated replies; the
+larger gain is in word timing. Parakeet's higher CER with lower WER is unexplained (digits are
+not spelled out on this path; transcripts were not inspected). Under the custody rules this
+holdout now has one inspected run: tuning anything on it would make it diagnostic.
+
 Revisions (`csukuangfj/sherpa-onnx-*` on Hugging Face, int8 files): whisper-tiny.en `d026532c`,
 whisper-base.en `59eea950`, whisper-small.en `d9533f69`, whisper-distil-small.en `0492324b`,
 sense-voice-zh-en-ja-ko-yue-int8-2025-09-09 `355f4d48`, nemo-parakeet-tdt-0.6b-v2-int8
@@ -216,7 +241,9 @@ Findings:
 
 - No compact open model we measured is best on both languages. GigaAM makes 36-39% fewer
   Russian errors than the multilingual Parakeet v3; Parakeet v3 makes 2.9 times fewer English
-  errors on headsets and 1.7 times fewer on the distant microphone. Models strong on both,
+  errors on isolated headset utterances and 1.7 times fewer on the distant microphone, but
+  only about 11% fewer on continuous headset-mix meetings (holdout above), where its main
+  advantage is word timing. Models strong on both,
   such as Whisper large-v3 (about 1.5B parameters; GigaAM Multilingual card, Whisper vs
   GigaAM: Russian CV 9.1% vs 7.1%, Russian FLEURS 3.1% vs 4.4%), are too large for the phone;
   Whisper turbo (about 1 GB int8) was not run.

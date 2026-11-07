@@ -40,7 +40,10 @@ Everything runs on the phone, offline, one stage after another:
   with GigaAM, multilingual with Parakeet TDT 0.6B v3):** among open models small enough for a phone we
   found none that is good at both Russian and English. On the same data GigaAM makes 36-39%
   fewer Russian errors than the multilingual Parakeet v3 (validation 4.30% vs 6.73%), while
-  Parakeet v3 makes 2.9 times fewer English errors on meeting headsets (18.57% vs 54.65%).
+  Parakeet v3 is better on English: on Petya's six continuous AMI meetings (host) WER 28.6%
+  vs 32.3% and 96% vs 63% of word starts within 250 ms. On isolated quiet utterances GigaAM
+  fails much worse (54.65% vs 18.57%). Quote the meeting numbers first; they are the realistic
+  case.
   Models that are strong on both, such as Whisper large-v3 with about 1.5B parameters, are
   too large for on-device use. **Say clearly whether the multilingual mode is in the shipped
   APK:** at the time of writing it is measured on the host only, not integrated.
@@ -50,7 +53,7 @@ Everything runs on the phone, offline, one stage after another:
   "Русский", "Другие языки".
 - **Automatic mode:** GigaAM starts; if Latin letters dominate the first ~20 s, the recording
   is redone with Parakeet. Host check: 27 of 27 Russian blocks stay Russian, 122 of 123 English
-  blocks switch, silence stays Russian. Russian costs nothing extra because GigaAM just
+  blocks and 6 of 6 continuous AMI meetings switch, silence stays Russian. Russian costs nothing extra because GigaAM just
   continues. Mixed-language speech is unmeasured; say so if asked.
 - **CTC times instead of forced alignment:** no second model on the phone. The cost: times
   are approximate (host check against an energy proxy: start median +87 ms, end -14.5 ms).
@@ -70,6 +73,7 @@ Everything runs on the phone, offline, one stage after another:
 | English read speech (LibriSpeech, 1,901 words) | 6.73% | host |
 | English meeting, headsets / distant microphone, with level rule | 54.65% / 74.96% | host |
 | Same, Parakeet TDT 0.6B v3 (multilingual candidate, not shipped) | 18.57% / 44.74% | host |
+| English continuous meetings (Petya's AMI holdout, 8,539 words): GigaAM vs Parakeet | 32.3% vs 28.6% WER; starts within 250 ms 63% vs 96% | host |
 | Russian validation, Parakeet v3 vs GigaAM | 6.73% vs 4.30% | host |
 | Recognition RTF, x86, 2 threads | about 0.07 | host |
 | Whole pipeline RTF, x86 | about 0.26 | host |
