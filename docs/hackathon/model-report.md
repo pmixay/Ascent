@@ -29,12 +29,14 @@ All stages run on the phone, one after another, so only one model family is load
 | --- | --- | --- | --- | --- |
 | ASR | GigaAM Multilingual CTC, about 220M parameters | Deployed pack exported from `salute-developers/GigaAM` `7447938d791c4f3e643386ee22c33777004293a5`; measurements below used the public conversion `istupakov/gigaam-multilingual-ctc-onnx` `458860e1983aef670dd9795fb6af603c82767d5d` | 885 MB float32, 225 MB int8 (host study) | MIT |
 | Speaker embeddings | 3D-Speaker ERes2NetV2 (`3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx`) | `csukuangfj/speaker-embedding-models`, SHA-256 `bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239` | 71,441,526 bytes | Apache-2.0 |
-| Text model (provisional) | Qwen2.5 0.5B Instruct, int8 ONNX | `onnx-community/Qwen2.5-0.5B-Instruct` `22942cb7d7ba4cc81bb4673549ca4d4614469b5e`, SHA-256 `41834041ab1b29eff9fc592f1a29a1844133aea35832ea9fa91682be13016100` | 512,096,557 bytes plus 7,031,673-byte tokenizer | Apache-2.0 |
+| Text model | Qwen2.5 0.5B Instruct, int8 ONNX | `onnx-community/Qwen2.5-0.5B-Instruct` `22942cb7d7ba4cc81bb4673549ca4d4614469b5e`, SHA-256 `41834041ab1b29eff9fc592f1a29a1844133aea35832ea9fa91682be13016100` | 512,096,557 bytes plus 7,031,673-byte tokenizer | Apache-2.0 |
 
 Runtimes: ONNX Runtime Android 1.31.0 (ASR and text model) and sherpa-onnx 2.0.0 with its
 own isolated ONNX Runtime 1.28.2 (speaker embeddings). No weights were trained or fine-tuned,
-and no benchmark actor was enrolled into voice memory. The text model is provisional until
-the team's independent model comparison.
+and no benchmark actor was enrolled into voice memory. The text model was compared with
+Qwen2.5 1.5B, Qwen3 0.6B and Qwen3.5 0.8B on the same stage and clips and kept
+([text-punctuation.md](../interfaces/text-punctuation.md)). The acoustic model stays GigaAM
+Multilingual 220M for this release; the Large comparison is below.
 
 The application branch packages and integrates both model groups. Pre-gain
 [Android CI 42387321849](https://github.com/pmixay/Ascent/actions/runs/42387321849)
@@ -143,6 +145,12 @@ current model at 2 threads); it is not packaged, its public int8 export is not t
 pack, and switching is a team model decision. The historical CI Dialogs scores measured
 recognition without `AsrGain`; that CI job is now removed. The host table above is the
 evidence for the rule's effect, and the current bounded CI does not rescore the corpus.
+
+**Script guard, measured and not adopted.** Re-decoding a window without Cyrillic letters when
+Latin letters dominate its greedy path (frozen on ES2011a: 38.67% -> 37.86%) moved EN2002a
+only from 54.65% to 54.05% (IHM, 4,332 errors) and from 74.96% to 74.85% (SDM, 5,999), and
+left Russian development unchanged (2.8715%). The gain was too small to justify a code change
+an hour before submission.
 
 **Fine-tuned GigaAM models.** A search of Hugging Face (7 November 2026) for models derived
 from `ai-sage/GigaAM-Multilingual` or `ai-sage/GigaAM-v3` found no usable English

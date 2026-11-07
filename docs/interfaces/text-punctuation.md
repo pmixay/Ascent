@@ -1,14 +1,14 @@
 # Local text stage: word-preserving punctuation
 
-Status: provisional working choice of the speech lead, 7 November 2026 (14:30 MSK), from host
-measurements. The final model choice is pending the team's independent model comparison.
+Status: choice of the speech lead, 7 November 2026, confirmed at 19:00 MSK by a host comparison
+with Qwen2.5 1.5B, Qwen3 0.6B and Qwen3.5 0.8B on the same stage (see the measurement table).
 Another Qwen2.5-family ONNX export needs only new `TextModelFiles` values and assets; a
 different model family also needs its own tokenizer and chat template behind
-`TextModelScores`. The Kotlin code is pushed with JVM unit tests that CI has not yet run. **Nothing here has run on
+`TextModelScores`. The Kotlin code is pushed and its JVM unit tests pass in CI (run 42379171322). **Nothing here has run on
 Android or ARM.** The brief's local-LLM requirement is not met until a CI-built APK runs this
 stage on a device or the ARM emulator and the result is inspected.
 
-## Provisional choice
+## Choice
 
 | | |
 | --- | --- |
@@ -95,11 +95,24 @@ output. Leaving every word lowercase gets 84.87% of capitals right.
 | **0.5B int8 ONNX, one pass, 24-token blocks (Android setting)** | **0.322** | **0.456** | **0.182** | **88.98%** | **0.081** |
 | Qwen3.5 0.8B q4 ONNX, one pass, 24-token blocks | 0.235 | 0.007 | 0.000 | 86.19% | 0.096 |
 | Qwen3.5 0.8B int8 ONNX, one pass, 24-token blocks | 0.461 | 0.039 | 0.000 | 88.98% | 0.808 |
+| Qwen2.5 1.5B Instruct int8 ONNX, one pass, 24-token blocks | 0.399 | 0.188 | 0.140 | 86.90% | 0.156 |
+| Qwen3 0.6B int8 ONNX, one pass, 24-token blocks | 0.032 | 0.108 | 0.182 | 86.90% | 0.100 |
+| Qwen3 0.6B int8 ONNX, same, answer opened by an empty think block | 0.039 | 0.204 | 0.000 | 84.92% | 0.107 |
 | 0.5B int8 ONNX, one pass, one block per phrase | 0.153 | 0.519 | 0.182 | 90.07% | 0.035 |
 | 0.5B int8 ONNX, word-constrained greedy generation | 0.445 | 0.581 | 0.367 | 90.02% | 0.601 |
 | 0.5B Q4_K_M GGUF, grammar generation (earlier study) | 0.339 | 0.415 | 0.298 | 89.1% | 0.309 |
 | 1.5B Q4_K_M GGUF, grammar generation (earlier study) | 0.649 | 0.792 | 0.644 | 94.1% | 0.469 |
 
+- Team comparison, 7 November 2026, same clips and stage: Qwen2.5 1.5B Instruct
+  (`onnx-community/Qwen2.5-1.5B-Instruct` `d54957e3af1be04546436e874a60fe386041b244`, 1,578,954,293
+  bytes, Apache-2.0) and Qwen3 0.6B (`onnx-community/Qwen3-0.6B-ONNX`
+  `58ca03a5e7b354b480b1a82b34bde8dc7b854cc0`, 617,687,478 bytes, Apache-2.0). Both share the
+  0.5B tokenizer vocabulary and run unchanged on this stage. Neither beats 0.5B overall: 1.5B
+  places more commas but far fewer sentence ends and capitals at twice the time and three
+  times the size; Qwen3 0.6B barely punctuates. The 1.5B GGUF row was better only with free,
+  grammar-constrained generation, which needs a llama.cpp runtime the app does not ship.
+  Gemma 3 and Llama 3.2 were not run: different tokenizers that the Kotlin stage does not
+  implement, and licences other than Apache-2.0. **Qwen2.5 0.5B int8 stays the choice.**
 - Qwen3.5 0.8B (`onnx-community/Qwen3.5-0.8B-Text-ONNX` at `25cdf33f386b487a25f3d743e86442517bdb77ff`,
   Apache-2.0 base model, hybrid linear/full attention, 248k vocabulary) was measured with the
   same instruction and the answer opened by an empty think block, as its non-thinking chat

@@ -21,7 +21,7 @@ Everything runs on the phone, offline, one stage after another:
    marked inferred internally and never train voice memory.
 3. **Phrases:** words are grouped by speaker; runs longer than 20 s are split at the longest
    pause. Times in the JSON are these CTC times, in milliseconds.
-4. **Local LLM: Qwen2.5 0.5B Instruct, int8 ONNX** (Apache-2.0, provisional). It adds
+4. **Local LLM: Qwen2.5 0.5B Instruct, int8 ONNX** (Apache-2.0). It adds
    punctuation and capitals with one forward pass: at each word boundary the model scores
    ", . ? !" against the next word. It can only choose marks and capitals, so it cannot
    change, drop or invent words, speakers or times. It runs on the ONNX Runtime the
@@ -80,6 +80,10 @@ Everything runs on the phone, offline, one stage after another:
   7.1%) and the in-the-wild set (10.1% vs 7.6%), better on Russian FLEURS (3.1% vs 4.4%) and
   much better on English. Its autoregressive decoder can also invent sentences in silence;
   CTC has no such language loop.
+- **"Why this LLM?"** On the same stage and clips it beat Qwen2.5 1.5B, Qwen3 0.6B and
+  Qwen3.5 0.8B overall (sentence-end F1 0.456 vs 0.188, 0.108-0.204 and 0.007-0.039) and is
+  the fastest; bigger models were better only with free generation, which needs a runtime the
+  app does not ship.
 - **"Could a bigger model help?"** GigaAM Multilingual Large (600M) lowered host Russian
   validation WER from 4.30% to 3.20% and English too, at about three times the compute. It is
   measured but not shipped.

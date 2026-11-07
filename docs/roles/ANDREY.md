@@ -6,43 +6,31 @@ Maximize measured Russian transcription, speaker and timestamp quality while kee
 
 **Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Personal handoff/sign-off: 19:30; 19:30–20:00 is shared submission reserve.** This replaces all former working-day estimates. Only the remaining work below is assigned; pushed studies are not to be repeated. Application builds/tests/lint use existing GitHub CI; no local Android build/toolchain. Approved public-corpus host inference remains distinct from actual judge processing on Android.
 
-## Status — 7 November 2026, main integration
+## Status — 7 November 2026, 18:50 MSK
 
-Main through `6b02188` is integrated with the application branch. Host studies,
-historical CI and Android emulator checks are separate evidence; no physical
-ARM Android result exists. The latest merged candidate and artifact identities
-are recorded in [PR #4](https://github.com/pmixay/Ascent/pull/4).
+Pushed and inspected. Host and CI evidence only; no Android device result exists.
 
-- **CI:** pre-gain integration [run 42387321849](https://github.com/pmixay/Ascent/actions/runs/42387321849)
-  at `32e3bc8` passed compact and embedded jobs, all 25 required compact runtime
-  cases, and offline extraction/recovery with one actual synthetic text-model call.
-  The merged `AsrGain` revision needs its own inspected CI result. The two-hour
-  scores in the report are historical; the user removed long inference/scoring
-  jobs from push CI, and `CI=true` explicitly excludes the opt-in JVM scorer.
-- **Report:** [model-report.md](../hackathon/model-report.md) preserves model
-  licences/hashes, historical two-hour Dialogs scores, host Russian/telephone/
-  noise/English results, AMI English conversation, the larger GigaAM comparison,
-  fine-tune search and software-ARM-emulation worst case. Its device table is empty.
-- **Recognizer level (`AsrGain`):** per-window peak normalization, chosen on AMI
-  ES2011a and measured once on EN2002a (headset WER 60.36% -> 54.65%, distant
-  microphone 83.91% -> 74.96%); Russian Dialogs within noise. The merged engine
-  applies it only to recognizer input, preserving original source reads for speaker
-  embeddings and timing. Its quality and performance remain unmeasured on a device.
-- **Local text model:** provisional Qwen2.5 0.5B int8 ONNX word-preserving
-  punctuation, see [text-punctuation.md](../interfaces/text-punctuation.md).
-  The embedded APK packages both model groups and the pipeline uses one paired
-  lease; competition JSON preserves recognized words. Synthetic x86_64 runtime
-  evidence exists as linked above. Qwen3.5 0.8B was measured and not chosen;
-  final approval still needs the team's comparison and exact-build ARM evidence.
-- **Acoustic model decision open:** GigaAM Multilingual Large is better on Russian
-  (validation 3.20% vs 4.30%) and English but about three times slower and not packaged.
-- **Device scoring tool:** `tools/score_competition_json.py` is ready for exported
-  JSON and hand-made references.
-- **Earlier work kept:** [P1 baseline](../../prototypes/phone-transcriber/docs/asr-baseline.md),
-  [text feasibility](../../prototypes/phone-transcriber/docs/text-model-feasibility.md),
-  rejected constant start shift, segmenter and bounded `PcmWindowSource` seam.
-  Public-reference scores do not measure the deployed pack. Short-reply
-  diarization and manually checked natural-recording boundaries remain open.
+- **CI:** [run 42379171322](https://github.com/pmixay/Ascent/actions/runs/42379171322) at
+  `d934495` passed the whole workflow, including the text-stage JVM tests and the cached
+  two-hour scorer. Run 42387665207 at `7a90580` (adds `AsrGain`) was in progress at this
+  update; check it before claiming the gain change is built and tested.
+- **Report:** [model-report.md](../hackathon/model-report.md): models, licences and hashes,
+  CI two-hour Dialogs scores, host Russian/telephone/noise/English results, AMI English
+  conversation, the GigaAM Multilingual Large comparison, the fine-tune search, the
+  software-ARM-emulation worst case and limitations. Its device table is empty.
+- **Recognizer level (`AsrGain`):** per-window peak normalization, chosen on AMI ES2011a and
+  measured once on EN2002a (headset WER 60.36% -> 54.65%, distant microphone 83.91% ->
+  74.96%); Russian Dialogs within noise. In `TranscriptionEngine`; unmeasured on a device.
+- **Local text model:** Qwen2.5 0.5B int8 ONNX word-preserving punctuation stage, kept after
+  the 19:00 host comparison with Qwen2.5 1.5B, Qwen3 0.6B and Qwen3.5 0.8B, see
+  [text-punctuation.md](../interfaces/text-punctuation.md). Not packaged, not integrated into
+  the export, not run on ARM.
+- **Acoustic model decision open:** GigaAM Multilingual Large is better on Russian (validation
+  3.20% vs 4.30%) and English but about three times slower and not packaged.
+- **Device scoring tool:** `tools/score_competition_json.py` is ready for exported JSON and
+  hand-made references.
+- **Earlier work kept:** P1 baseline, rejected constant start shift, segmenter, bounded
+  `PcmWindowSource` seam.
 
 ## Ownership
 
