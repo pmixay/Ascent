@@ -4,9 +4,11 @@ Checked boxes indicate **confirmed product decisions only**, not completed softw
 
 See [README.md](README.md) and [AGENTS.md](AGENTS.md). Use existing GitHub CI exclusively for Gradle, builds, tests, lint, and build artifacts. **Never build locally.** Verify existing workflow names.
 
-Specification version: 0.5
+Specification version: 0.6
 
-Updated: 26 October 2026
+Updated: 7 November 2026
+
+The hackathon jury's requirements ([brief](docs/hackathon/hackathon-brief-2026-11.pdf) and [clarifications](docs/hackathon/jury-clarifications.md)) add a separate verification APK with an embedded model, audio import and JSON export in the brief's schema. They are tracked in the hackathon track below, all unchecked; none is implemented, and none changes the production milestones.
 
 The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. Stopping listening automatically transcribes and deletes its temporary WAV. It retains multiple encrypted text conversations and confirmed voice templates with source-based seven-day filtering, but still writes temporary audio and has no watch app. Cleanup after process death waits for the next launch; this is not the production no-persistence guarantee. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) push-only workflows; their actual run results must be checked. The compact prototype uses R8 optimization, automatically downloads compressed, resumable model chunks through the fixed catalog with an activity-started foreground service, fast connection recovery and WorkManager fallback, and publishes only the ARM64 APK as `debug-<8-character commit>.zip`. Model controls are status-only. Emulator APKs, reports and model weights are not Android download artifacts.
 
@@ -67,6 +69,9 @@ remain pending and validation results remain reserved; see the
 - [x] Start with encrypted audio buffers, authenticated encrypted transfer, encrypted text storage, listening controls, and content-free diagnostics. Microphone, DSP, and inference operations briefly require plaintext.
 - [x] Permit optional OpenRouter text AI through approved zero-data-retention providers with visible scope, consent, and no downgrade. Prohibit audio uploads and content in operational logs or caches.
 - [x] Use `https://ascent.arbuz.lol` as the fixed production application backend. Provide no server selector or custom server URL in the phone or watch app; manage OpenRouter configuration server-side.
+- [x] Deliver a hackathon verification APK that embeds the speech models, imports audio from device storage, exports JSON in the brief's schema and works offline. Two APKs or a deletable embedded model are both acceptable to the jury; network model download is only a UX extra.
+- [x] Prioritize Russian speech first and English second. Keep the interface Russian.
+- [x] Target ARM devices and the jury's ARM emulator. Support recordings resembling both real-time calls and meetings, because test cases differ and this is a direct criterion.
 
 ## Delivery principles and dependencies
 
@@ -77,6 +82,27 @@ Maintain user-started background listening while the device permits it. Expose i
 Verify transport routing and buffering; encryption does not excuse underlying audio persistence. Drop unavailable frames and show gaps. Verify any nearby-device-only routing claim.
 
 - [ ] Follow [AGENTS.md](AGENTS.md) and existing CI checks throughout every milestone; run no local Gradle, build, test, or lint commands.
+
+## Parallel track: Hackathon verification build
+
+**Dependency:** existing prototype and CI. **Outcome:** an APK the jury can install and score offline. This track follows the Hackathon verification section of [AGENTS.md](AGENTS.md); it is phone-only and does not complete any production milestone.
+
+- [ ] Embed the verified speech models in a verification APK. Extend the existing **Ascent Android CI** workflow, keep push-only triggers and every current check, and keep the compact network APK with weights outside it.
+- [ ] Decide between two APKs and one APK whose embedded model can be deleted. If deletion is offered, add only that control and return to the fixed-catalog download flow afterward.
+- [ ] Import an audio file from device storage by decoding the selected stream in memory, without copying it into application storage and without playback or audio-export actions.
+- [ ] Export JSON as `{"transcript": [{"speaker_id", "start_ms", "end_ms", "text"}]}` with a participant label for every phrase and integer millisecond times. Keep inferred provenance internal and add no extra keys until the jury confirms they are tolerated.
+- [ ] Run recognition, diarization and text processing offline on the device; use no cloud API, remote server, prepared transcript, backend call or OpenRouter request in this build.
+- [ ] Select a local LLM from measured on-device evidence, give it a real pipeline task, and document its memory and speed cost.
+- [ ] Measure English as the second language separately from Russian, and keep the Russian regression gates unchanged.
+- [ ] Verify the ARM64 APK on an ARM emulator or device; the existing x86_64 build remains a CI check only.
+- [ ] Measure WER and real-time factor on our own call-like and meeting-like recordings, and report them separately from the constructed Dialogs evaluation.
+- [ ] Prepare the report material: installation and usage instructions, architecture and models, limitations, our own test results and a demonstration video, in a repository following the jury's template (not yet inspected).
+
+**Acceptance criteria**
+
+- [ ] The installed verification APK completes import, transcription, diarization and JSON export with networking disabled, on inspected CI and device evidence.
+- [ ] The exported file validates against the brief's schema in an existing CI check, without model inference in CI.
+- [ ] Call-like and meeting-like fixtures report WER, RTF, speaker errors and timestamp accuracy with stated denominators, without claiming jury scores.
 
 ## Milestone 1: Watch-to-phone capture vertical slice
 
@@ -110,6 +136,7 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 
 - [ ] Benchmark on-phone speech models using live Russian speech from the watch microphone, without saving audio samples.
 - [ ] Include casual speech, names, numbers, quiet voices, background music, overlapping talk, and Russian speech containing foreign words.
+- [ ] Evaluate English as the second-priority speech language separately from Russian and report any quality gap.
 - [ ] Produce provisional and finalized text with timestamps linked to capture time, not arrival time.
 - [ ] Define conversation boundaries using pauses and continuity, with manual split and merge controls.
 - [ ] Add within-conversation speaker separation, initially using editable anonymous speaker identifiers.
@@ -240,6 +267,9 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 
 ## Decisions to resolve without stopping the plan
 
+- [ ] Choose two APKs or a deletable embedded model, and confirm how the verification APK gets its weights in CI.
+- [ ] Ask the jury whether the JSON schema tolerates extra keys, and whether "real-time calls" requires live streaming output or only call-like recordings.
+- [ ] Select the local LLM and its pipeline role.
 - [ ] Select the first phone and watch models, then define a small second-device compatibility set.
 - [ ] Agree on acceptance thresholds after baseline measurement: battery budget, coverage, latency, Russian accuracy, speaker errors, and sound false-positive rate.
 - [ ] Verify transport routing and absence of persistent audio buffering before private-content trials.
