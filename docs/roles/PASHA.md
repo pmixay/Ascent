@@ -1,146 +1,117 @@
-# Pasha — speech and model-quality lead
+# Pasha — application and acceptance lead
 
 ## Mission
 
-Maximize measured Russian transcription, speaker and timestamp quality while keeping the phone pipeline stable and fast. Own model decisions and experiment validity. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H07/H08/H09/H10.
+Deliver the application path from a selected local audio file to a safely retained transcript and specification-compatible JSON. Own the job lifecycle and meaningful local text-LLM integration. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H00/H02/H03/H06/H07/H12.
 
-All tasks are pending. Relative schedule: 5–7 focused working days, revised after baseline measurements. Application builds/tests/lint use GitHub CI. Only approved public-corpus development inference may run locally under `AGENTS.md`; actual judge inputs are processed on Android.
-
-## Status — 7 November 2026
-
-Evidence so far; checklist boxes below stay unchecked until the acceptance they
-describe is met.
-
-- **P1 baseline:** [ASR, timestamp and speed baseline](../../prototypes/phone-transcriber/docs/asr-baseline.md)
-  with frozen development and fresh validation recordings, telephone-channel and
-  English smoke slices, error inventory and three ranked hypotheses. It used a
-  public reference export because the deployed pack was unreachable, ran on an
-  x86 container, and did not re-measure diarization, cpWER or speaker counts: the
-  CI scorer's inference cache is missing (needs Timofey).
-- **P2 local text model:** host feasibility study and edit contract in
-  [text-model feasibility](../../prototypes/phone-transcriber/docs/text-model-feasibility.md).
-  No model is integrated, packaged or measured on ARM.
-- **P3 diarization:** no candidate measured; the short-reply hypothesis is blocked
-  on the same cache.
-- **P4 timestamps:** frame-to-time mapping audited (no offset bug found); a
-  constant start shift failed validation and was rejected. Manually checked
-  boundaries in continuous recordings are still needed.
-- **Code:** `TranscriptSegmenter` replaces inline phrase grouping and splits runs
-  over 20 s at their longest pause. In CI run 42353343464 for commit `cb1f4b6`, the
-  job "Build and validate Android app" passed (Python and Kotlin unit tests, lint,
-  APK build, emulator runtime check). The run's overall conclusion is failure,
-  because "Score cached two-hour Russian speech evaluation" stops at its missing
-  inference cache, as it does on `main`.
+All tasks below are pending. Dates are relative working days, assuming the parent's 5–7-day schedule. Re-estimate after the first device run. Build, application tests and lint run only in existing GitHub CI; physical phones install CI-built APKs.
 
 ## Ownership
 
 Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
 
-- Own `TranscriptionEngine.kt`, `AsrChunking.kt`, `CtcDecoder.kt`, `CtcChunkStitcher.kt`, `Speaker*.kt` and focused algorithm regressions.
-- Own speech evaluation methodology/algorithms and model-quality acceptance. Coordinate shared Python tooling with Timofey.
-- Andrey owns source decoding/job orchestration and the text-model adapter. Petya owns UI and fresh holdout custody. Timofey owns model packaging/native dependencies and device performance harness.
-- Timofey reviews provenance/metrics; Andrey reviews pipeline integration.
+- Own `ConversationViewModel.kt`, `AudioImporter.kt`, `PcmWave.kt`, `ConversationStore.kt` and new source/coordinator/export/text-model adapter files.
+- Own shared domain contract changes; agree signatures before others implement adapters.
+- Petya owns `MainActivity.kt`/`GlassUi.kt`; provide callable APIs and state definitions.
+- Andrey owns `TranscriptionEngine.kt`/speaker algorithms; coordinate its input adapter rather than editing it concurrently.
+- Timofey owns build scripts, Android manifest, model selection/installation and native dependency packaging.
+- Reviewers: Timofey for resources/lifecycle; Petya for acceptance usability; Andrey for text-model behavior.
 
-## First two hours — preserve an honest baseline
+## First two hours — remove ambiguity
 
-- [ ] Read audit, `docs/speaker-diarization.md` and `tools/fixtures/dialogs/README.md` under the prototype.
-- [ ] Record current source/model hashes, thresholds, thread counts and algorithm configuration.
-- [ ] Agree bounded source access and canonical timed-word/turn output with Andrey.
-- [ ] Identify existing six-reader/two-hour gates that every candidate must preserve.
-- [ ] Tell Petya which annotations and conditions are required for the fresh holdout; do not inspect its predictions while tuning.
+- [ ] Read `AGENTS.md`, the audit and parent plan; inspect current ViewModel, import and export paths.
+- [ ] Ask organizers about local LLM meaning, input formats/lengths, Android/RAM/ABI, scoring and deadline. Record answers and current assumptions.
+- [ ] Agree `AudioSource`, bounded `PcmWindowSource`, processing state, result and model-lease contracts with colleagues. Proposed names are design seams, not existing classes.
+- [ ] Define ViewModel commands for import, cancel and export, with job IDs and error categories; hand the contract to Petya.
+- [ ] Agree how Andrey's two-pass engine reopens/reads the same URI without creating an app-owned audio spool.
 
-**Checkpoint:** a baseline manifest and experiment protocol exist before comparing candidates. Historical 95.31% completed clip-time attribution is labeled as diagnostic corpus evidence, not natural-conversation DER.
+**Checkpoint:** all four can describe the same input → job → result → JSON path. While organizer answers are pending, implement the unambiguous import/export requirements.
 
-## Day 1 — baseline and prioritized error inventory
+## Day 1 — exact export and minimal real import
 
-### P1. Benchmark the current pipeline — part of 12–20 h
+### A1. Implement the competition serializer first — 3–5 h
 
-- [ ] Freeze development selection and normalization: case/punctuation/ё handling, number representation and silence scoring.
-- [ ] Include one speaker, similar voices, late-arriving speakers, sub-1.5-second replies, fast call-like exchanges, moderate-pace meetings, telephone-channel audio, noise and an English smoke subset. Jury says both call-like and meeting-like cases are a direct criterion.
-- [ ] Measure WER/CER, cpWER, speaker-count error, strict/completed attribution and inferred coverage.
-- [ ] Report per-speaker/per-condition results and denominators, not only aggregate percentages.
-- [ ] Preserve seam repetitions such as repeated “да”; inspect deletions and duplicate words near chunk boundaries.
-- [ ] Deliver the three highest-impact failure categories and one proposed hypothesis per category.
+- [ ] Add a dedicated serializer using `transcript` and `speaker_id`, `start_ms`, `end_ms`, `text`.
+- [ ] Keep internal encrypted history serialization backward-compatible.
+- [ ] Validate string fields, integer milliseconds, source-duration bounds and deterministic order; preserve legitimate overlap.
+- [ ] Export silence as `{"transcript":[]}`; retain stable IDs independently of user-visible names.
+- [ ] Handle Unicode, escaped text, cancelled export selection and output-provider failures.
+- [ ] Add focused CI contract checks; give Petya an independent expected example.
 
-**Done:** baseline outputs are reproducible and tied to source/model/config versions. Missing input/cache must be fixed with Timofey rather than bypassing regression gates.
+**Done:** JSON from a real device transcript passes Petya's independent schema/semantic validator, including an empty transcript. A successful serializer unit test alone is insufficient.
 
-## Days 1–2 — local text-model feasibility
+### A2. Connect an initial WAV input — first slice of 10–18 h
 
-### P2. Select a usable local LLM — 4–8 h initial spike
+- [ ] Accept a `content://` URI from Petya's picker; handle permission lifetime and unreadable/revoked sources.
+- [ ] Adapt WAV reading to a bounded source abstraction and establish media duration/time origin.
+- [ ] Route it through real acoustic inference using Timofey's selected model lease.
+- [ ] Save results with a distinct conversation/job identity and appropriate import metadata.
+- [ ] Distinguish imported-at time from source-relative offsets; do not invent the recording's original capture date or silently reset known source expiry.
 
-- [ ] Coordinate with Andrey on the organizer's interpretation; provision a distinct text model until clarified otherwise.
-- [ ] Shortlist a small number of license-compatible Russian-capable quantized models with viable ARM runtime support.
-- [ ] Check exact model/tokenizer files, redistribution terms, runtime compatibility and expected storage; confirm by an actual CI-built ARM trial.
-- [ ] Test bounded punctuation/case edits, not free-form rewriting or textual speaker guessing.
-- [ ] Specify the structured edit format, lexical-preservation normalization, context/output limits and invalid-output fallback.
-- [ ] Give Timofey a pinned asset/runtime manifest and Andrey the integration/edit contract.
+**Done:** import a new 16 kHz mono WAV without microphone permission; display and export computed results. The original file is unchanged.
 
-**Done:** a selected model executes locally within the measured device budget and preserves content under validation. Model size/name alone does not establish feasibility. Record the incremental total processing cost.
+## Day 2 — supported input decoding and integration
 
-## Days 2–4 — targeted acoustic improvements
+- [ ] Add WAV rate/channel conversion and common Android-decoded MP3/AAC/M4A formats as supported by target devices.
+- [ ] Preserve sample/PTS mapping through resampling, including leading silence, chunk seams and decoder delay.
+- [ ] Use bounded buffers; handle a second source read for speaker inference. Clearly reject unsupported non-seekable providers if no bounded strategy is available.
+- [ ] Cover malformed/truncated/empty input, unknown length, unsupported format and declared duration limits.
+- [ ] Ensure duplicate taps cannot start simultaneous jobs and stale callbacks cannot replace a later result.
+- [ ] Merge the basic vertical slice with Petya and Timofey before broadening codec support further.
 
-### P3. Improve diarization without hiding errors
+**Done:** the declared format matrix reaches real inference with correct media duration and time origin. Source files are neither deleted nor copied into a permanent app archive. No new disk-audio exception is introduced.
 
-- [ ] Investigate short evidence, similar-voice merging, mixed context boundaries and the linkage/spectral switch at 160 anchors.
-- [ ] Compare the same speaker appearing alone and with others; distinguish fragmentation from absorption of a genuine new voice.
-- [ ] Change one mechanism at a time and compare on identical development inputs.
-- [ ] Consider neural VAD only with measured evidence; preserve source offsets and quiet speech.
-- [ ] Preserve unknown/inferred provenance and enrollment exclusions. More completed display labels are not automatically more accurate.
-- [ ] Keep all existing stricter regressions; document a rejected candidate if it fixes one case but breaks another.
+## Days 3–4 — job stability and local text model
 
-**Done:** paired results show a useful improvement with no breached predeclared gate; Andrey can integrate the unchanged result contract.
+### A3. Reliable processing ownership — 8–14 h
 
-### P4. Measure and improve timestamp boundaries — 6–10 h
+- [ ] Move long-running job ownership out of accidental activity lifetime; choose a supported Android execution mechanism with Timofey before adding service declarations.
+- [ ] Define rotation, background and process-death outcomes. Process death may require reopening/reselecting a source; never claim automatic audio recovery that does not exist.
+- [ ] Propagate real progress and cancellation; allow native calls to finish safely before releasing their resources.
+- [ ] Close source/model/runtime handles on success, failure and cancellation; preserve already completed transcripts.
+- [ ] Surface low-storage and encrypted-history errors with an explicit recovery path; never silently destroy existing history.
+- [ ] Add executable lifecycle/error checks to CI and give Petya reproducible device procedures.
 
-- [ ] Establish reference turn matching and count unmatched turns separately.
-- [ ] Measure start/end absolute errors, median/p95 and tolerance hit rates on at least 100 manually checked boundaries where data permits.
-- [ ] Audit frame-to-sample mapping, input padding, clipped final tails and chunk seam ownership.
-- [ ] Compare VAD-supported refinement or constrained local alignment when the baseline warrants it.
-- [ ] Preserve original-media coordinates, leading silence, lexical order and true speaker changes.
+**Done:** cancellation followed by another job, rotation, background/return and kill/reopen produce coherent states; no original file loss, duplicate result or stale completion.
 
-**Done:** timing changes improve declared boundary metrics without removing words, hiding unmatched turns or degrading ASR/speaker gates. Merely converting seconds to milliseconds is not timing improvement.
+### A4. Meaningful local LLM — 8–14 h after Andrey's selection
 
-## Days 4–5 — speed/quality tradeoffs and frozen candidate
+- [ ] Integrate Andrey's selected model through the agreed runtime; obtain exact assets/native bindings from Timofey.
+- [ ] Perform bounded punctuation/case edits locally after acoustic sessions are released.
+- [ ] Validate unchanged lexical tokens, numbers, negation, order, speaker IDs and times. Preserve raw ASR text.
+- [ ] Cap context/output/time/retries; reject malformed or meaning-changing output and show/use the raw fallback.
+- [ ] Report actual local-model success/fallback and incremental runtime without content logging.
 
-- [ ] Review Timofey's ARM stage-time and memory measurements to identify the actual bottleneck.
-- [ ] Compare quantization/thread/runtime candidates only when they solve a measured problem.
-- [ ] Keep original model manifests/baselines; a new model has a new provenance record and fresh inference inputs.
-- [ ] Evaluate Russian slices and English smoke separately; never let an English gain hide a Russian regression.
-- [ ] Freeze the selected pipeline, models and thresholds before Petya runs final held-out evaluation.
+**Done:** the bundled text model demonstrably executes on ARM and has a useful constrained role. An unused bundled model or an always-failing adapter is not compliance. Revise this task only if organizers explicitly clarify that a distinct LLM is unnecessary.
 
-**Done:** one release candidate is selected from development results, with quality/resource tradeoffs documented. All required regressions pass.
+## Days 5–7 — final integration and acceptance
 
-## Days 5–7 — independent validation and defense
+- [ ] Integrate Andrey's accepted candidate; confirm source/word/ID/time contracts still hold.
+- [ ] Fix Petya's reproduced application blockers; retest affected paths in CI and on device.
+- [ ] Match each mandatory requirement to implementation and evidence; leave unverified rows open.
+- [ ] Review installation/architecture/limitations documents and the final three-file offline rehearsal.
+- [ ] Prepare a short explanation of import, job lifecycle, JSON, local LLM and failure recovery for the defense.
 
-- [ ] Give Petya only the frozen candidate and scoring protocol, with no tuning based on hidden outcomes.
-- [ ] Review the final report: WER/CER, cpWER, attribution, timestamps, short replies, English and overlap limitations.
-- [ ] If held-out failures inform a fix, label that set diagnostic and arrange fresh validation before claiming generalization.
-- [ ] Explain ASR versus embeddings versus clustering versus LLM; prepare examples of known limits and measured improvements.
-- [ ] Review the architecture/model notices and final quality claims.
+## Handoffs and blockers
 
-## Targets and experiment rules
-
-Use parent-plan targets as proposed internal goals, frozen after the first baseline: >75% overall fresh Russian attribution; aim >=90% clean two-speaker and >=80% short-turn attribution; WER <=15% clean / <=25% difficult; median boundary error <=200 ms and p95 <=500 ms. These are not organizer thresholds or current results.
-
-Use one-to-one speaker mapping per recording; unknown/missing assignments are errors. Report DER only when suitable time-aligned speech/overlap annotations and a declared collar/overlap policy exist. The original Dialogs reserved recordings are already diagnostic. Keep prepared reference transcripts exclusively in evaluation, never as app inference outputs.
-
-## Handoffs and AI work pattern
-
-| Deliverable | Recipient | When |
+| Need | From | Deliver to others |
 | --- | --- | --- |
-| Engine input/output seam | Andrey | First two hours |
-| Baseline manifest and scoring/annotation rules | Timofey, Petya | Day 1 |
-| Pinned text model + edit contract | Timofey, Andrey | After feasibility spike |
-| Accepted acoustic candidate and regressions | Andrey, Timofey | Days 3–5 |
-| Frozen config + evaluation protocol | Petya | Before final holdout |
+| Acoustic input/result agreement | Andrey, first two hours | Stable source/state/export APIs to Petya |
+| Valid model lease and embedded assets | Timofey | Runtime/asset requirements and required manifest changes |
+| Text model, tokenizer, prompt/edit contract | Andrey | Working local adapter and lexical-preservation results |
+| Reproduced UX/lifecycle failures | Petya | Fixed APK commit, affected tests and clear remaining limits |
 
-Use Claude to implement one measured hypothesis; use GPT to challenge the metric, denominator, leakage and failure interpretation. Avoid concurrent algorithm variants in shared files. Record rejected experiments so another session does not repeat them blindly.
+If weights/CI block device inference, continue serializer, URI validation and orchestration work against interfaces. Mark test doubles explicitly; they are development scaffolding, never delivered as precomputed transcription.
+
+## AI work pattern
+
+Use Claude for one cohesive application task at a time. Use GPT to review the diff against the JSON contract, cancellation and resource ownership, then inspect its findings yourself. Each task prompt includes allowed files, fixed interfaces, prohibited regressions and a measurable acceptance case. Do not accept “works” without the CI/device evidence.
 
 ## Final personal checklist
 
-- [ ] Models, configuration and datasets are versioned with provenance.
-- [ ] Existing regression gates remain passing.
-- [ ] Short turns, similar voices, meetings and telephone speech have explicit results.
-- [ ] Timestamps and English have measured coverage.
-- [ ] Local text model selection is feasible and semantically constrained.
-- [ ] Final quality claims distinguish development, diagnostics and held-out evidence.
+- [ ] Reachable import works without microphone permission.
+- [ ] Exact JSON, including silence, is independently validated.
+- [ ] Input audio remains user-owned and unchanged; buffers are bounded.
+- [ ] Long jobs have defined lifecycle/cancel/recovery behavior.
+- [ ] Local-LLM compliance is resolved with evidence.
+- [ ] Every mandatory application requirement has a passing acceptance record.

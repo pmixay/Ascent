@@ -11,18 +11,18 @@ All tasks are pending. Relative schedule assumes 5–7 focused working days. Use
 Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
 
 - Own `MainActivity.kt`, `GlassUi.kt`, resources, new UI acceptance checks and judge-facing documentation/demo/results.
-- Use Andrey's ViewModel/source/job APIs; model inference belongs outside composables.
-- Own the new held-out recording/reference selection and final independent evaluation schedule, with Pasha's protocol.
-- Andrey reviews UI state/URI integration; Timofey reviews test/artifact provenance.
+- Use Pasha's ViewModel/source/job APIs; model inference belongs outside composables.
+- Own the new held-out recording/reference selection and final independent evaluation schedule, with Andrey's protocol.
+- Pasha reviews UI state/URI integration; Timofey reviews test/artifact provenance.
 
 ## First two hours — define the evaluator journey
 
 - [ ] Read audit and supplied JSON/three-file acceptance procedure.
 - [ ] Write a step-by-step script: install → offline first launch → import → process → inspect → export → repeat twice.
-- [ ] Agree commands/state/error categories with Andrey and model-readiness statuses with Timofey.
+- [ ] Agree commands/state/error categories with Pasha and model-readiness statuses with Timofey.
 - [ ] Identify at least one primary physical ARM64 phone and a second device where available; record Android/RAM/storage.
 - [ ] Create a test-results table with explicit `not run`, `pass`, `fail`, `blocked` states and APK/model identifiers.
-- [ ] Agree fresh dataset/annotation requirements with Pasha; cover both jury-required call-like and meeting-like cases; separate development inputs from the held-out set.
+- [ ] Agree fresh dataset/annotation requirements with Andrey; cover both jury-required call-like and meeting-like cases; separate development inputs from the held-out set.
 
 **Checkpoint:** the team has a single visible acceptance script and device/test ownership before UI polishing starts.
 
@@ -80,11 +80,11 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 ### E6. Holdout custody
 
-- [ ] Select authorized public/licensed continuous dialogue with Pasha's condition/annotation criteria; record sources, licenses and hashes.
+- [ ] Select authorized public/licensed continuous dialogue with Andrey's condition/annotation criteria; record sources, licenses and hashes.
 - [ ] Separate recordings and preferably speakers from algorithm-development material; do not reuse the old diagnostic Dialogs set as a fresh holdout.
 - [ ] Prepare/verify reference words, speaker turns and time boundaries; double-check ambiguous annotations.
 - [ ] Include rapid/short turns, meetings, similar voices, noise/telephone channel and English smoke coverage.
-- [ ] Keep candidate predictions/scores out of tuning until Pasha freezes models and thresholds.
+- [ ] Keep candidate predictions/scores out of tuning until Andrey freezes models and thresholds.
 - [ ] Run final evaluation on the frozen candidate and report complete per-condition outcomes with denominators.
 
 **Done:** final quality evidence is genuinely independent of candidate selection. If scores inform a new fix, mark that set diagnostic and obtain fresh validation for subsequent generalization claims.
@@ -94,7 +94,7 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 ### E7. Judge-facing package — 5–8 h
 
 - [ ] Prepare quick-start instructions: supported Android/ABI, storage needs, installation, first offline preparation, import and JSON export.
-- [ ] Write architecture/model descriptions from implemented code with Andrey/Pasha review.
+- [ ] Write architecture/model descriptions from implemented code with Pasha/Andrey review.
 - [ ] Write measured limitations: formats, duration, voices, overlap, approximate timings and recovery behavior.
 - [ ] Publish aggregate/per-case results with source/config/device/APK identifiers; no invented example rows.
 - [ ] Map existing source into the organizer's requested layout with a source-location document if needed; adapt unrelated template fields to speech metrics.
@@ -123,8 +123,8 @@ An acceptance blocker includes failed cold offline readiness, unsupported requir
 
 Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case generation, documentation structure and independent checklist review. Personally execute device trials and inspect exported files. An AI-generated test report is not measured evidence.
 
-- From Andrey: commands/state/error contract, source/export semantics and recovery expectations.
-- From Pasha: scoring/annotation protocol and frozen candidate identity.
+- From Pasha: commands/state/error contract, source/export semantics and recovery expectations.
+- From Andrey: scoring/annotation protocol and frozen candidate identity.
 - From Timofey: exact CI APK/model hashes, install instructions and device benchmark measurements.
 - To all: reproducible failures, retest outcomes and final acceptance matrix.
 

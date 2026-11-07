@@ -45,7 +45,7 @@ D appears in development and validation, and S appears only in validation.
 Keep source selection, model weights and existing six-reader regression gates
 fixed; report development and validation results separately. Do not enroll the
 benchmark actors into application voice memory. Those three reserved recordings
-were later inspected and are diagnostic data, as `docs/roles/PASHA.md` records;
+were later inspected and are diagnostic data, as `docs/roles/ANDREY.md` records;
 new Dialogs validation uses `masha_dima_part3` and `masha_sveta_part3`, frozen in
 `tools/fixtures/dialogs/study_selection.json` before inference on them. Within
 this Dialogs protocol the weights stay fixed; the hackathon verification section

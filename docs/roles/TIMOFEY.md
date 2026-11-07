@@ -10,9 +10,9 @@ All tasks are pending. Schedule assumes 5–7 focused working days, revised afte
 
 - Root `.github/workflows/android.yml` and `model-pack.yml`.
 - Android build configuration, manifest/native packaging, prototype `scripts/` and `Model*.kt`.
-- Model-pack/export schema and delivery tooling, coordinated with Pasha on numerical/model changes.
+- Model-pack/export schema and delivery tooling, coordinated with Andrey on numerical/model changes.
 - Device performance harness, merged release integration and final hashes.
-- Andrey owns application lifecycle/source contracts; Pasha owns algorithms/model quality; Petya owns UI/independent QA.
+- Pasha owns application lifecycle/source contracts; Andrey owns algorithms/model quality; Petya owns UI/independent QA.
 
 ## First two hours — diagnose and unblock
 
@@ -20,7 +20,7 @@ All tasks are pending. Schedule assumes 5–7 focused working days, revised afte
 - [ ] Inspect full logs for model export run `42257595048`; record the actual error before proposing a fix.
 - [ ] Diagnose missing two-hour inputs in Android run `42257595068`; inspect cache scope/key/availability.
 - [ ] Locate verified model artifacts and establish who has permissions for CI, model publication and signing.
-- [ ] Agree embedded-install readiness/lease contract with Andrey and expected status UI with Petya.
+- [ ] Agree embedded-install readiness/lease contract with Pasha and expected status UI with Petya.
 - [ ] Identify available ARM phones with RAM/OS/ABI/storage information.
 
 **Checkpoint:** documented root cause or precise unresolved evidence gap for each red job; owners/access identified; baseline model availability established.
@@ -44,7 +44,7 @@ All tasks are pending. Schedule assumes 5–7 focused working days, revised afte
 
 - [ ] Pin model manifest and build-time asset hashes; package current acoustic models first to unblock an internal baseline.
 - [ ] Replace the competition APK's weight-absence check with required-payload, integrity, ABI and provenance checks.
-- [ ] Include all necessary tokenizer/config/license files; add Pasha's selected text-model assets and runtime through a versioned contract.
+- [ ] Include all necessary tokenizer/config/license files; add Andrey's selected text-model assets and runtime through a versioned contract.
 - [ ] Coordinate exact file-set/schema changes across Kotlin, Python and server validators/tests.
 - [ ] Stream assets to a staging directory with disk-space checks; verify hashes before atomically selecting an immutable revision.
 - [ ] Preserve active inference leases and clean failed/interrupted staging safely; recover on the next launch.
@@ -71,8 +71,8 @@ All tasks are pending. Schedule assumes 5–7 focused working days, revised afte
 - [ ] Measure decode, model load, ASR, diarization, text LLM and save time, plus total wall time.
 - [ ] Report cold model preparation separately, cold/warm processing RTF and actual media duration.
 - [ ] Record peak PSS/RSS and repeated-job memory trend for short/long/maximum supported inputs.
-- [ ] Compare thread counts/loading policies and, with Pasha, quantized candidates only against identical inputs and frozen quality gates.
-- [ ] Test ten consecutive jobs and three evaluator-style files; investigate resource growth and cancellation cleanup with Andrey.
+- [ ] Compare thread counts/loading policies and, with Andrey, quantized candidates only against identical inputs and frozen quality gates.
+- [ ] Test ten consecutive jobs and three evaluator-style files; investigate resource growth and cancellation cleanup with Pasha.
 
 **Done:** a reproducible per-device table exists. Target warm total RTF <=1 is an internal goal; report slower results honestly. Do not infer device speed from desktop cached inference or model file size.
 
@@ -80,13 +80,13 @@ All tasks are pending. Schedule assumes 5–7 focused working days, revised afte
 
 - [ ] Merge agreed source/result/export contracts first, then basic import and offline bootstrap/UI.
 - [ ] Integrate lifecycle/text-model stages before final quality/performance tuning.
-- [ ] Merge only Pasha's accepted quality candidate with its tests/provenance.
+- [ ] Merge only Andrey's accepted quality candidate with its tests/provenance.
 - [ ] Inspect all required checks for the merged revision; artifact presence does not prove workflow-wide success.
 - [ ] Coordinate shared manifest/Gradle/DTO edits through a single editor at a time.
 
 ## Days 6–7 — final release
 
-- [ ] Freeze source, model and configuration revisions with Andrey/Pasha.
+- [ ] Freeze source, model and configuration revisions with Pasha/Andrey.
 - [ ] Produce the final CI artifact with identifiable version and stable signing identity; protect signing credentials from source/APKs/logs.
 - [ ] Verify all applicable jobs for the exact commit, not an earlier branch baseline.
 - [ ] Give Petya the exact APK hash, model hash, run links, size figures and device benchmark table.
@@ -107,8 +107,8 @@ Every session reads `AGENTS.md` and the same task contract. Three accounts do no
 
 ## Handoffs
 
-- From Pasha: exact model files/hashes/licenses, acceptable runtime/quantization and frozen quality gates.
-- From Andrey: lease/readiness contract and job-resource lifecycle requirements.
+- From Andrey: exact model files/hashes/licenses, acceptable runtime/quantization and frozen quality gates.
+- From Pasha: lease/readiness contract and job-resource lifecycle requirements.
 - To Petya: installable candidate APK, clean-install instructions and exact versions for every test round.
 - To all: failing check/root-cause evidence, integration status and final release identity.
 

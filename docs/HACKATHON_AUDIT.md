@@ -31,12 +31,12 @@ The jury clarifies that both call-like and meeting-like test cases matter as a d
 
 | Criterion | Points | Primary owner |
 | --- | ---: | --- |
-| Transcription accuracy | 40 | Pasha |
-| Diarization accuracy | 25 | Pasha |
-| Timestamp accuracy | 10 | Pasha |
-| Processing speed | 10 | Timofey, with Pasha |
-| Operability and UX | 10 | Andrey and Petya |
-| Defense | 5 | Andrey, with all four |
+| Transcription accuracy | 40 | Andrey |
+| Diarization accuracy | 25 | Andrey |
+| Timestamp accuracy | 10 | Andrey |
+| Processing speed | 10 | Timofey, with Andrey |
+| Operability and UX | 10 | Pasha and Petya |
+| Defense | 5 | Pasha, with all four |
 
 The specification gives no absolute WER, DER, timestamp or RTF pass threshold. The repository's >75% attribution threshold is an existing internal requirement, not an organizer-provided scoring formula.
 
@@ -195,7 +195,7 @@ The referenced [organizer repository template](https://github.com/grigorevmp/hac
 
 ## 7. Decisions still requiring external information
 
-Andrey owns obtaining answers without blocking independent implementation:
+Pasha owns obtaining answers without blocking independent implementation:
 
 1. Does “local LLM” mean a distinct text language model, and what useful role must it perform? Until clarified, plan a real on-device text model, not an ASR relabeling.
 2. What are the input codecs, sample rates, channel layouts, maximum lengths/sizes and expected speaker counts?

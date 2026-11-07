@@ -99,7 +99,7 @@ the on-device cost is unknown and could be several times higher.
   ASR time (0.469 against 0.069). Before freezing, Timofey's ARM measurements
   should decide between the 1.5B and 0.5B models, a cap on processed phrases, or
   cheaper scoring of marks instead of generation.
-- **Handoffs:** Andrey integrates the runtime and the grammar/validation/fallback
+- **Handoffs:** Pasha integrates the runtime and the grammar/validation/fallback
   contract above; Timofey packages the pinned file and its licence and measures
   ARM cost. Report total RTF with this stage included.
 - **Reproduce:** `python3 tools/text_model_study.py RUN_DIR --model FILE.gguf
