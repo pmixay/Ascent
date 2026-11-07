@@ -1,8 +1,12 @@
 # Application pipeline: import, job, result, JSON
 
-Status, 7 November 2026: **pushed source only.** Nothing here has been compiled or run by CI or on a
-device by its author, and no inspected CI run covers it. Every "Verified" cell below is empty on
-purpose. Source files are in `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
+Status, 7 November 2026: **source pushed; compiles and passes the JVM and x86_64 emulator tests in CI, but
+nothing has run on a phone or an ARM device.** CI run
+[42374393821](https://github.com/pmixay/Ascent/actions/runs/42374393821) (commit `55546bc`): the job
+*Build and validate Android app* passed lint, unit tests, assemble, the APK inspection and the emulator
+instrumentation tests. The run's long inference and scoring jobs had not finished, so the full workflow is
+not shown green. In the "Verified" column below, only what a named test covers counts; the rest is unmeasured.
+Source files are in `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
 
 ```text
 picker (Petya) -> ConversationViewModel.importAudio(uri)
@@ -59,9 +63,9 @@ The existing export button label says "Участники и время — JSON
 
 | Input | Handling | Limit | Verified |
 | --- | --- | --- | --- |
-| WAV PCM 8/16/24/32 bit, IEEE float 32, A-law, μ-law, WAVE_FORMAT_EXTENSIBLE | Streamed from the picked file; any 4 to 192 kHz rate; 1 to 8 channels averaged to mono | 2 hours | JVM tests written, not run |
-| MP3, AAC (ADTS, MP4/M4A), FLAC, Ogg and others the device codecs decode | `MediaExtractor` over the picked file, `MediaCodec` decode, converted as it arrives, kept in memory as 16-bit PCM | 30 minutes (about 58 MB) | not run anywhere |
-| RF64, non-seekable providers (pipes, some cloud providers), DRM, corrupt or truncated files | Rejected with a category and a Russian message; never truncated silently | | JVM and instrumentation tests written, not run |
+| WAV PCM 8/16/24/32 bit, IEEE float 32, A-law, μ-law, WAVE_FORMAT_EXTENSIBLE | Streamed from the picked file; any 4 to 192 kHz rate; 1 to 8 channels averaged to mono | 2 hours | JVM tests pass in CI (formats, conversion accuracy, windows); the emulator test reads a picked stereo 48 kHz file in place |
+| MP3, AAC (ADTS, MP4/M4A), FLAC, Ogg and others the device codecs decode | `MediaExtractor` over the picked file, `MediaCodec` decode, converted as it arrives, kept in memory as 16-bit PCM | 30 minutes (about 58 MB) | **no test of any kind**; only the streaming converter it uses is JVM-tested, and it compares equal to the WAV conversion |
+| RF64, non-seekable providers (pipes, some cloud providers), DRM, corrupt or truncated files | Rejected with a category and a Russian message; never truncated silently | | JVM tests pass in CI; emulator test passes for a missing file, an empty file and a pipe |
 
 Notes: 2 hours and 30 minutes are declared limits, not measured capacity. Averaging channels cancels a
 signal that is exactly anti-phase between channels; that case is not handled. The two inference

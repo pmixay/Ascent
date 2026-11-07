@@ -91,4 +91,41 @@ class ImportRuntimeTest {
             }
         } finally { folder.deleteRecursively() }
     }
+
+    /**
+     * The assets are synthetic: 2 s of mono 44.1 kHz audio, silence, a 1 kHz tone of amplitude 0.5 from 0.5 s to
+     * 1.5 s, silence. ffmpeg generated them (`aevalsrc='if(between(t,0.5,1.5),0.5*sin(2*PI*1000*t),0)':s=44100:d=2`,
+     * `-c:a libmp3lame -b:a 64k` and `-c:a aac -b:a 64k`), and an independent ffmpeg decode puts the tone at
+     * 0.500 to 1.500 s with peak 0.48 to 0.50 and 2000 zero crossings per second. Decoders may differ in priming
+     * by a few tens of milliseconds, hence the margins.
+     */
+    @Test fun mp3AndM4aDecodeToSixteenKilohertzMonoWithTheToneAtItsOriginalTime() {
+        val folder = File(context.cacheDir, "import-test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            for (asset in listOf("tone-silence-tone-44100.mp3", "tone-silence-tone-44100.m4a")) {
+                val picked = File(folder, asset)
+                InstrumentationRegistry.getInstrumentation().context.assets.open(asset).use { input ->
+                    picked.outputStream().use { input.copyTo(it) }
+                }
+                val original = picked.readBytes()
+                val samples = AudioSources.open(context, Uri.fromFile(picked)).use { source ->
+                    assertTrue("$asset: ${source.sampleCount} samples", source.sampleCount in 29_600L..34_400L)
+                    source.read(0, source.sampleCount.toInt())
+                }
+                val loud = samples.indices.filter { abs(samples[it]) > 0.2f }
+                assertTrue("$asset: no tone found", loud.isNotEmpty())
+                val onset = loud.first() / 16_000.0
+                val end = (loud.last() + 1) / 16_000.0
+                assertTrue("$asset: tone starts at $onset s, expected 0.5", onset in 0.40..0.60)
+                assertTrue("$asset: tone ends at $end s, expected 1.5", end in 1.40..1.60)
+                val middle = samples.copyOfRange(9_600, 22_400)
+                val peak = middle.maxOf { abs(it) }
+                assertTrue("$asset: peak $peak", peak in 0.4f..0.6f)
+                var crossings = 0
+                for (i in 1 until middle.size) if ((middle[i] < 0f) != (middle[i - 1] < 0f)) crossings++
+                assertTrue("$asset: $crossings zero crossings in 0.8 s, expected about 1600", crossings in 1_500..1_700)
+                assertArrayEquals("$asset must stay byte-identical", original, picked.readBytes())
+            }
+        } finally { folder.deleteRecursively() }
+    }
 }
