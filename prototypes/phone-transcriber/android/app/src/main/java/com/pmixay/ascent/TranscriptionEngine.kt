@@ -9,12 +9,18 @@ import java.io.File
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
 
-data class TranscriptionResult(val segments: List<TranscriptSegment>, val signatures: List<VoiceSignature>)
+data class TranscriptionResult(
+    val segments: List<TranscriptSegment>,
+    val signatures: List<VoiceSignature>,
+    /** The recognizer actually used; for [RecognitionMode.AUTO] the probe's choice. */
+    val recognitionMode: RecognitionMode = RecognitionMode.RUSSIAN_CIS,
+)
 
 /**
  * Both inference passes run locally, sequentially, to limit simultaneous model memory.
  * [mode] selects the recognizer; speaker attribution always uses the pack in [modelDirectory].
- * [MULTILINGUAL][RecognitionMode.MULTILINGUAL] needs the Parakeet files in [multilingualDirectory].
+ * [MULTILINGUAL][RecognitionMode.MULTILINGUAL] needs the Parakeet files in [multilingualDirectory];
+ * [AUTO][RecognitionMode.AUTO] uses them when installed and Latin letters dominate the start.
  */
 class TranscriptionEngine(
     private val modelDirectory: File,
@@ -33,16 +39,29 @@ class TranscriptionEngine(
     fun transcribeWithSpeakers(source: PcmWindowSource, onProgress: (String) -> Unit): TranscriptionResult {
         checkCancelled()
         val model = ModelSpec.load(modelDirectory)
-        val words = when (mode) {
-            RecognitionMode.RUSSIAN_CIS -> recognize(model, source, onProgress)
-            RecognitionMode.MULTILINGUAL -> recognizeMultilingual(source, onProgress)
+        val (words, used) = when (mode) {
+            RecognitionMode.RUSSIAN_CIS -> requireNotNull(recognize(model, source, onProgress)) to RecognitionMode.RUSSIAN_CIS
+            RecognitionMode.MULTILINGUAL -> recognizeMultilingual(source, onProgress) to RecognitionMode.MULTILINGUAL
+            RecognitionMode.AUTO -> {
+                // Without Parakeet there is nothing to switch to, so no probe runs.
+                val probe = if (ParakeetFiles.installed(multilingualDirectory)) LanguageProbe() else null
+                val russian = recognize(model, source, onProgress, probe)
+                if (russian != null) russian to RecognitionMode.RUSSIAN_CIS
+                else recognizeMultilingual(source, onProgress) to RecognitionMode.MULTILINGUAL
+            }
         }
         checkCancelled()
-        return if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList())
-        else attribute(model, source, words, onProgress)
+        return if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList(), used)
+        else attribute(model, source, words, onProgress).copy(recognitionMode = used)
     }
 
-    private fun recognize(model: ModelSpec, wave: PcmWindowSource, progress: (String) -> Unit): List<TimedWord> {
+    /**
+     * GigaAM over the whole recording. With a [probe], returns null as soon as the probe selects
+     * the multilingual mode, so the caller can start Parakeet; GigaAM's words are then discarded.
+     */
+    private fun recognize(
+        model: ModelSpec, wave: PcmWindowSource, progress: (String) -> Unit, probe: LanguageProbe? = null,
+    ): List<TimedWord>? {
         progress("Загружаю GigaAM…")
         val environment = OrtEnvironment.getEnvironment()
         environment.setTelemetry(false)
@@ -90,6 +109,13 @@ class TranscriptionEngine(
                                         .map { it.copy(endMs = it.endMs.coerceAtMost(wave.durationMs)) }
                                     stitcher.append(decoded, coreStart * 1000 / RATE, coreEnd * 1000 / RATE,
                                         start * 1000 / RATE, end * 1000 / RATE)
+                                    if (probe != null && probe.decision == null) {
+                                        val owned = CtcDecoder.ownedBy(decoded, coreStart * 1000 / RATE, coreEnd * 1000 / RATE)
+                                        if (probe.observe(owned, coreEnd * 1000 / RATE) == RecognitionMode.MULTILINGUAL) {
+                                            progress("Обнаружена речь не на русском: переключаюсь на мультиязычную модель")
+                                            return null
+                                        }
+                                    }
                                 }
                             }
                         }

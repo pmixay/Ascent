@@ -44,6 +44,14 @@ Everything runs on the phone, offline, one stage after another:
   Models that are strong on both, such as Whisper large-v3 with about 1.5B parameters, are
   too large for on-device use. **Say clearly whether the multilingual mode is in the shipped
   APK:** at the time of writing it is measured on the host only, not integrated.
+- **Positioning:** "two specialised local models instead of one compromise": GigaAM for
+  Russian and CIS languages, Parakeet v3 for English and European languages, behind one
+  pipeline (speakers, timestamps, local LLM). The user picks a language, not a model: "Авто",
+  "Русский", "Другие языки".
+- **Automatic mode:** GigaAM starts; if Latin letters dominate the first ~20 s, the recording
+  is redone with Parakeet. Host check: 27 of 27 Russian blocks stay Russian, 122 of 123 English
+  blocks switch, silence stays Russian. Russian costs nothing extra because GigaAM just
+  continues. Mixed-language speech is unmeasured; say so if asked.
 - **CTC times instead of forced alignment:** no second model on the phone. The cost: times
   are approximate (host check against an energy proxy: start median +87 ms, end -14.5 ms).
 - **Constrained LLM instead of free generation:** free generation rewrites words, which would
