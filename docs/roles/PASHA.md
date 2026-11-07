@@ -10,23 +10,23 @@ Deliver the application path from a selected local audio file to a safely retain
 
 At fetched `origin/main` `4b16e3a`, the application already has local acoustic inference, encrypted conversation/voice storage, model leases/downloads and timeline UI. PR #2 adds the segmenter/tests, frozen speech/English manifests, host ASR/timestamp study and text-model shortlist/grammar contract. Do not rewrite those components or wait for another model-selection study. **Remaining:** reachable source-safe import, competition JSON, job safeguards and the actual Android text stage. Andrey is the ML owner; this role remains the application/acceptance owner after the pushed role swap.
 
-## Status at 16:15 MSK (build and JVM tests green in CI; nothing run on a phone)
+## Status at 16:30 MSK (whole CI workflow green; nothing run on a phone)
 
 Contract and details: [app-pipeline.md](../interfaces/app-pipeline.md). No checkbox below is ticked.
 
-**CI evidence, inspected.** In run [42374393821](https://github.com/pmixay/Ascent/actions/runs/42374393821)
-(commit `55546bc`, prototype sources identical to the rebased branch tip apart from Andrey's host study
-script) the job *Build and validate Android app* passed every step: lint, JVM unit tests including the new
-ones, the R8 assemble, the ARM64 APK inspection and the x86_64 emulator instrumentation tests on Android 16
-including `ImportRuntimeTest`. The first run of this code (42373255631) compiled and failed one of my own
-tests, because the test tokenizer lacked a capital letter; that test was fixed. The long inference and
-scoring jobs of run 42374393821 had not finished when inspected, so the whole workflow is **not** shown green.
-Nothing ran on an ARM emulator or a phone.
+**CI evidence, inspected.** Run [42376061272](https://github.com/pmixay/Ascent/actions/runs/42376061272)
+(commit `2545310`, branch rebased onto the current main) concluded **success** for all three jobs: *Build and
+validate Android app* (lint, JVM unit tests, R8 assemble, ARM64 APK inspection, and the x86_64 emulator
+instrumentation tests on Android 16 including `ImportRuntimeTest` with its MP3/M4A decode test, whose assets
+and test code were built in that run), the public inference job and the cache scoring job. Its build job
+produced the checked ARM64 APK artifact `debug-25453108`. The first run of this code (42373255631)
+compiled and failed one of my own tests, because the test tokenizer lacked a capital letter; that was fixed.
+The emulator log shows the task succeeding, not per-test counts. Nothing ran on an ARM emulator or a phone.
 
 | Item | In source, with CI status | Still open |
 | --- | --- | --- |
 | A1 serializer | `CompetitionJsonExporter`, wired to the JSON export, silence gives `{"transcript":[]}`; contract tests pass in CI | Petya's independent validation of a real device export |
-| A2 import | `AudioSources` (descriptor read in place), WAV any rate/channels/sample format, `Pcm16Stream`, `CompressedAudio` (MP3/AAC/M4A, in memory, 30 min); the copying `AudioImporter` is deleted. WAV conversion, rejection cases and the no-write guard pass JVM tests; reading a picked file passes the emulator test | No picker button (Petya); device and ARM trials; **MP3/AAC/M4A decoding has no test of any kind** and which formats the target emulator decodes is unknown |
+| A2 import | `AudioSources` (descriptor read in place), WAV any rate/channels/sample format, `Pcm16Stream`, `CompressedAudio` (MP3/AAC/M4A, in memory, 30 min); the copying `AudioImporter` is deleted. WAV conversion, rejection cases and the no-write guard pass JVM tests; reading a picked file and decoding synthetic MP3 and M4A tone files (tone found at its original time, correct pitch and level) pass the emulator tests | No picker button (Petya); device and ARM trials; real speech files, telephone-band and unusual encodings, and which formats the target emulator decodes are unmeasured |
 | A3 job safety | `launchJob` shared by import and recording: one job, job IDs, cancel, stale-callback guard, handles closed on every path, interrupted-job notice, atomic non-cancellable save. Only the job tracker and progress mapping have tests | No foreground service (process death needs reselecting the file); the ViewModel job path itself, rotation, background, cancel and kill/reopen are untested |
 | A4 text stage | `TextStages` calls the pushed `TextPunctuator` after the acoustic lease is released, keeps raw text, reports counts; unit tests use a fake model | **Nothing installs the model files yet (Timofey); the stage reports `UNAVAILABLE`, so the local-LLM requirement is not met.** Never run with the real model, on Android or ARM |
 
