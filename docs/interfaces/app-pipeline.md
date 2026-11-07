@@ -25,6 +25,7 @@ All are on `ConversationViewModel`. None needs the microphone permission.
 | `cancelProcessing()` | Cancels the running job. A native recognition call finishes first, so cancellation can lag by one window. The busy flag stays set until cleanup ends; only then can another job start. |
 | `stopRecording()` | Unchanged for the user; it now runs through the same job path. |
 | `exportTranscript(id, uri: Uri?, json: Boolean)` | `null` changes nothing. `json = true` writes the competition format, also for a recording without speech. `json = false` writes the TXT. The document is built in memory first. |
+| `setRecognitionMode(mode: RecognitionMode)` | Chooses `AUTO` (default), `RUSSIAN_CIS` or `MULTILINGUAL` for the **next** job and remembers it (`RecognitionSettings`, preference `recognitionMode`; an unknown stored value reads as `AUTO`). A running job keeps the mode it started with. Labels and subtitles: [multilingual-recognizer.md](multilingual-recognizer.md#positioning-in-the-app) |
 
 ## State the interface can show
 
@@ -43,6 +44,13 @@ All are on `ConversationViewModel`. None needs the microphone permission.
   ModelsUnavailable, OutOfMemory, Storage, Interrupted, Internal`. `jobError.message` is the Russian
   sentence to show; it never contains transcript text.
 - `textStage`: counts and time of the text model for the last completed job (see below).
+- `recognitionMode`: the selected mode. `recognizedMode`: the recognizer the last **saved** job actually used
+  (for `AUTO`, the probe's choice), `null` while a job runs and after a failed or cancelled one. Show it beside the result.
+  A fixed `MULTILINGUAL` choice without installed Parakeet files is refused before recording starts or a file is
+  opened (status `RecognitionSettings.MULTILINGUAL_MISSING`, and `ModelsUnavailable` if it surfaces in a job); it never
+  falls back to GigaAM silently. **Nothing installs the Parakeet files yet**, so today `multilingualDirectory()` in the
+  ViewModel returns `null`: `AUTO` behaves as GigaAM only and `MULTILINGUAL` is always refused. Replace that one function
+  with the paired lease's directory when packaging lands.
 
 ### Picker wiring (Petya; `MainActivity.kt` and `GlassUi.kt` are not edited by this change)
 

@@ -127,6 +127,12 @@ TranscriptionEngine(
   (`AUTO` recommended as default), passed with the installed Parakeet directory to
   `TranscriptionEngine`; show the mode actually used from `TranscriptionResult.recognitionMode`;
   in a fixed multilingual mode show the "not installed" error instead of switching silently.
+  *Status: ViewModel side written, not built or run.* `setRecognitionMode`, the remembered choice,
+  `ConversationState.recognitionMode` / `recognizedMode`, the engine arguments and the refusal are in source
+  ([app-pipeline.md](app-pipeline.md)); `RecognitionSettingsTest` covers the pure rules. **Open:** the
+  three-way control and the "Распознано: …" label are Petya's UI (`MainActivity.kt` / `GlassUi.kt`); the
+  installed directory is Timofey's packaging. Until it exists the ViewModel's `multilingualDirectory()` returns
+  `null`, so `AUTO` runs GigaAM only and `MULTILINGUAL` is refused. The change has not passed CI.
 - **QA and submission (Petya):** in the judge instructions, name the default mode and how to
   pick "Другие языки" for English; include an English and a mixed recording in device checks.
 - **Speech lead:** measure both modes on the device with `tools/score_competition_json.py`
