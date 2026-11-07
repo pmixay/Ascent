@@ -361,7 +361,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                             stage = ProcessingState.Formatting
                             jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Formatting, jobProgress = null) } }
                             val presented = timings.measure(ProcessingMetricStage.TEXT) {
-                                TextStages.run(lease.textDirectory, recognized.segments, timings)
+                                TextStages.run(lease.textDirectory, recognized.segments, timings, mediaDurationMs)
                             }
                             ProcessedAudio(recognized, presented, mediaDurationMs, opened.name)
                         }
