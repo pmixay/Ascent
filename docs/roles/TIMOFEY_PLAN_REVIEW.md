@@ -88,7 +88,9 @@ receipt implementation `2270a40` is now pushed; its
 completed **success**: compact job `128472411722` and embedded job `128472411416`.
 The embedded job actually executed dependency setup, export validation and receipt
 recording (not skipped), establishing the cold output-cache path. Both artifact
-uploads followed successful required checks. Warm receipt reuse is still pending.
+uploads followed successful required checks. Warm receipt reuse subsequently passed
+at `d9776cd` / `42400311459`; see the exact input/cache/producer evidence in
+[T4 status](TIMOFEY_T4_STATUS.md#already-verified-before-this-slice).
 No local application tests ran.
 
 Artifacts for this T1 revision (Actions-reported ZIP sizes/digests, **not APK hashes**):
@@ -108,8 +110,9 @@ T3 `62fbe3f` subsequently passed both jobs in [run 42396663795](https://github.c
 Its [measured table](TIMOFEY_T3_STATUS.md#inspected-ci-measurements--62fbe3f)
 separates the inspected ARM64 APK from the actually installed x86_64 emulator
 variant. A raw-APK identity logging follow-up leaves export inputs unchanged and
-provides the next warm-cache check; inspect that push's result rather than
-promoting an earlier passing revision.
+passed both jobs at `d9776cd` / `42400311459`, including verified warm-cache reuse.
+The next [T4 timing hooks](TIMOFEY_T4_STATUS.md) are source implementation only
+until their own CI completes; full ARM timing/memory acceptance remains open.
 
 Next: run the existing push CI on the reviewed branch, inspect both jobs and a
 subsequent exact-input warm reuse, then obtain the missing access/device inventory.

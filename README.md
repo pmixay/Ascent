@@ -65,11 +65,14 @@ measurement and release work. Its first follow-up adds cached-export validation
 receipts bound to source/dependency/fixture hashes and the producer CI run;
 those branch changes are pushed as `2270a40`, with [CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
 completed successfully for both jobs, including cold export/receipt generation.
-Warm receipt reuse is still pending. [T3 storage tooling](docs/roles/TIMOFEY_T3_STATUS.md)
+Warm receipt reuse passed at `d9776cd` in [run 42400311459](https://github.com/pmixay/Ascent/actions/runs/42400311459),
+preserving the real cold producer identity and revalidating payloads. [T3 storage tooling](docs/roles/TIMOFEY_T3_STATUS.md)
 at `62fbe3f` passed both jobs in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795).
 Its measured table separates ARM64 archive inspection from installed x86_64
-package/model sizes; it is not ARM or physical peak-storage acceptance. The next
-raw-APK digest logging follow-up leaves export inputs unchanged for warm-cache verification.
+package/model sizes; it is not ARM or physical peak-storage acceptance. The raw-APK
+digest follow-up passed both jobs at `d9776cd`. The next [T4 instrumentation](docs/roles/TIMOFEY_T4_STATUS.md)
+adds exclusive stage timings/total RTF to the last-job UI state without logging or
+persisting job metrics. Its own CI and real full-pipeline ARM measurements remain open.
 
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present

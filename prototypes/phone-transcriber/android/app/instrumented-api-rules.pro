@@ -41,6 +41,12 @@
 -keep class com.pmixay.ascent.EmbeddedModels { public *; protected *; }
 -keep class com.pmixay.ascent.EmbeddedInstallation { public *; protected *; }
 -keep class com.pmixay.ascent.ModelStorageDiagnostics { public *; protected *; }
+-keep class com.pmixay.ascent.ProcessingTimings { public *; protected *; }
+-keep class com.pmixay.ascent.ProcessingTimings$Scope { public *; protected *; }
+-keep class com.pmixay.ascent.ProcessingMetricStage { public *; protected *; }
+-keep class com.pmixay.ascent.ProcessingMeasurementOutcome { public *; protected *; }
+-keep class com.pmixay.ascent.ProcessingMeasurementReport { public *; protected *; }
+-keep class com.pmixay.ascent.ProcessingStageMeasurement { public *; protected *; }
 
 # work-testing calls the WorkManager library across the APK boundary, including
 # public implementation APIs. Preserve its binary API without keeping AndroidX

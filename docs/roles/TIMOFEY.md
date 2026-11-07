@@ -13,10 +13,15 @@ At `f04aaa7`, both Android jobs in run `42393688728` and Model Export/publicatio
 in run `42393688781` passed. Embedded packaging and real sequential text integration
 are already in source. The validation-input receipt changes in
 `timofey/plan-next-incomplete` are pushed as `2270a40`; both jobs in [CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
-passed, including cold export/receipt generation. Warm receipt reuse is pending.
+passed, including cold export/receipt generation. Warm receipt reuse also passed
+at `d9776cd` in [run 42400311459](https://github.com/pmixay/Ascent/actions/runs/42400311459),
+with the real `62fbe3f` producer identity preserved and payloads reverified.
 [T3 measurement tooling](TIMOFEY_T3_STATUS.md) at `62fbe3f` also passed both jobs
 in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795),
 with separate measured emulator/ARM64-archive figures. ARM/release acceptance stays open.
+The next [T4 timing slice](TIMOFEY_T4_STATUS.md) adds per-job exclusive stage totals
+and completed-job RTF in volatile UI state; its own CI and actual ARM measurements
+remain required.
 
 - Existing push-only Android/model workflows, R8/JNI isolation, downloader verification/leases and acoustic pipeline are the base, not tasks to recreate.
 - At fetched `origin/main` `4b16e3a`, historical [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042) has a **successful build/validation job**. The overall run failed because the since-removed two-hour inference inputs were missing; that failure is not a current CI gate.
@@ -49,7 +54,7 @@ with separate measured emulator/ARM64-archive figures. ARM/release acceptance st
 
 - [x] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks. Existing recovery and current exact-main publication verified in `42393688781`; no new exporter repair is needed.
 - [x] Verify the pushed integrity-checked model/export regeneration path from pinned public sources; do not rely only on a warm cache. `2270a40` / `42395674575` actually executed export validation and receipt recording on an output-cache miss; historical cold checkpoint transport evidence remains in T1 status.
-- [ ] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope. Independent receipt and cold output-cache path passed at `2270a40` and `62fbe3f`; the next exact-input push verifies warm reuse. Inspect that revision's result before closing this item.
+- [x] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope. Independent receipt/cold output-cache paths passed at `2270a40` and `62fbe3f`; `d9776cd` / `42400311459` verified exact warm reuse, retained producer identity and required payload/Android checks on this branch. [Evidence](TIMOFEY_T4_STATUS.md#already-verified-before-this-slice).
 - [x] Keep the two-hour public-corpus evaluation on a development machine; never turn absence into skip/success or restore it as a push-CI gate. No long jobs in the inspected `2270a40` run; explicit CI scorer exclusion retained.
 - [x] Keep the narrowly scoped fixture and model-export speech checks while the long dialogue study stays off CI. Retained export checks actually ran at `2270a40`.
 - [x] Preserve existing push triggers/workflow names, R8, native integrity and emulator checks. Both original bounded jobs passed at `2270a40`.
@@ -106,8 +111,8 @@ supplies the exact CI APK/pins and measurement contract, then reviews the table;
 this checklist is not permission to substitute CI x86_64 extraction for ARM work.
 
 - [ ] Record device/OS/ABI/RAM, APK/model hashes, threads, run order and thermal conditions.
-- [ ] Measure decode, model load, ASR, diarization, text LLM and save time, plus total wall time.
-- [ ] Report cold model preparation separately, cold/warm processing RTF and actual media duration.
+- [ ] Measure decode, model load, ASR, diarization, text LLM and save time, plus total wall time. [T4 instrumentation](TIMOFEY_T4_STATUS.md) adds exclusive monotonic counters and an on-screen report; device measurements are not yet recorded.
+- [ ] Report cold model preparation separately, cold/warm processing RTF and actual media duration. T3 keeps preparation separate; T4 computes completed-job RTF only with a known positive duration. Actual cold/warm ARM trials remain open.
 - [ ] Record available peak PSS/RSS, storage and repeated-job memory observations on today's tested inputs; label unmeasured maximum-duration behavior explicitly.
 - [ ] Keep acoustic weights/thresholds fixed. Host int8/thread studies are pushed; ARM optimization/quantization sweeps are backlog today.
 - [ ] Measure three evaluator-style files and shared cancellation checks; ten-job/long-duration stress tests stay open unless time remains after the mandatory floor.

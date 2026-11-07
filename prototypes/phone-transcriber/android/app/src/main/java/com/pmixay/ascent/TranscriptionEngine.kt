@@ -12,7 +12,7 @@ import java.nio.LongBuffer
 data class TranscriptionResult(val segments: List<TranscriptSegment>, val signatures: List<VoiceSignature>)
 
 /** Both inference passes run locally, sequentially, to limit simultaneous model memory. */
-class TranscriptionEngine(private val modelDirectory: File) {
+class TranscriptionEngine(private val modelDirectory: File, private val timings: ProcessingTimings? = null) {
     fun transcribe(audio: File, onProgress: (String) -> Unit): List<TranscriptSegment> =
         transcribeWithSpeakers(audio, onProgress).segments
 
@@ -24,22 +24,25 @@ class TranscriptionEngine(private val modelDirectory: File) {
 
     fun transcribeWithSpeakers(source: PcmWindowSource, onProgress: (String) -> Unit): TranscriptionResult {
         checkCancelled()
-        val model = ModelSpec.load(modelDirectory)
-        val words = recognize(model, source, onProgress)
+        val model = measureProcessing(timings, ProcessingMetricStage.MODEL_VALIDATION) { ModelSpec.load(modelDirectory) }
+        val words = measureProcessing(timings, ProcessingMetricStage.ASR) { recognize(model, source, onProgress) }
         checkCancelled()
         return if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList())
-        else attribute(model, source, words, onProgress)
+        else measureProcessing(timings, ProcessingMetricStage.DIARIZATION) { attribute(model, source, words, onProgress) }
     }
 
     private fun recognize(model: ModelSpec, wave: PcmWindowSource, progress: (String) -> Unit): List<TimedWord> {
         progress("Загружаю GigaAM…")
-        val environment = OrtEnvironment.getEnvironment()
-        environment.setTelemetry(false)
+        val environment = measureProcessing(timings, ProcessingMetricStage.ASR_MODEL_LOAD) {
+            OrtEnvironment.getEnvironment().also { it.setTelemetry(false) }
+        }
         val stitcher = CtcChunkStitcher()
         OrtSession.SessionOptions().use { options ->
             options.setIntraOpNumThreads(2)
             options.setInterOpNumThreads(1)
-            environment.createSession(model.asrFile.absolutePath, options).use { session ->
+            measureProcessing(timings, ProcessingMetricStage.ASR_MODEL_LOAD) {
+                environment.createSession(model.asrFile.absolutePath, options)
+            }.use { session ->
                 require(session.inputNames == setOf("audio", "audio_lengths")) { "Несовместимая модель GigaAM" }
                 var coreStart = 0L
                 while (coreStart < wave.sampleCount) {
@@ -95,9 +98,11 @@ class TranscriptionEngine(private val modelDirectory: File) {
 
     private fun attribute(model: ModelSpec, wave: PcmWindowSource, words: List<TimedWord>, progress: (String) -> Unit): TranscriptionResult {
         progress("Определяю говорящих…")
-        val extractor = SpeakerEmbeddingExtractor(config = SpeakerEmbeddingExtractorConfig(
-            model = model.speakerFile.absolutePath, numThreads = 2, debug = false, provider = "cpu",
-        ))
+        val extractor = measureProcessing(timings, ProcessingMetricStage.SPEAKER_MODEL_LOAD) {
+            SpeakerEmbeddingExtractor(config = SpeakerEmbeddingExtractorConfig(
+                model = model.speakerFile.absolutePath, numThreads = 2, debug = false, provider = "cpu",
+            ))
+        }
         val windows = mutableListOf<SpeakerObservation>()
         val regions = mutableListOf<Int>()
         try {

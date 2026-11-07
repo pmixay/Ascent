@@ -336,6 +336,10 @@ private fun ConversationStatus(state: ConversationState) {
             if (state.cancellingProcessing) Text("Текущий шаг завершится перед отменой. Дождитесь остановки.",
                 fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
         }
+        if (!state.processingAudio) state.measurements?.let { measurement ->
+            Text(measurement.describe(), fontSize = 16.sp, lineHeight = 23.sp, color = Ink,
+                modifier = Modifier.testTag("processing-measurements"))
+        }
     }
 }
 

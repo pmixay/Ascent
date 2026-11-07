@@ -190,6 +190,11 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
   model-preparation record, verified in x86_64 CI at `62fbe3f`. Collect exact-build ARM values;
   distinguish Android package stats, model logical bytes and sampled lower bounds
   from the estimated extraction reserve. This is tooling, not completed evidence.
+  The next [T4 timing report](TIMOFEY_T4_STATUS.md) shows last-job exclusive stages,
+  total/media duration and completed RTF in volatile UI state. Review the small
+  status presentation seam; collect real fixed-input ARM values only after its own
+  CI. Nothing is added to logs, saved history or competition JSON; PSS/RSS and
+  thermal/run-order/device evidence remain your assigned trials.
 - [x] Repair authenticated model publication and verify live HTTPS payloads.
   See [server evidence](PETYA_SERVER_STATUS.md), including successful CI publication.
 - [ ] Validate Russian preparation/readiness/error UI on the exact offline APK.
