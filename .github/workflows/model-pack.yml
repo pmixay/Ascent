@@ -8,6 +8,8 @@ on:
     paths:
       - '.github/workflows/model-pack.yml'
       - 'prototypes/phone-transcriber/tools/export_model_pack.py'
+      - 'prototypes/phone-transcriber/tools/checkpoint_source.py'
+      - 'prototypes/phone-transcriber/tools/test_checkpoint_source.py'
       - 'prototypes/phone-transcriber/tools/model_pack.py'
       - 'prototypes/phone-transcriber/tools/requirements-*.txt'
       - 'server/**'
@@ -51,7 +53,9 @@ jobs:
             prototypes/phone-transcriber/tools/requirements-gigaam.txt
 
       - name: Check model publication integrity
-        run: python3 -m unittest discover -s ../../server -p 'test_*.py' -v
+        run: |
+          python3 -m unittest discover -s tools -p 'test_checkpoint_source.py' -v
+          python3 -m unittest discover -s ../../server -p 'test_*.py' -v
 
       - name: Install CPU export dependencies
         run: python3 -m pip install -r tools/requirements-export.txt
@@ -61,11 +65,11 @@ jobs:
       - name: Install pinned GigaAM source
         run: python3 -m pip install --no-deps -r tools/requirements-gigaam.txt
 
-      - name: Cache official GigaAM checkpoint
+      - name: Cache hash-pinned official Hugging Face checkpoint
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: prototypes/phone-transcriber/build/gigaam-cache/multilingual_ctc.ckpt
-          key: ${{ runner.os }}-gigaam-v1-${{ hashFiles('prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tools/requirements-gigaam.txt') }}
+          path: prototypes/phone-transcriber/build/gigaam-cache/huggingface
+          key: ${{ runner.os }}-gigaam-hf-v1-${{ hashFiles('prototypes/phone-transcriber/tools/checkpoint_source.py', 'prototypes/phone-transcriber/tools/requirements-gigaam.txt') }}
 
       - name: Download and verify speaker weights and public speech fixture
         run: |
@@ -117,6 +121,7 @@ jobs:
           python3 tools/export_model_pack.py \
             --output build/model-downloads.zip \
             --cache-dir build/gigaam-cache \
+            --checkpoint-source huggingface \
             --speaker-model "build/models/$ASCENT_SPEAKER_FILENAME" \
             --speaker-sha256 "$ASCENT_SPEAKER_SHA256" \
             --speaker-license build/models/LICENSE-3D-Speaker \

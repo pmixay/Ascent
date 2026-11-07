@@ -15,6 +15,31 @@ installed library versions, and each packaged file's SHA-256. MD5 is the upstrea
 revision check; it is not advertised as a cryptographic signature. The pack's
 hashes detect corruption and do not establish who published a pack.
 
+### T1 secure checkpoint recovery
+
+The CDN certificate expired, blocking run `42257595048`. Model CI now explicitly
+selects `--checkpoint-source huggingface`, the official
+`ai-sage/GigaAM-Multilingual` CTC revision
+`2f8a57144e6ec3adfd32fe0484d9ea9913305bc8`. `checkpoint_source.py` pins the byte
+counts and SHA-256 of both config and weights, rechecks warm caches and atomically
+promotes verified downloads. Redirects must remain HTTPS. No downloaded Python
+code is executed: the four config classes map to the pinned upstream GigaAM
+implementation, and tensor keys only lose the `model.` wrapper prefix before
+strict loading. Frontend, logits, CTC and speaker validation remain required.
+
+The Hugging Face state dictionary is a separately identified source serialization,
+not a byte-identical `.ckpt` mirror. The manifest records its actual source format,
+repository revision, config hash and weight hash; it does not assign the CDN MD5
+to these bytes. `--checkpoint-source upstream` remains available (and is the CLI
+default) for the original loader. Source-level compatibility and retained parity
+checks do not establish equality to the historical deployed ONNX hash. Andrey
+must review the new export evidence before integration; frozen dialogue-model
+hashes and its existing two accepted provenances remain unchanged.
+
+At implementation time, CI validation/publication of this recovery is pending.
+The fixed deployment host has a separate TLS/access blocker; repairing checkpoint
+acquisition alone does not make the catalog reachable.
+
 ## Download in the app
 
 The APK contains no model weights. Opening the visible app starts its catalog

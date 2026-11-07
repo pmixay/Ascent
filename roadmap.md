@@ -44,6 +44,11 @@ attempt 2 is running; secure checkpoint/catalog access, complete scoring and
 fixture/export inference-policy reconciliation remain open. No release gate is
 completed by this checkpoint.
 
+T1 recovery implementation adds a hash-pinned official Hugging Face checkpoint
+loader and explicitly reconciles the existing CI fixture/export inference checks.
+Export validation, publication and complete inference-cache/scoring acceptance
+remain unchecked until inspected runs establish them.
+
 The old “reserved validation” references below are historical: the original
 Dialogs recordings have since informed algorithm fixes and are diagnostic data.
 New generalization claims require a fresh holdout, as specified in the active plan.

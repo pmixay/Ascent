@@ -42,6 +42,12 @@ The first inference attempt was cancelled; attempt 2 is running. Latest-run
 diagnosis is recorded, but H01 acceptance, verified embedded assets and the
 remaining inference-policy decision are still open.
 
+T1 implementation follow-up: the existing fixture/export validation checks are
+now explicitly covered in `AGENTS.md`. Model export gains a separately identified,
+hash-pinned official Hugging Face state-dictionary source, preserving all parity
+and speaker checks. Its CI/publication evidence remains pending; historical
+deployed hashes and the frozen dialogue evaluation are unchanged.
+
 Deliver one clearly identified CI-built ARM64 APK containing every model needed for the default pipeline. On a clean supported phone with networking disabled before first launch, a judge can import an unfamiliar local recording, process it on the phone, inspect timestamped speaker turns and export the exact required JSON. Three successive files must work independently. Provide source, measured results, installation instructions, architecture, limitations and a video of the same release.
 
 Priority order:

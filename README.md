@@ -37,6 +37,12 @@ is running, upstream checkpoint TLS is still expired and the catalog fails TLS
 negotiation here. Repository push/log access is confirmed; complete CI, verified
 embedded assets, signing custody and ARM acceptance remain open.
 
+T1 implementation adds a pinned official Hugging Face checkpoint source for model
+export, with strict loading and all numerical/speaker checks retained. The CI
+inference policy now explicitly includes the existing fixture/export validation
+checks. Source identity stays separate from the historical deployed export;
+recovery CI and publication are not yet verified. See [model sources](prototypes/phone-transcriber/docs/model-pack.md#t1-secure-checkpoint-recovery).
+
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
 for review: listening stops into automatic local transcription, then the temporary
