@@ -4,7 +4,14 @@
 
 Deliver a reproducibly checked APK with a complete embedded model set, prove offline first-run operation on ARM and own final artifact provenance. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H01/H04/H10/H12.
 
-All tasks are pending. Schedule assumes 5–7 focused working days, revised after initial diagnosis. Local application builds/tests/lint and local Android toolchain preparation remain prohibited. Use the existing GitHub workflows and install their APKs on phones.
+**Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Last model/export-input push: 15:00; final app push: 17:00; final APK handoff by 18:00; release sign-off by 19:30.** The last 30 minutes are shared submission reserve. This replaces all working-day/effort estimates. Local application builds/tests/lint and Android toolchain preparation remain prohibited; use existing GitHub workflows and their APKs.
+
+## Already pushed / inspected — subtract from implementation
+
+- Existing push-only Android/model workflows, R8/JNI isolation, downloader verification/leases and acoustic pipeline are the base, not tasks to recreate.
+- At fetched `origin/main` `4b16e3a`, [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042) has a **successful build/validation job**. The overall run fails because two-hour inference inputs are missing. Do not assign generic build repair; repair the specific input bootstrap.
+- PR #2 already supplies study/scoring tools, frozen RU/English selections, host timing/int8 results, text-model hashes/licenses/contract and the segmenter/tests. Use these instead of a new performance harness or host-model search. Reference-export ASR outputs do not substitute for deployed-model speaker cache.
+- The pushed ASR report diagnoses the failed model export's expired upstream TLS certificate and unreachable deployed host. Verify a secure source/deployment repair; never bypass certificate validation. Packaging, ARM text runtime and final device cost are still open.
 
 ## Ownership
 
@@ -14,20 +21,20 @@ All tasks are pending. Schedule assumes 5–7 focused working days, revised afte
 - Device performance harness, merged release integration and final hashes.
 - Pasha owns application lifecycle/source contracts; Andrey owns algorithms/model quality; Petya owns UI/independent QA.
 
-## First two hours — diagnose and unblock
+## 11:00–12:00 — confirm access and the specific red paths
 
-- [ ] Read audit and inspect current CI again; runs cited in the audit are a snapshot, not a substitute for the latest status.
-- [ ] Inspect full logs for model export run `42257595048`; record the actual error before proposing a fix.
-- [ ] Diagnose missing two-hour inputs in Android run `42257595068`; inspect cache scope/key/availability.
+- [ ] Reuse inspected current run `42358746042`; check for any newer pushed result before integrating.
+- [ ] Use the pushed diagnosis for export run `42257595048`; confirm secure checkpoint access and model publication availability rather than restarting a generic investigation.
+- [ ] Locate matching completed two-hour inference inputs and inspect cache key/scope; agree a durable integrity-checked bootstrap with Andrey. Missing access/data is a blocker to escalate by 12:00.
 - [ ] Locate verified model artifacts and establish who has permissions for CI, model publication and signing.
 - [ ] Agree embedded-install readiness/lease contract with Pasha and expected status UI with Petya.
 - [ ] Identify available ARM phones with RAM/OS/ABI/storage information.
 
 **Checkpoint:** documented root cause or precise unresolved evidence gap for each red job; owners/access identified; baseline model availability established.
 
-## Days 1–2 — make checks reproducible
+## 12:00–13:00 — repair bootstrap and integrate the first slice
 
-### T1. Repair current CI — 6–12 h
+### T1. Repair specific failed checks; keep the working build path
 
 - [ ] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks.
 - [ ] Provide a durable integrity-checked source/bootstrap process for completed evaluation inputs. GitHub cache is an accelerator, not the sole source of truth.
@@ -38,9 +45,11 @@ All tasks are pending. Schedule assumes 5–7 focused working days, revised afte
 
 **Done:** applicable existing jobs pass on the intended revision, and the input-recovery path works without relying on a particular warm cache. If access prevents this, report the exact missing permission/artifact instead of asserting success.
 
-## Days 1–3 — embed the complete usable pipeline
+## 11:20–15:00 in the same workstream — complete offline packaging
 
-### T2. Offline model bootstrap — 8–14 h
+These packaging and CI tasks share the same window, not additive effort estimates. Integrate acoustic baseline at **13:00**; hand the first CI APK to the team, target **14:00**. Include a text-runtime probe early enough for **14:30** real ARM feasibility. All mandatory model/runtime changes and the last export-triggering push are due **15:00**.
+
+### T2. Reuse existing model infrastructure; add embedded bootstrap
 
 - [ ] Pin model manifest and build-time asset hashes; package current acoustic models first to unblock an internal baseline.
 - [ ] Replace the competition APK's weight-absence check with required-payload, integrity, ABI and provenance checks.
@@ -63,16 +72,18 @@ All tasks are pending. Schedule assumes 5–7 focused working days, revised afte
 
 **Done:** interrupted/corrupted installs cannot create false readiness; the delivered artifact works on declared ARM targets. Removing extracted files must not be presented as reclaiming immutable APK asset bytes.
 
-## Days 3–5 — performance and integration
+## 15:00–17:00 — full candidate CI, shared measurements and blocker fixes
 
-### T4. Measure before optimizing — 8–14 h
+Full candidate target: **16:00**. Measure the same jobs as Andrey/Petya rather than scheduling a separate benchmark sweep. One-phone quality/performance slot is **16:00–16:30**, then Petya's negative/lifecycle slot **16:30–17:00**.
+
+### T4. Fixed-configuration ARM measurement, no optimization search
 
 - [ ] Record device/OS/ABI/RAM, APK/model hashes, threads, run order and thermal conditions.
 - [ ] Measure decode, model load, ASR, diarization, text LLM and save time, plus total wall time.
 - [ ] Report cold model preparation separately, cold/warm processing RTF and actual media duration.
-- [ ] Record peak PSS/RSS and repeated-job memory trend for short/long/maximum supported inputs.
-- [ ] Compare thread counts/loading policies and, with Andrey, quantized candidates only against identical inputs and frozen quality gates.
-- [ ] Test ten consecutive jobs and three evaluator-style files; investigate resource growth and cancellation cleanup with Pasha.
+- [ ] Record available peak PSS/RSS, storage and repeated-job memory observations on today's tested inputs; label unmeasured maximum-duration behavior explicitly.
+- [ ] Keep acoustic weights/thresholds fixed. Host int8/thread studies are pushed; ARM optimization/quantization sweeps are backlog today.
+- [ ] Measure three evaluator-style files and shared cancellation checks; ten-job/long-duration stress tests stay open unless time remains after the mandatory floor.
 
 **Done:** a reproducible per-device table exists. Target warm total RTF <=1 is an internal goal; report slower results honestly. Do not infer device speed from desktop cached inference or model file size.
 
@@ -84,7 +95,14 @@ All tasks are pending. Schedule assumes 5–7 focused working days, revised afte
 - [ ] Inspect all required checks for the merged revision; artifact presence does not prove workflow-wide success.
 - [ ] Coordinate shared manifest/Gradle/DTO edits through a single editor at a time.
 
-## Days 6–7 — final release
+## 17:00–20:00 — final CI, exact artifact and submission
+
+Final APK-producing push by **17:00**. Inspected workflow limits are **45 min** for Android and **120 min** for model export, before queue/retry overhead: last model/export inputs must be pushed by **15:00**, not first changed at 17:00. Keep all checks and push-only triggers. Batch integration pushes: a new push to the same ref cancels the existing run. Do not cancel final checks with documentation/cosmetic pushes.
+
+- **17:00–18:00:** inspect all applicable checks; target final APK 17:45, latest useful QA handoff 18:00. Supply APK/commit/model hashes and run links. Required model-export evidence must match pinned inputs; an earlier run cannot certify changed tooling/assets.
+- **18:00–19:00:** support Petya's cold offline exact-build rehearsal and capture final provenance/measurements. Do not substitute an untested APK.
+- **19:00–19:30:** verify durable download/source/video links and sign off release identity.
+- **19:30–20:00:** shared submission/link/access recovery reserve, no optional development.
 
 - [ ] Freeze source, model and configuration revisions with Pasha/Andrey.
 - [ ] Produce the final CI artifact with identifiable version and stable signing identity; protect signing credentials from source/APKs/logs.
@@ -111,6 +129,8 @@ Every session reads `AGENTS.md` and the same task contract. Three accounts do no
 - From Pasha: lease/readiness contract and job-resource lifecycle requirements.
 - To Petya: installable candidate APK, clean-install instructions and exact versions for every test round.
 - To all: failing check/root-cause evidence, integration status and final release identity.
+
+If matching inference inputs, secure model export, native LLM operation or final CI cannot be recovered in time, deliver the implemented changes and explicit blocker record by 19:30. Do not skip checks, use reference-model outputs under deployed hashes or present a successful build job as a ready release.
 
 ## Final personal checklist
 

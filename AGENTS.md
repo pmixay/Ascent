@@ -1,6 +1,6 @@
 # Ascent engineering contract
 
-## Current task and scoped precedence — 6 November 2026
+## Current task and scoped precedence — 7 November 2026
 
 The current user supplied the Neuro-stenographer competition specification and
 requested an audit and four-person delivery plan. Read
@@ -22,6 +22,18 @@ No additional app-owned audio-persistence exception is introduced by this plan.
 The older watch-first production requirements remain a separate future track.
 The plan is not implementation evidence. Reconcile its identified CI-inference
 policy inconsistency explicitly before changing inference behavior or checks.
+
+The user fixed today's deadline at **7 November 2026, 20:00 MSK (UTC+3)**,
+with a nine-hour planning window, **11:00–20:00 MSK**. The delivery plan and
+`docs/roles/` use absolute handoff times; all role outputs/sign-offs target 19:30,
+then 30 minutes are reserved for submission. Preserve the pushed role swap:
+Andrey owns ML, Pasha owns application/acceptance, Timofey owns CI/release and
+Petya owns UX/QA/submission. Subtract already pushed work: reuse PR #2's frozen
+study selections, reference ASR/scoring tools, host RU/telephone/English and
+text-model studies, grammar contract and segmenter/tests. Only missing Android
+integration, packaging, device evidence and submission work remain assigned.
+Pushed host studies and a passing build job do not establish full CI/offline ARM
+acceptance. No deadline exception weakens checks, privacy or LLM requirements.
 
 Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation. Write project documentation in English; the app's user-facing language remains Russian.
 

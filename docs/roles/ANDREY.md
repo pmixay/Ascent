@@ -4,12 +4,13 @@
 
 Maximize measured Russian transcription, speaker and timestamp quality while keeping the phone pipeline stable and fast. Own model decisions and experiment validity. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H07/H08/H09/H10.
 
-All tasks are pending. Relative schedule: 5–7 focused working days, revised after baseline measurements. Application builds/tests/lint use GitHub CI. Only approved public-corpus development inference may run locally under `AGENTS.md`; actual judge inputs are processed on Android.
+**Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Personal handoff/sign-off: 19:30; 19:30–20:00 is shared submission reserve.** This replaces all former working-day estimates. Only the remaining work below is assigned; pushed studies are not to be repeated. Application builds/tests/lint use existing GitHub CI; no local Android build/toolchain. Approved public-corpus host inference remains distinct from actual judge processing on Android.
 
 ## Status — 7 November 2026
 
-Evidence so far; checklist boxes below stay unchecked until the acceptance they
-describe is met.
+Already pushed in PR #2 (`e1a27f7`) and present in fetched `origin/main`
+`4b16e3a`; excluded from today's implementation workload. Android acceptance
+remains separate from these host/code outputs.
 
 - **P1 baseline:** [ASR, timestamp and speed baseline](../../prototypes/phone-transcriber/docs/asr-baseline.md)
   with frozen development and fresh validation recordings, telephone-channel and
@@ -26,11 +27,10 @@ describe is met.
   constant start shift failed validation and was rejected. Manually checked
   boundaries in continuous recordings are still needed.
 - **Code:** `TranscriptSegmenter` replaces inline phrase grouping and splits runs
-  over 20 s at their longest pause. In CI run 42353343464 for commit `cb1f4b6`, the
-  job "Build and validate Android app" passed (Python and Kotlin unit tests, lint,
-  APK build, emulator runtime check). The run's overall conclusion is failure,
-  because "Score cached two-hour Russian speech evaluation" stops at its missing
-  inference cache, as it does on `main`.
+  over 20 s at their longest pause. Current inspected [CI run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042)
+  at `4b16e3a` has a successful build/validation job, but the overall run failed
+  because the two-hour scorer lacks matching inference inputs. Do not rewrite the
+  segmenter or claim whole-workflow success.
 
 ## Ownership
 
@@ -41,82 +41,34 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 - Pasha owns source decoding/job orchestration and the text-model adapter. Petya owns UI and fresh holdout custody. Timofey owns model packaging/native dependencies and device performance harness.
 - Timofey reviews provenance/metrics; Pasha reviews pipeline integration.
 
-## First two hours — preserve an honest baseline
+## Today's sequence — remaining work only
 
-- [ ] Read audit, `docs/speaker-diarization.md` and `tools/fixtures/dialogs/README.md` under the prototype.
-- [ ] Record current source/model hashes, thresholds, thread counts and algorithm configuration.
-- [ ] Agree bounded source access and canonical timed-word/turn output with Pasha.
-- [ ] Identify existing six-reader/two-hour gates that every candidate must preserve.
-- [ ] Tell Petya which annotations and conditions are required for the fresh holdout; do not inspect its predictions while tuning.
+| MSK | Output / handoff |
+| --- | --- |
+| **11:00–11:20** | Agree only the missing bounded engine/source seam with Pasha; preserve existing timed words, segmenter and attribution provenance. |
+| **11:20–12:00** | Hand Pasha/Timofey existing Qwen2.5 1.5B Q4_K_M hashes/licenses/grammar/validator and the measured 0.5B fallback; hand Petya the pushed scoring protocol and manifests. No new shortlist, corpus freeze or host benchmark. |
+| **12:00–13:00** | Implement the agreed engine source seam; help Timofey locate matching deployed-model inference inputs. Existing reference-export ASR checkpoints cannot replace missing speaker/deployed-model cache. Submit seam for the 13:00 baseline push. |
+| **13:00–14:30** | Review Android grammar/lexical preservation with Pasha; verify actual CI-built ARM text inference as the APK arrives. Measure cost with Timofey; host feasibility alone is not acceptance. |
+| **14:30–15:00** | Freeze the viable text model/runtime/config from ARM evidence; preserve acoustic models/thresholds. Escalate failed LLM/CI as qualification blockers, not reasons to relabel ASR. |
+| **15:00–16:00** | Review candidate regressions, raw/presentation text projection and source-relative timing; prepare missing Android scoring using existing tools. No algorithm sweep. |
+| **16:00–17:00** | Score the frozen candidate on Petya's predeclared app subset; Timofey measures the same jobs. With one phone, quality slot is 16:00–16:30, then Petya's negatives. Report failures immediately; no holdout tuning. |
+| **17:00–18:00** | Assemble model/license/quality report, clearly separating pushed host numbers from new device numbers; mark missing metrics explicitly. |
+| **18:00–19:00** | Support Petya's final exact-APK acceptance; check final metrics/config/provenance. Deliver report by 19:00. |
+| **19:00–19:30** | Sign off claims and limitations; rehearse ASR/embeddings/clustering/LLM explanation. |
+| **19:30–20:00** | Shared submission/link verification reserve; no new experiments. |
 
-**Checkpoint:** a baseline manifest and experiment protocol exist before comparing candidates. Historical 95.31% completed clip-time attribution is labeled as diagnostic corpus evidence, not natural-conversation DER.
+### Remaining acceptance checklist
 
-## Day 1 — baseline and prioritized error inventory
+- [ ] Bounded source seam preserves original-media offsets, words and existing segmenter behavior.
+- [ ] Pushed grammar and independent validator actually run with the bundled text model on ARM; lexical content, numbers, negation, IDs and times stay unchanged. Record successful operation, fallbacks and incremental time.
+- [ ] Existing stricter regressions remain passing on compatible inputs; missing cache stays a blocker for Timofey, not a waived check.
+- [ ] Missing Android RU call/meeting, short-reply/speaker and English smoke measurements have denominators and build/model/device identifiers. Do not repeat the already published host baseline/error inventory.
+- [ ] Checked natural-recording boundaries report start/end errors, matched/unmatched counts and annotation uncertainty; do not call the existing energy proxy human ground truth.
+- [ ] Final report and model/license review reach Petya by 19:00; personal sign-off by 19:30. Unmeasured conditions are explicitly open.
 
-### P1. Benchmark the current pipeline — part of 12–20 h
+## Deferred beyond 20:00 — not assigned today
 
-- [ ] Freeze development selection and normalization: case/punctuation/ё handling, number representation and silence scoring.
-- [ ] Include one speaker, similar voices, late-arriving speakers, sub-1.5-second replies, fast call-like exchanges, moderate-pace meetings, telephone-channel audio, noise and an English smoke subset. Jury says both call-like and meeting-like cases are a direct criterion.
-- [ ] Measure WER/CER, cpWER, speaker-count error, strict/completed attribution and inferred coverage.
-- [ ] Report per-speaker/per-condition results and denominators, not only aggregate percentages.
-- [ ] Preserve seam repetitions such as repeated “да”; inspect deletions and duplicate words near chunk boundaries.
-- [ ] Deliver the three highest-impact failure categories and one proposed hypothesis per category.
-
-**Done:** baseline outputs are reproducible and tied to source/model/config versions. Missing input/cache must be fixed with Timofey rather than bypassing regression gates.
-
-## Days 1–2 — local text-model feasibility
-
-### P2. Select a usable local LLM — 4–8 h initial spike
-
-- [ ] Coordinate with Pasha on the organizer's interpretation; provision a distinct text model until clarified otherwise.
-- [ ] Shortlist a small number of license-compatible Russian-capable quantized models with viable ARM runtime support.
-- [ ] Check exact model/tokenizer files, redistribution terms, runtime compatibility and expected storage; confirm by an actual CI-built ARM trial.
-- [ ] Test bounded punctuation/case edits, not free-form rewriting or textual speaker guessing.
-- [ ] Specify the structured edit format, lexical-preservation normalization, context/output limits and invalid-output fallback.
-- [ ] Give Timofey a pinned asset/runtime manifest and Pasha the integration/edit contract.
-
-**Done:** a selected model executes locally within the measured device budget and preserves content under validation. Model size/name alone does not establish feasibility. Record the incremental total processing cost.
-
-## Days 2–4 — targeted acoustic improvements
-
-### P3. Improve diarization without hiding errors
-
-- [ ] Investigate short evidence, similar-voice merging, mixed context boundaries and the linkage/spectral switch at 160 anchors.
-- [ ] Compare the same speaker appearing alone and with others; distinguish fragmentation from absorption of a genuine new voice.
-- [ ] Change one mechanism at a time and compare on identical development inputs.
-- [ ] Consider neural VAD only with measured evidence; preserve source offsets and quiet speech.
-- [ ] Preserve unknown/inferred provenance and enrollment exclusions. More completed display labels are not automatically more accurate.
-- [ ] Keep all existing stricter regressions; document a rejected candidate if it fixes one case but breaks another.
-
-**Done:** paired results show a useful improvement with no breached predeclared gate; Pasha can integrate the unchanged result contract.
-
-### P4. Measure and improve timestamp boundaries — 6–10 h
-
-- [ ] Establish reference turn matching and count unmatched turns separately.
-- [ ] Measure start/end absolute errors, median/p95 and tolerance hit rates on at least 100 manually checked boundaries where data permits.
-- [ ] Audit frame-to-sample mapping, input padding, clipped final tails and chunk seam ownership.
-- [ ] Compare VAD-supported refinement or constrained local alignment when the baseline warrants it.
-- [ ] Preserve original-media coordinates, leading silence, lexical order and true speaker changes.
-
-**Done:** timing changes improve declared boundary metrics without removing words, hiding unmatched turns or degrading ASR/speaker gates. Merely converting seconds to milliseconds is not timing improvement.
-
-## Days 4–5 — speed/quality tradeoffs and frozen candidate
-
-- [ ] Review Timofey's ARM stage-time and memory measurements to identify the actual bottleneck.
-- [ ] Compare quantization/thread/runtime candidates only when they solve a measured problem.
-- [ ] Keep original model manifests/baselines; a new model has a new provenance record and fresh inference inputs.
-- [ ] Evaluate Russian slices and English smoke separately; never let an English gain hide a Russian regression.
-- [ ] Freeze the selected pipeline, models and thresholds before Petya runs final held-out evaluation.
-
-**Done:** one release candidate is selected from development results, with quality/resource tradeoffs documented. All required regressions pass.
-
-## Days 5–7 — independent validation and defense
-
-- [ ] Give Petya only the frozen candidate and scoring protocol, with no tuning based on hidden outcomes.
-- [ ] Review the final report: WER/CER, cpWER, attribution, timestamps, short replies, English and overlap limitations.
-- [ ] If held-out failures inform a fix, label that set diagnostic and arrange fresh validation before claiming generalization.
-- [ ] Explain ASR versus embeddings versus clustering versus LLM; prepare examples of known limits and measured improvements.
-- [ ] Review the architecture/model notices and final quality claims.
+New acoustic-model comparisons, diarization/short-turn tuning, neural VAD, quantization/thread sweeps, overlap handling, timestamp-refinement research and the expanded 100-boundary/50-short-turn study remain backlog. The constant start shift is already rejected; do not repeat it. No new quality gain is claimed from the pushed segmenter or host study.
 
 ## Targets and experiment rules
 
@@ -128,13 +80,12 @@ Use one-to-one speaker mapping per recording; unknown/missing assignments are er
 
 | Deliverable | Recipient | When |
 | --- | --- | --- |
-| Engine input/output seam | Pasha | First two hours |
-| Baseline manifest and scoring/annotation rules | Timofey, Petya | Day 1 |
-| Pinned text model + edit contract | Timofey, Pasha | After feasibility spike |
-| Accepted acoustic candidate and regressions | Pasha, Timofey | Days 3–5 |
-| Frozen config + evaluation protocol | Petya | Before final holdout |
+| Missing engine input/output seam | Pasha | Contract 11:20; code for 13:00 push |
+| Existing study manifests/scoring and text model + grammar | Timofey, Petya, Pasha as applicable | 12:00; reuse pushed files |
+| Real ARM LLM feasibility / frozen config | Pasha, Timofey, Petya | 14:30 / 15:00 |
+| Missing Android quality report and limits | Petya | 19:00; sign-off 19:30 |
 
-Use Claude to implement one measured hypothesis; use GPT to challenge the metric, denominator, leakage and failure interpretation. Avoid concurrent algorithm variants in shared files. Record rejected experiments so another session does not repeat them blindly.
+Use Claude for the bounded seam/runtime review and GPT for metric, denominator, leakage and contract review. No new acoustic experiments today. Reuse the pushed rejected-experiment record so another session does not repeat it.
 
 ## Final personal checklist
 

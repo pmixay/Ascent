@@ -1,8 +1,10 @@
 # Ascent four-person delivery plan
 
-Date: 6 November 2026. Baseline: `d7759627`.
+Updated: 7 November 2026. Pushed baseline inspected: `4b16e3a` on `origin/main`, including PR #2 (`e1a27f7`). Historical audit baseline: `d7759627`.
 
-This is a proposed execution plan for the supplied **Neuro-stenographer** competition, with explicit completion evidence. It does not mark tasks complete and does not claim the older watch-first Ascent product is finished. See [HACKATHON_AUDIT.md](HACKATHON_AUDIT.md) for sources, inspected CI and code-level findings.
+**Hard deadline: today, 7 November 2026, 20:00 Moscow time (MSK, UTC+3). Planning window: 11:00–20:00 MSK, nine wall-clock hours for four people.** All times below are MSK on this date. This schedule replaces the previous 5–7-day estimate and the 36–48-hour fallback, including the relative dates in the role plans.
+
+This is a time-boxed execution plan for the supplied **Neuro-stenographer** competition, not evidence of completed implementation or a guarantee that all qualification blockers fit into nine hours. The original full scope does not fit: today delivers the smallest complete mandatory pipeline, measured smoke coverage and the submission package; optional improvements and extended evaluation move to backlog. A missing mandatory requirement remains a release blocker, not a deferred requirement disguised as completion. See [HACKATHON_AUDIT.md](HACKATHON_AUDIT.md) for the historical source/CI findings. The older watch-first product remains separate.
 
 ## Individual execution plans
 
@@ -13,7 +15,23 @@ Each plan includes first assignments, ordered checklists, file ownership, collea
 - [Timofey — CI, embedded models, performance and release](roles/TIMOFEY.md)
 - [Petya — UX, independent QA and submission](roles/PETYA.md)
 
-These plans expand the assignments below without changing the shared contracts or marking any implementation task complete.
+Each role plan has the same absolute handoff times and a bounded workload ending before 20:00. No implementation or acceptance task is marked complete by this rescheduling.
+
+## Already pushed — excluded from today's remaining implementation
+
+This inventory was reconciled against fetched `origin/main`, not just the older audit. Keep the pushed role swap: **Andrey owns ML; Pasha owns the application**. Reuse these outputs; do not assign their creation again.
+
+| Pushed work | Evidence | Remaining delta only |
+| --- | --- | --- |
+| Brief/clarifications, audit, requirements reconciliation and individual plans | `3a05e3b`, `517b572`, `05afbbc`, `05a1714`; role swap `4b16e3a` | Today's timing, implementation seam and final evidence updates; no new audit/specification exercise. |
+| Frozen development/fresh validation selection and English smoke manifest | PR #2; `tools/fixtures/dialogs/study_selection.json`, `tools/fixtures/english_smoke.json` under the prototype | Reuse manifests/splits and normalization. Petya adds only missing natural call/meeting references and final app acceptance inputs; no corpus reselection. |
+| ASR/scoring/reference tooling, host RU/telephone/EN baseline and error inventory | PR #2; [ASR baseline](../prototypes/phone-transcriber/docs/asr-baseline.md), `asr_study.py`, `asr_metrics.py`, `reference_asr.py` and focused tests | Measure the actual packaged Android pipeline, speakers and complete RTF. Host reference-export scores do not validate the deployed weights or ARM. |
+| Frame/time audit, rejected constant −80 ms start shift and host int8 comparison | Same baseline report | Do not repeat the rejected shift or quantization study. Human-checked natural boundaries and ARM measurements remain open; keep current acoustic weights today. |
+| Pinned text-LLM shortlist, host feasibility, grammar/validation/fallback contract | PR #2; [text-model study](../prototypes/phone-transcriber/docs/text-model-feasibility.md), `text_model_study.py` | Android runtime/grammar integration, embedded exact assets and real ARM acceptance only. Proposed Qwen2.5 1.5B Q4_K_M; measured 0.5B fallback if ARM budget requires it. No new shortlist/host sweep. |
+| `TranscriptSegmenter` and focused tests; >20 s runs split at their longest pause | PR #2; engine integration and `TranscriptSegmenterTest.kt` | Preserve/retest the shipped behavior; agree competition export turn granularity, not reimplement phrase grouping. |
+| Existing acoustic inference, speaker pipeline, encrypted history, model downloader/leases, timeline and R8/native CI | Existing prototype; current source and workflow | Integrate only import/export/offline/text-stage gaps. Do not recreate storage, inference, download or UI architecture. |
+
+**Inspected current CI:** [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042), commit `4b16e3a`: **Build and validate Android app passed**, but the workflow **failed** at `Require a completed local-improvement inference cache`. Do not assign generic build repair or workflow creation; H01 fixes input recovery and export. Latest model-export run remains [42257595048](https://github.com/pmixay/Ascent/actions/runs/42257595048), failed at `d7759627`; the pushed study reports an expired upstream checkpoint TLS certificate. Verify a secure repair, never disable TLS. No new CI run or device test was performed for this plan edit.
 
 ## 1. Delivery objective and order
 
@@ -26,6 +44,14 @@ Priority order:
 3. **P2 — measured improvements:** English robustness, neural VAD/denoising, quantization, optional text editing, overlap experiments and optional downloadable updates. English receives smoke coverage before release even if broader tuning is deferred.
 
 Wear OS, Rewind, profiles/places expansion, sound-event recognition and remote AI do not enter this critical path. Existing encrypted storage and working inference are the base; a large multi-module rewrite is unnecessary.
+
+### Today's scope boundary
+
+- Keep the existing GigaAM/ERes2NetV2 acoustic weights, thresholds and stricter regressions. No acoustic-model replacement, quantization search, new VAD, overlap separation, timestamp research or decorative redesign today.
+- Implement reachable import, exact JSON including silence, complete embedded models, real local text processing, truthful job state/cancellation and source-safe cleanup. Preserve existing microphone capture and encrypted history; do not add an audio-copy shortcut to make import faster to implement.
+- Start with PCM16 mono 16 kHz WAV, then rate/channel conversion and common platform-decoded formats within H02's time box. Record supported formats from actual trials. Unknown organizer formats are not permission to declare WAV-only sufficient; an unmet required format is a blocker.
+- One competition ARM64 artifact is the submission priority. Preserve the compact variant and its existing checks when extending the workflow; no model-removal UI, second new distribution flow or optional download UX today. Do not change artifact policy silently.
+- Prepare documents/video from 11:20 onward, not after coding. Target all role deliverables by 19:30; reserve 19:30–20:00 solely for submission/link verification and contingency.
 
 ## 2. Ownership and use of available AI tools
 
@@ -52,7 +78,9 @@ Paths below are relative to `prototypes/phone-transcriber/` unless specified.
 
 Timofey integrates reviewed changes; Pasha is the product acceptance owner. Andrey approves model-quality changes. Petya can block release on a reproduced acceptance failure. These are responsibilities, not extra approval ceremonies for trivial edits.
 
-## 3. Freeze contracts in the first two hours
+## 3. Freeze contracts by 11:20
+
+Use a 20-minute kickoff, not two hours of design. Reuse the pushed requirements, study manifests and text-edit contract. Agree only the missing source/engine seam, job commands/states, canonical result, export API and embedded/text-runtime seam. Pasha records signatures and owners; refinements must not start a cross-module rewrite.
 
 ### Input and processing
 
@@ -78,9 +106,9 @@ Timofey integrates reviewed changes; Pasha is the product acceptance owner. Andr
 
 The plan treats the PDF's local-LLM requirement literally unless organizers confirm otherwise in writing.
 
-Andrey selects a license-compatible small Russian-capable quantized text model after a short ARM feasibility comparison. Pasha integrates its runtime; Timofey packages the exact weights/tokenizer/native dependencies. A roughly 0.5–1.5B-class candidate is a starting search range, not a selected model or a guaranteed memory fit.
+Do not repeat the pushed host feasibility study. By **12:00**, Andrey hands Pasha and Timofey the existing pinned Qwen2.5 1.5B Q4_K_M manifest and grammar/validation contract, plus the already studied 0.5B fallback. Select between them from actual ARM cost, not the host's speed. Pasha starts the bounded Android adapter immediately; Timofey prepares native bindings/assets in parallel. Prefer a compatible existing runtime integration over a new runtime research project. The actual feasibility gate is a CI-built on-device run by **14:30**; the host report and a provisional manifest are not Android model acceptance.
 
-Give it a useful narrow job: punctuation/case restoration over bounded ASR spans, preferably outputting structured punctuation/case edits rather than rewriting sentences. Validate that lexical tokens, numbers, negation, order, speaker IDs and times are unchanged under a frozen lexical normalization. Invalid output falls back to the raw transcript and records a non-content diagnostic status. Never ask the LLM to invent missing speech or determine speakers from text alone.
+Implement the pushed contract: punctuation/case restoration over bounded ASR spans using the per-phrase grammar and an independent lexical validator, projecting only allowed edits onto original words. Do not redesign it as free-form rewriting. Validate that lexical tokens, numbers, negation, order, speaker IDs and times are unchanged under the frozen normalization. Invalid output falls back to the raw transcript and records a non-content diagnostic status. Never ask the LLM to invent missing speech or determine speakers from text alone.
 
 Run it sequentially after releasing acoustic sessions; cap context/output, elapsed work and retries. Report total RTF including this stage. A bundled but unused model, or a hidden failed LLM, is not evidence that the requirement is satisfied. Persistent native/runtime failure remains a compliance defect even if the raw fallback keeps the app usable. If organizers explicitly accept ASR alone, record that answer and reconsider the extra model before release freeze.
 
@@ -96,87 +124,77 @@ Deleting an extracted model does not remove its bytes from an installed APK's im
 
 ## 4. Work packages, dependencies and acceptance
 
-Estimates are focused human engineering hours with existing AI tools, excluding unattended CI time. They are ranges, not a deadline promise. Native model integration and device accuracy may require additional iterations.
+The rows below are **handoff deadlines, not additive effort estimates**. Each person's sequential schedule is in section 5 and their role file. Four people provide at most 36 person-hours, including coordination, review, device work and submission; AI subscriptions do not increase wall-clock time. Native integration and red CI are the highest risks.
 
-| ID | Owner | Work / concrete output | Depends on | Estimate | Acceptance evidence |
-| --- | --- | --- | --- | ---: | --- |
-| H00 | Pasha + all | Record scope, deadline/device assumptions, LLM question, input/export/job contracts and owners. Synchronize README/roadmap/agent instructions. | — | 2–3 team hours | One agreed contract; no contradictory active instructions. |
-| H01 | Timofey | Diagnose current export failure from full logs; restore reproducible two-hour inputs on `main`; reconcile CI inference policy; preserve all required checks. | H00 | 6–12 h | Existing workflows green on the intended commit, including clean-input bootstrap demonstration. |
-| H02 | Pasha | Reachable SAF import; source adapter; WAV header/format validation; common sample rates/stereo; platform-decoded MP3/AAC/M4A where supported; bounded resampling. | H00 | 10–18 h | Selected-format fixtures reach real local inference; correct duration/time origin; bad input fails cleanly; original file is unchanged. |
-| H03 | Pasha | Competition JSON serializer, empty-result export, stable IDs, contract validation and export failure handling. | H00; integrated with H02 | 3–5 h | CI schema/semantic tests plus exported device JSON accepted by an independent validator. |
-| H04 | Timofey | Bundled model manifest/build inputs, streamed offline installation, integrity and interrupted-extraction recovery; packaging checks changed from forbidden to required weights. | H00, H01; H07 model choice | 8–14 h | Clean install with all networks off completes three imports without downloading weights; correct APK/model hashes recorded. |
-| H05 | Petya | File selection entry, truthful stages/progress, cancellation, filename/duration, speaker turns, easy JSON export, useful errors and readable layout. | H00; integrate H02/H03/H06 | 8–14 h | Another teammate completes the judge flow unaided, including denial/cancel/empty results and font scaling. |
-| H06 | Pasha | Lifecycle-safe job owner, serialized inference, cancel/error cleanup, corruption/low-storage recovery; safe model lease/resource handling. | H02/H03 | 8–14 h | Rotation, background/return, process death/reopen, repeated jobs and failures leave coherent state and no source loss. |
-| H07 | Andrey + Pasha | Short text-LLM feasibility spike, actual local model selection, constrained punctuation/case adapter and validation. Pasha implements adapter; Andrey owns model/semantic quality. | H00; H04 packaging interface | Andrey 4–8 h; Pasha 8–14 h | Actual on-device text inference with bundled model, unchanged lexical content/IDs/times, bounded resources and measured incremental RTF. |
-| H08 | Andrey | Freeze development/reference protocol, benchmark current pipeline, add short-turn/one-speaker/similar-voice/telephone/meeting cases; tune one diarization/segmentation hypothesis at a time. | H00; H02 for phone baseline | 12–20 h | Paired baseline/candidate report; existing regressions pass; fresh held-out test after model/threshold freeze. |
-| H09 | Andrey | Boundary benchmark and timestamp improvement: correct sample/frame timing, VAD-supported refinement or constrained local alignment; preserve words and pause coordinates. | H08 | 6–10 h | Start/end MAE, median/p95 and threshold hit rates on manually checked boundaries; no seam-word regression. |
-| H10 | Timofey + Andrey | ARM performance measurement; test thread counts, loading/reuse and quantization candidates only when needed. Include all stages and cold/warm costs. | H02/H04/H07 | Timofey 8–14 h; Andrey 4–8 h | RTF, peak PSS/RSS, installed storage and repeated-run table; selected optimization preserves quality gates. |
-| H11 | Petya + all device owners | Independent E2E/negative/lifecycle/device matrix; custody of new held-out recordings and reference annotations. | H02–H10 as available | Petya 10–16 h; others 2–4 h each | Filled pass/fail matrix with device/build/model identifiers; failures reproducible; no blocker remains. |
-| H12 | Petya + Pasha + Timofey | Judge-facing docs/results/video, clean final CI, signed identifiable APK, hashes and durable repository-linked release download. | H01–H11 | Petya 5–8 h; Pasha 2–4 h; Timofey 3–5 h | Full submission checklist and fresh offline rehearsal on the exact delivered APK. |
+| ID | Owner | Today's bounded output | Depends on / handoff deadline | Evidence required |
+| --- | --- | --- | --- | --- |
+| H00 | Pasha + all | Only missing devices/access and source/job/result interfaces; reuse published scope/export/text contracts. | **11:20** | Shared callable seam; unanswered organizer questions recorded as assumptions. |
+| H01 | Timofey; Andrey helps locate matching inference inputs | Fix missing two-hour input bootstrap and securely repair the documented model-export failure; explicitly resolve CI inference-policy conflict before altering behavior/checks. No generic build/workflow rewrite. | Diagnosis/access status **12:00**; first integrated push **13:00**; required jobs green before final acceptance. | Inspected runs; cold-cache bootstrap; no skipped/weakened check. Reference-export ASR outputs are not a substitute for deployed-model speaker inputs. |
+| H02/H03 | Pasha; Andrey edits engine seam | Minimal source-safe URI/WAV import and dedicated exact JSON serializer, including empty output; then declared rate/channel/codec support. | APIs **11:20**; first reviewable code **12:30**; baseline integration **13:00**; required decoding **15:00**. | Real ARM import/export; CI contract checks; independent JSON validation; unchanged source and bounded PCM. |
+| H04 | Timofey | Pinned embedded acoustic/text assets, runtime dependencies, checksum-verified atomic bootstrap and no first-launch network wait. | Acoustic baseline push **13:00**; complete pipeline and last model/export-input push **15:00**. | Fresh offline activation; interrupted/corrupt-payload checks; APK/model hashes. Keep compact and embedded packaging rules distinct. |
+| H05 | Petya | System picker, actual processing state/cancel, readable turns, empty-result and exact JSON export/error UI. | Callable seam **11:20**; baseline UI **12:30**; full UI **15:00**. | Unaided real flow; permission/picker/export errors; no fake transcript/progress. |
+| H06 | Pasha | Serialized job IDs, stale-callback rejection, safe close/cancel, defined background/restart behavior and storage-error handling; reuse existing architecture. | Integrated with H02; complete by **15:00**; blocker fixes only afterward. | Rotation/background, cancel→new job and kill/reopen; no source deletion or silent history destruction. |
+| H07 | Andrey supplies studied candidate; Pasha integrates; Timofey packages | Only the remaining Android punctuation/case stage with the pushed grammar/validator, or an explicit written organizer waiver. | Existing manifest handoff **12:00**; real CI-built ARM feasibility **14:30**; integration **15:00**. | Actual successful model execution, unchanged content, fallback counts and incremental time. Host feasibility is already done, not ARM compliance. |
+| H08/H09 | Andrey; Petya holds final app references | Reuse pushed selection/scoring/error study and segmenter; measure missing Android Russian call/meeting, short-turn, speaker, timing and English results. Fix only reproduced blocking correctness defects. | Existing protocol handoff **12:00**; missing references **13:00**; models/thresholds freeze **15:00**; report **19:00**. | Separate host/reference and APK/device denominators. No repeat baseline study, −80 ms experiment or new acoustic tuning; expanded boundary research is backlog. |
+| H10 | Timofey measures; Andrey reviews | One fixed-configuration ARM cold/warm stage-time/RTF and available memory/storage table, collected during QA. No optimization sweep. | Baseline device run target **14:00**; candidate measurements **16:00–17:00**; final provenance **19:00**. | All automatic stages including LLM; measured versus unmeasured fields explicit. |
+| H11 | Petya; all fix their blockers | Minimum offline three-file, schema, negative and lifecycle matrix; final exact-APK rehearsal. | Candidate QA **16:00–17:00**; final artifact target **17:45**, latest useful handoff **18:00**; final QA **18:00–19:00**. | Per-case pass/fail/blocked/not-run with APK/device IDs; no unresolved qualification blocker. Extended matrix stays open. |
+| H12 | Petya packages; Timofey publishes; Pasha accepts; Andrey checks claims | Reuse pushed study/model descriptions; add actual installation/offline flow, missing architecture/limitations, final results, APK/source links and exact-build video. | Drafts from **11:20**; evidence **19:00**; all role sign-offs and package **19:30**; submission confirmed by **20:00**. | Durable reachable links and matching commit/APK/model/video identities; unchecked gates stay explicit. |
 
-Parallel work produces an approximate **5–7 focused working-day** baseline for four people if supported devices, model artifacts and repository permissions are available. This estimate is for competition readiness, not completion of the old watch product; re-estimate after H00/H01/H07. Quality targets that fail need further iteration, not a renamed “done” state.
+If H01/H04/H07 cannot be closed, every role still hands over its actual work and blocker record by 19:30, but the team must report an incomplete submission rather than claim competition readiness.
 
 ## 5. Integration milestones and schedule
 
-### M0 — contract and reproducibility (first 2 hours, then H01 in parallel)
+### Fixed nine-hour schedule — 7 November, MSK
 
-- Pasha: ask organizer questions, freeze minimal contracts and confirm scope.
-- Andrey: preserve current model/algorithm baseline; list input model hashes and existing quality failures.
-- Timofey: inspect full failing CI logs, identify available verified weights and missing evaluation-input recovery path.
-- Petya: write the three-file judge script and identify two physical phones; prepare reference/format matrix.
+| Time | Pasha — application | Andrey — ML and evidence | Timofey — CI/release | Petya — UX/QA/submission |
+| --- | --- | --- | --- | --- |
+| **11:00–11:20** | Freeze missing callable seam; send unresolved organizer questions. | Hand over pushed acoustic/study/text contracts; agree engine seam. | Confirm CI/model/signing access, known red jobs, device and verified assets. | Agree UI commands; write three-file script and evidence table. |
+| **11:20–13:00** | Exact serializer + bounded URI/WAV source; first code by 12:30. | Existing text manifest/grammar handoff by 12:00; engine seam; help locate matching inference inputs. | Fix CI input bootstrap/export; embed acoustic models; prepare text runtime/assets. Integrate and push baseline at 13:00. | Picker/result/export wiring by 12:30; add only missing natural references, reuse studies in doc drafts during integration waits. |
+| **13:00–14:00** | Complete decoder/job safeguards; integrate constrained text adapter. | Check model/edit behavior and scoring; support first ARM trial. | Inspect baseline CI; hand off first CI-built ARM APK, target 14:00. | Check real baseline flow as APK arrives; finalize independent validator and references. |
+| **14:00–15:00** | Close required formats/lifecycle/text stage; review Petya's integration. | Demonstrate real ARM LLM by 14:30; freeze model/threshold/config by 15:00. No acoustic tuning. | Close complete asset/runtime integration; last model/export-input push by 15:00; start full-pipeline candidate CI. | Test baseline negatives; complete mandatory UI and update actual instructions. |
+| **15:00–16:00** | Review merged app; fix reproduced qualification blockers only. | Review preserved regressions and lexical/timing behavior; prepare frozen scoring. | Inspect candidate CI/model export and fix diagnosed blockers; deliver full candidate as available, target 16:00. | Review candidate against acceptance checklist; prepare final test queue. |
+| **16:00–17:00** | Fix/review only reproduced P0 application defects; final source handoff by 17:00. | Score frozen candidate with Petya's held-out references; collect denominators and limitations. | Measure fixed-config RTF/memory during QA; integrate approved blocker fixes; final APK-producing push by 17:00. | Execute candidate quality/negative/lifecycle checks; send reproducible failures immediately. |
+| **17:00–18:00** | Requirement/evidence review and installation/architecture text; no feature work. | Finalize quality/model/license report; explain unmeasured conditions. | Inspect final CI; APK target 17:45, latest useful handoff 18:00; supply hashes/run links and durable download. | Assemble package and video setup; do not record a substitute build as final. |
+| **18:00–19:00** | Support final exact-build retests; acceptance sign-off or blocker list. | Validate reported scores/config and LLM evidence; help final tests without tuning. | Verify provenance; capture final measurements; support cold install. | Lead final cold-offline three-file rehearsal, JSON validation and essential negative checks on the delivered APK. |
+| **19:00–19:30** | Sign off requirement matrix; rehearse app explanation. | Sign off metrics/limits; rehearse model explanation. | Verify final release/download/source links and checks; sign off release identity. | Record exact-build demo, finish instructions/results and assemble submission; sign off QA. |
+| **19:30–20:00** | All four: submit, verify access/links and receipt; contingency only. No optional coding, tuning or redesign. | Same shared submission reserve. | Own technical upload/link recovery. | Own submission checklist and confirmation. |
 
-**Exit:** everyone can work against the same source/job/result/JSON contract; no one starts a watch/cloud/UI redesign branch.
+### Checkpoints and dependency rules
 
-### M1 — baseline vertical slice (day 1–2)
+1. **11:20 — contracts/access.** Everyone leaves kickoff with a bounded task and named handoff. Missing phone, verified weights, signing/deployment access or inference inputs is escalated immediately; do not spend hours discovering it in isolation.
+2. **12:00 — Android feasibility decision.** Andrey hands over the pushed model sources/hashes/licenses and grammar/validator; Pasha and Timofey confirm an integration route. Do not rerun model discovery. If no runtime path is viable, Pasha escalates the LLM question while all continue import/export work. Silence from organizers is not a waiver.
+3. **13:00 — baseline push.** Timofey integrates contracts + WAV import/export + minimal UI + embedded acoustics. Include the text-runtime probe if ready. An acoustic-only checkpoint is internal and not a compliant final release.
+4. **14:30 — real ARM feasibility.** Inspect actual baseline/LLM results, CI failures and processing time. If the text stage, model bootstrap or CI still has no viable path, all four explicitly record the qualification risk and focus on that blocker; do not start quality experiments. Estimate final rehearsal time from measured speed, not an assumed RTF <1.
+5. **15:00 — mandatory implementation and model/config freeze.** Complete full-pipeline candidate, push the last changes that trigger model export, and stop adding formats/features. This is a target, not permission to drop a required codec or unfinished LLM. Freeze before held-out scoring; unresolved mandatory work is red. Broader quality experiments are already out of scope.
+6. **17:00 — final application source freeze/push.** Thereafter only a release-blocking fix agreed by Pasha and Timofey can change code. A fix requires new CI/artifact hashes and affected device retests; if there is no time, report incomplete instead of waiving checks. Do not tune on the holdout.
+7. **18:00 — final artifact handoff.** Petya needs the exact final APK for 18:00–19:00 tests and 19:00–19:30 video. A late APK consumes this reserve; escalate explicitly rather than silently deleting final QA. Unfinished/red CI cannot be promoted just to meet the clock.
+8. **19:30 — all role deliverables closed.** Each owner hands over changed commit/files, evidence links and remaining `fail`/`blocked`/`not run` items. Pasha records ready/incomplete; Petya and Timofey verify the submitted package by 20:00. The deadline never turns an unchecked gate into a pass.
 
-- Pasha delivers simplest real WAV import and exact export first; then broadens decoding.
-- Andrey supplies baseline expected behavior and begins the text-LLM feasibility spike.
-- Timofey restores CI and embeds the existing acoustic models first; provisions the selected text-model assets next.
-- Petya connects the import/results/export UI and performs the first offline walkthrough.
+### CI and device time are on the critical path
 
-**Exit:** clean-install offline import → local real inference → result → exact JSON on ARM. If LLM integration is not yet ready, this is an internal checkpoint, not full specification compliance.
+The inspected workflow configuration allows **45 minutes** for Android build/checks and **120 minutes** for model export; queueing and failures can add time. These are limits, not observed completion estimates. Budget an early baseline cycle, a full-pipeline candidate cycle and a final Android cycle. Keep model/export-triggering changes before 15:00 so a required export is not first started at 17:00. Preserve push-only triggers and every current check.
 
-### M2 — compliance and stability (day 2–4)
+Timofey owns integration pushes. Existing workflow concurrency cancels an in-progress run on another push to the same ref; batch changes and do not interrupt a required final run with cosmetic/document pushes. Record the tested release commit separately if later submission-only documentation has another commit. Applicable model-export evidence must match the pinned model/export inputs; an earlier run is not evidence for changed assets/tooling. Never present the audit's historical green build as today's result.
 
-- Pasha completes the local text stage, lifecycle/error/cancel behavior and source decoding.
-- Andrey measures Russian failure categories and proposes evidence-backed speaker/timing changes.
-- Timofey measures ARM memory/time and hardens installation/native runtime behavior.
-- Petya tests negative inputs, three sequential jobs, denied microphone permission and background/restart behavior.
-
-**Exit:** complete mandatory flow, including resolved LLM requirement, with no runtime blocker and a recorded baseline quality/performance report.
-
-### M3 — scored quality (day 4–5)
-
-- Andrey freezes a candidate using development results only; validates short/long/similar-voice cases and timestamps.
-- Timofey compares performance candidates without changing accuracy data or weakening gates.
-- Pasha integrates only accepted candidates and reviews lexical-preservation rules.
-- Petya runs the held-out evaluation and checks Russian/English/telephone/meeting coverage.
-
-**Exit:** chosen configuration passes the predeclared internal criteria. A failed held-out set becomes diagnostic data; subsequent claims require a fresh holdout.
-
-### M4 — release freeze and defense (day 6–7, or final 20% of available time)
-
-Only blocker fixes after freeze. Timofey pins artifact/model/config hashes and verifies all applicable jobs. Petya records the exact build, installation script, results and video. Pasha checks every mandatory requirement against evidence. All four rehearse explaining architecture, quality limits and their contributions.
-
-**Exit:** a different teammate repeats the evaluator procedure offline on the final APK; all deliverables are reachable from the submitted repository.
-
-### If only 36–48 hours remain
-
-Use the same ownership and gates, compress the work rather than pretending the full estimate fits:
-
-| Window | Team objective |
-| --- | --- |
-| 0–2 h | Resolve contracts, devices, inputs and LLM interpretation; diagnose red CI. |
-| 2–12 h | Import + exact JSON + embedded existing models + minimal UI; first real offline ARM run. |
-| 12–24 h | Meaningful local LLM, input conversion, job/error handling, required CI input recovery. |
-| 24–34 h | Small representative phone benchmark; fix high-impact errors and crashes. |
-| Final 10–14 h | Freeze, retest, package instructions/results/video and rehearse. |
-
-Cut speculative model replacement, advanced overlap separation, decorative redesign, optional updates and nonessential editing first. Do not cut import, JSON compatibility, embedded usable models, local processing, required checks, LLM resolution or final offline testing. If a mandatory gate remains open, call the result incomplete; extra accounts do not remove native-integration or measurement dependencies.
+If only one phone is available: reserve **14:00–14:30** for baseline/LLM feasibility, **16:00–16:30** for Andrey's quality inputs with Timofey measuring the same jobs, **16:30–17:00** for Petya's negative/lifecycle tests, and **18:00–19:00** exclusively for final exact-APK acceptance. Use a second already available ARM device in parallel if possible; do not spend today's window preparing a local Android toolchain. When processing overruns, report which cases remain unrun.
 
 ## 6. Test and quality strategy
 
-### A. Mandatory functional matrix — Petya owns evidence
+### A. Today's acceptance floor — Petya owns evidence
+
+Run this first on the candidate and repeat it on the final exact APK during **18:00–19:00**:
+
+- Cold install/first launch with networking disabled before opening; all model stages, including the text model, run locally.
+- Three independent unfamiliar files in sequence: Russian call-like speech with short replies, Russian meeting-like speech and English smoke. Prefer 1–3 minutes per file (3–9 minutes total) so the measured processing cost fits the rehearsal; this is a smoke subset, not a new supported-duration limit.
+- Validate each exported JSON independently; verify empty/silent export, stable per-file IDs, source-relative time bounds, Unicode/escaping and unchanged source files. Import requires no microphone permission.
+- Cancel the picker, reject malformed/unreadable input, cancel processing then start another job, rotate/background/return and kill/reopen. Confirm explicit recovery and no stale/wrong-file result. Check interrupted model extraction and export failure without losing valid text.
+- Collect WER, speaker errors/inferred coverage, checked boundary errors and complete RTF on the applicable speech inputs. Use `not measured` when references/instrumentation do not support a metric; never fill the gap with host results.
+
+At 14:30 use observed RTF/extraction time to check the one-hour final-test budget. A slow mandatory stage is a scheduling blocker to escalate, not permission to omit it or silently trim processing. If a required gate cannot be exercised, keep it open.
+
+### Extended matrix — not a nine-hour completion commitment
+
+The cases below remain the full hardening/coverage backlog. Reuse existing CI coverage; execute additional cases only after today's floor. Unrun cases and unsupported quality claims stay open. A reproduced mandatory-flow defect blocks release even when discovered in an extended case.
 
 - Fresh install with airplane mode and Wi-Fi/mobile data disabled before first launch; no preinstalled app/model directory. Test APK and model activation, not just reopening an already provisioned app.
 - Import without microphone permission; cancel picker; unknown size; unreadable/revoked URI; unsupported codec; malformed/truncated/empty file; genuine silence; Unicode filenames.
@@ -191,11 +209,13 @@ Cut speculative model replacement, advanced overlap separation, decorative redes
 
 Keep application builds and executable automated tests in GitHub CI. Physical devices install CI-built APKs. Approved public-corpus development inference may run on a development workstation; processing the judge's actual input always runs in the submitted Android app.
 
-### B. Quality corpus — Andrey designs, Petya holds the final set
+### B. Reuse pushed studies; add only missing Android evidence
 
-Keep existing two-hour and six-reader regressions. Add a manageable new collection of continuous public/licensed annotated recordings, with both development and untouched evaluation portions separated by recording and preferably speaker. Initial target: 12–20 clips, 45–90 minutes total, with at least 6 held-out clips and 4 held-out speakers where obtainable. Represent both rapid dialogues and meetings; include RU clean/noisy/similar-voice/short-turn slices and an EN/code-switch smoke slice. Record duration, word count and number of short turns; small subsets are not universal accuracy evidence.
+Keep existing two-hour and six-reader regressions required. The pushed Dialogs study selection, English manifest, scoring normalization and host baseline already exist; do not recreate them. The original reserved recordings are diagnostic. `masha_dima_part3` and `masha_sveta_part3` were frozen before the pushed study and have now been scored: reuse that history honestly, not as a newly untouched set after inspecting its errors. Keep host reference-export results separate from the deployed acoustic model and final Android pipeline.
 
-For timestamps, manually double-check at least 100 reference turn boundaries across several conditions. For short replies, collect at least 50 annotated turns below about 1.5 seconds across multiple speakers. Use original continuous recordings for boundary/overlap evaluation, not concatenated isolated clips. If adding team recordings would conflict with the existing audio policy, use authorized public media; do not create app recording archives for evaluation.
+By 13:00 Petya supplies only missing continuous public/licensed call-like and meeting-like references for today's small app subset, using Andrey's existing scoring protocol; English inputs can be a predeclared subset of the pushed manifest. Freeze the subset before its Android predictions. Include short replies where available and check as many real turn boundaries as the time box permits, reporting exact counts and annotation uncertainty. Do not claim speaker-disjoint or comprehensive natural-conversation validation from three files. No new app recording archive is authorized.
+
+The earlier 12–20-clip / 45–90-minute collection, six held-out clips/four speakers, 100 checked boundaries and 50 sub-1.5-second turns are **post-deadline evaluation backlog**, not today's assignments or completed acceptance. Do not rerun host ASR/quantization/text-model sweeps simply to occupy a CI wait.
 
 Record for every experiment:
 
@@ -239,8 +259,8 @@ For improvements, freeze an error budget before experiments: by default no WER i
 
 1. One task branch/workspace per bounded task. Small PRs against the same base; no broad automated renames while others implement contracts. All builds/tests/lint use the existing push-triggered GitHub workflows.
 2. Each change includes task ID, exact changed contract, targeted verification, relevant failed/passed run links and any unmeasured claim. AI-generated code receives a human explanation/review.
-3. Integrate in order: contracts/export → source seam/basic import → embedded bootstrap/UI → lifecycle/text LLM → accepted quality/performance changes. UI, fixtures and packaging can be developed in parallel against fixed interfaces.
-4. Timofey's third AI workstream reviews the merged diff and records contradictions; it does not independently rewrite shared files. Andrey keeps one algorithm experiment active at a time to maintain causal attribution.
+3. Integrate remaining gaps in order: contracts/export → source seam/basic import → embedded bootstrap/UI → lifecycle/text LLM → blocker fixes. Reuse the pushed segmenter/study tooling. UI, fixtures and packaging can be developed in parallel against fixed interfaces; new quality/performance experiments are backlog today.
+4. Timofey's third AI workstream reviews the merged diff and records contradictions; it does not independently rewrite shared files. Andrey supplies the existing model study and measured Android evidence, not another parallel acoustic experiment.
 5. Reconcile missing CI inputs through a durable, integrity-checked source under repository policy. Caches accelerate verified data; they must not be the only copy. Do not upload public evaluation audio as downloadable artifacts or upload app recordings. Keep baseline model hashes and separate candidate manifests.
 6. Keep the Android build and model-export workflows; do not bypass checks, add manual/PR triggers or build locally. Resolve the documented CI inference-policy inconsistency explicitly before changing that behavior.
 7. Do not publish/promote a release merely because the build job uploaded an APK. Inspect all applicable current-commit jobs and the physical-device evidence. Keep existing R8/JNI checks and add required embedded-payload checks.
@@ -283,13 +303,13 @@ Release remains unchecked until evidence exists:
 
 ## 9. First assignments to hand to each person
 
-**Pasha:** “Own H00/H02/H03 first. Read the audit and existing app flow. Freeze `AudioSource`/job/result contracts with Andrey and Petya, add a real SAF WAV import path and a separate PDF-compatible JSON serializer including silence. Preserve existing encrypted storage and original input. Coordinate the engine source seam with Andrey. Acceptance: another teammate imports an unknown local WAV without microphone permission and exports schema-valid JSON from real inference. Then own H06 and local text-model integration.”
+**Pasha — application:** “By 11:20 give Petya the callable source/job/export seam. By 12:30 hand over minimal URI/WAV import and exact JSON, including silence, for the 13:00 baseline push. By 15:00 finish required decoding, safe job lifecycle and Android text-stage integration using Andrey's already pushed model/grammar contract. Final blocker-fix handoff is 17:00; acceptance sign-off by 19:30. Reuse encrypted storage and the shipped engine/segmenter; do not reimplement them.”
 
-**Andrey:** “Own H07 model feasibility and H08/H09 quality. Preserve the existing GigaAM/ERes2NetV2 baseline and stricter regression gates. Diagnose short turns, similar voices, seams and timing on development data. Propose a bounded local text-model role without lexical rewriting. Produce one candidate at a time with model/source/config hashes and paired metrics. Petya owns the new final holdout; do not tune against it.”
+**Andrey — ML:** “Do not repeat PR #2: selection, ASR/English/telephone host baseline, time audit, rejected start shift, int8 comparison, text shortlist/grammar and segmenter are pushed. By 12:00 hand over existing model hashes/licenses/contract and scoring protocol. Support the engine seam, matching inference-input recovery and real ARM text-model feasibility by 14:30; freeze config at 15:00. Measure only missing Android/speaker/boundary evidence; report by 19:00 and sign off claims by 19:30. No acoustic tuning today.”
 
-**Timofey:** “Own H01/H04. Current Android build is green but long evaluation lacks its cache; current model export fails before publication. Read full logs and restore reproducible inputs without weakening checks. Replace the competition APK's weight prohibition with complete pinned embedded-payload verification and atomic offline bootstrap. Preserve native runtime isolation and model leases. Workstreams for packaging, benchmarking and review must use separate files/workspaces. Then measure ARM RTF/memory and own release provenance.”
+**Timofey — CI/release:** “The build job at 4b16e3a is already green; fix missing matching evaluation inputs and the export failure, not generic build infrastructure. Embed pinned complete models while keeping compact/R8/native checks. Integrate baseline at 13:00, last model/export inputs at 15:00 and final app push by 17:00. Deliver the final CI APK/hash/run links by 18:00; measure ARM cost during shared QA, not a separate optimization sweep. Durable release and sign-off by 19:30; submission reserve ends 20:00.”
 
-**Petya:** “Own H05/H11/H12. Work against Pasha's state/API contracts: file import, real progress/cancel, readable participant turns and one obvious JSON export. Build the independent three-file offline acceptance script and collect physical-device evidence, including denied permissions, silence, malformed inputs and repeated jobs. Hold the untouched test set. Prepare installation instructions, limitations, real results and a video of the final exact APK.”
+**Petya — UX/QA/submission:** “Baseline picker/result/export UI by 12:30; missing natural call/meeting references by 13:00; mandatory UI complete by 15:00. Reuse existing timelines, study descriptions and English manifest. Start instruction/result drafts during integration waits. Candidate QA is 16:00–17:00; final exact-build offline three-file QA is 18:00–19:00. Finish video/package by 19:30 and confirm submission by 20:00. Keep unrun cases explicit; do not recreate the pushed studies.”
 
 ## 10. After the competition release
 

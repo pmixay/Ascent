@@ -1,6 +1,6 @@
 # Ascent
 
-## Current competition delivery plan — 6 November 2026
+## Current competition delivery plan — 7 November 2026
 
 The supplied Neuro-stenographer specification and organizer clarifications now
 define the phone competition release. See the [requirements/code/CI audit](docs/HACKATHON_AUDIT.md)
@@ -13,10 +13,22 @@ direction and exclude remote text processing. The watch-first product target
 below remains a separate future track. Builds and executable application checks
 remain CI-only.
 
-At audited commit `d7759627`, the Android build job passed, but the overall
-workflow failed because the two-hour evaluation inputs were unavailable; model
-export also failed before publication. Historical green runs below do not establish
-a fully verified current release. See the audit for inspected run links and scope.
+**Deadline: today, 7 November 2026, 20:00 MSK (UTC+3).** The plan assigns the
+remaining work across **11:00–20:00**, with all role sign-offs/package by 19:30
+and the last 30 minutes reserved for submission. Pasha owns the application,
+Andrey ML, Timofey CI/release and Petya UX/QA/submission. It excludes already
+pushed PR #2 work: frozen study manifests, reference ASR/scoring tools, host
+RU/telephone/English and text-model studies, grammar contract and segmenter/tests.
+Reuse them; remaining qualification work is Android import/JSON/text integration,
+complete offline packaging, matching CI inputs, device evidence and submission.
+Optional model/quality research and extended tests are backlog, not marked done.
+
+Current inspected `origin/main` commit `4b16e3a`,
+[run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042):
+the Android build/validation job passed, but the overall workflow failed because
+the two-hour evaluation inputs were unavailable. Latest model export remains the
+failed run `42257595048`. Neither pushed host studies nor the passing build job
+establish complete offline ARM acceptance. The audit preserves its earlier snapshot.
 
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present

@@ -1,6 +1,6 @@
 # Ascent roadmap
 
-## Active competition track — 6 November 2026
+## Active competition track — 7 November 2026
 
 Execute [the four-person hackathon plan](docs/HACKATHON_PLAN.md), grounded in
 [the source-specification and current-CI audit](docs/HACKATHON_AUDIT.md), for the
@@ -9,6 +9,26 @@ models, local-LLM compliance, offline ARM operation and measured speech quality.
 Its unchecked release gates supersede the old watch-first delivery order for
 this scope. The older product milestones below are retained as a separate
 future track, not additional competition prerequisites or completed work.
+
+**Hard deadline: today, 7 November 2026, 20:00 MSK (UTC+3); execution window
+11:00–20:00.** Role outputs/package/sign-offs are due 19:30; reserve the last
+30 minutes for submission. Remaining-work owners: Pasha — app/import/exact JSON
+and Android text adapter; Andrey — ML/runtime acceptance and missing device
+metrics; Timofey — evaluation-input/export repair, embedded models and CI release;
+Petya — missing UX wiring, independent QA and submission. Baseline push 13:00;
+complete mandatory integration/model freeze 15:00; final app push 17:00; final
+APK handoff by 18:00; exact-build offline QA 18:00–19:00. See the plan for risks
+and per-role handoffs; a missed mandatory gate means incomplete, not accepted.
+
+Already pushed at `origin/main` `4b16e3a` (including PR #2): frozen study/English
+manifests, reference ASR/scoring tools, host ASR/telephone/English and text-model
+studies, grammar contract and segmenter/tests. These are excluded from remaining
+implementation; reuse them. ARM inference, speakers, true natural boundaries and
+complete offline flow are not established by the host studies. Current inspected
+[CI run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042)
+has a passing build job but fails overall for missing two-hour inference inputs.
+Keep that check required. New acoustic tuning/quantization/VAD and the expanded
+corpus/device/stress matrix move beyond today's deadline without being marked done.
 
 The old “reserved validation” references below are historical: the original
 Dialogs recordings have since informed algorithm fixes and are diagnostic data.
@@ -112,7 +132,7 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 
 ## Parallel track: Hackathon verification build
 
-**Dependency:** existing prototype and CI. **Outcome:** an APK the jury can install and score offline. This track follows the Hackathon verification section of [AGENTS.md](AGENTS.md); it is phone-only and does not complete any production milestone. It is the jury-requirements checklist for the active competition track above; owners, ordering and hour estimates live in [the delivery plan](docs/HACKATHON_PLAN.md) and the per-person files in `docs/roles/`, and this list adds no separate schedule.
+**Dependency:** existing prototype and CI. **Outcome:** an APK the jury can install and score offline. This track follows the Hackathon verification section of [AGENTS.md](AGENTS.md); it is phone-only and does not complete any production milestone. It is the jury-requirements checklist for the active competition track above; remaining-work owners and today's absolute handoff times live in [the delivery plan](docs/HACKATHON_PLAN.md) and `docs/roles/`, and this list adds no separate schedule. Pushed studies are reused rather than reassigned; all final-release acceptance gates remain unchecked until verified.
 
 - [ ] Embed the verified speech models in a verification APK. Extend the existing **Ascent Android CI** workflow, keep push-only triggers and every current check, and keep the compact network APK with weights outside it.
 - [ ] Decide between two APKs and one APK whose embedded model can be deleted. If deletion is offered, add only that control and return to the fixed-catalog download flow afterward.

@@ -4,7 +4,11 @@
 
 Deliver the application path from a selected local audio file to a safely retained transcript and specification-compatible JSON. Own the job lifecycle and meaningful local text-LLM integration. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H00/H02/H03/H06/H07/H12.
 
-All tasks below are pending. Dates are relative working days, assuming the parent's 5–7-day schedule. Re-estimate after the first device run. Build, application tests and lint run only in existing GitHub CI; physical phones install CI-built APKs.
+**Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Code handoff: 17:00; acceptance sign-off: 19:30; submission reserve: 19:30–20:00.** This replaces all working-day/effort estimates below. Builds, application tests and lint use existing GitHub CI; phones install its APKs. Missing mandatory work is a blocker, not automatically complete at the deadline.
+
+## Already pushed — reuse, do not implement again
+
+At fetched `origin/main` `4b16e3a`, the application already has local acoustic inference, encrypted conversation/voice storage, model leases/downloads and timeline UI. PR #2 adds the segmenter/tests, frozen speech/English manifests, host ASR/timestamp study and text-model shortlist/grammar contract. Do not rewrite those components or wait for another model-selection study. **Remaining:** reachable source-safe import, competition JSON, job safeguards and the actual Android text stage. Andrey is the ML owner; this role remains the application/acceptance owner after the pushed role swap.
 
 ## Ownership
 
@@ -17,19 +21,21 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 - Timofey owns build scripts, Android manifest, model selection/installation and native dependency packaging.
 - Reviewers: Timofey for resources/lifecycle; Petya for acceptance usability; Andrey for text-model behavior.
 
-## First two hours — remove ambiguity
+## 11:00–11:20 — agree only missing interfaces
 
 - [ ] Read `AGENTS.md`, the audit and parent plan; inspect current ViewModel, import and export paths.
-- [ ] Ask organizers about local LLM meaning, input formats/lengths, Android/RAM/ABI, scoring and deadline. Record answers and current assumptions.
+- [ ] Reuse pushed brief/clarifications. Ask only unresolved local-LLM, format/length/device/scoring questions; deadline is already fixed at 20:00 today. Do not restart the audit.
 - [ ] Agree `AudioSource`, bounded `PcmWindowSource`, processing state, result and model-lease contracts with colleagues. Proposed names are design seams, not existing classes.
 - [ ] Define ViewModel commands for import, cancel and export, with job IDs and error categories; hand the contract to Petya.
 - [ ] Agree how Andrey's two-pass engine reopens/reads the same URI without creating an app-owned audio spool.
 
 **Checkpoint:** all four can describe the same input → job → result → JSON path. While organizer answers are pending, implement the unambiguous import/export requirements.
 
-## Day 1 — exact export and minimal real import
+## 11:20–13:00 — exact export and minimal real import
 
-### A1. Implement the competition serializer first — 3–5 h
+Reviewable source/serializer code reaches Timofey and Petya by **12:30**, integrated baseline push at **13:00**. Prepare the narrow text-adapter interface alongside this work; Andrey supplies the existing model contract by 12:00.
+
+### A1. Dedicated competition serializer
 
 - [ ] Add a dedicated serializer using `transcript` and `speaker_id`, `start_ms`, `end_ms`, `text`.
 - [ ] Keep internal encrypted history serialization backward-compatible.
@@ -40,7 +46,7 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 **Done:** JSON from a real device transcript passes Petya's independent schema/semantic validator, including an empty transcript. A successful serializer unit test alone is insufficient.
 
-### A2. Connect an initial WAV input — first slice of 10–18 h
+### A2. Connect the existing engine to a bounded URI/WAV source
 
 - [ ] Accept a `content://` URI from Petya's picker; handle permission lifetime and unreadable/revoked sources.
 - [ ] Adapt WAV reading to a bounded source abstraction and establish media duration/time origin.
@@ -50,7 +56,9 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 **Done:** import a new 16 kHz mono WAV without microphone permission; display and export computed results. The original file is unchanged.
 
-## Day 2 — supported input decoding and integration
+## 13:00–15:00 — required decoding, job safety and text-stage integration
+
+These are one shared two-hour time box, not three additive estimates. Use platform decoding and existing architecture; no database/module rewrite. Real ARM LLM feasibility is due **14:30**; full mandatory integration **15:00**. Escalate any nonviable runtime/codec early; a missing required format or LLM remains a blocker.
 
 - [ ] Add WAV rate/channel conversion and common Android-decoded MP3/AAC/M4A formats as supported by target devices.
 - [ ] Preserve sample/PTS mapping through resampling, including leading silence, chunk seams and decoder delay.
@@ -61,9 +69,7 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 **Done:** the declared format matrix reaches real inference with correct media duration and time origin. Source files are neither deleted nor copied into a permanent app archive. No new disk-audio exception is introduced.
 
-## Days 3–4 — job stability and local text model
-
-### A3. Reliable processing ownership — 8–14 h
+### A3. Reliable processing ownership
 
 - [ ] Move long-running job ownership out of accidental activity lifetime; choose a supported Android execution mechanism with Timofey before adding service declarations.
 - [ ] Define rotation, background and process-death outcomes. Process death may require reopening/reselecting a source; never claim automatic audio recovery that does not exist.
@@ -74,9 +80,9 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 **Done:** cancellation followed by another job, rotation, background/return and kill/reopen produce coherent states; no original file loss, duplicate result or stale completion.
 
-### A4. Meaningful local LLM — 8–14 h after Andrey's selection
+### A4. Android integration of the already studied text model
 
-- [ ] Integrate Andrey's selected model through the agreed runtime; obtain exact assets/native bindings from Timofey.
+- [ ] Use the pushed Qwen2.5 1.5B Q4_K_M candidate or the already measured 0.5B fallback after ARM budget checks. Integrate its grammar/validator contract; obtain exact assets/native bindings from Timofey. Do not repeat the host shortlist or feasibility sweep.
 - [ ] Perform bounded punctuation/case edits locally after acoustic sessions are released.
 - [ ] Validate unchanged lexical tokens, numbers, negation, order, speaker IDs and times. Preserve raw ASR text.
 - [ ] Cap context/output/time/retries; reject malformed or meaning-changing output and show/use the raw fallback.
@@ -84,21 +90,30 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 **Done:** the bundled text model demonstrably executes on ARM and has a useful constrained role. An unused bundled model or an always-failing adapter is not compliance. Revise this task only if organizers explicitly clarify that a distinct LLM is unnecessary.
 
-## Days 5–7 — final integration and acceptance
+## 15:00–17:00 — candidate QA and reproduced blocker fixes only
 
-- [ ] Integrate Andrey's accepted candidate; confirm source/word/ID/time contracts still hold.
+- [ ] Review the full-pipeline candidate with Andrey; preserve the shipped segmenter and acoustic configuration. No new quality candidate today.
 - [ ] Fix Petya's reproduced application blockers; retest affected paths in CI and on device.
 - [ ] Match each mandatory requirement to implementation and evidence; leave unverified rows open.
 - [ ] Review installation/architecture/limitations documents and the final three-file offline rehearsal.
 - [ ] Prepare a short explanation of import, job lifecycle, JSON, local LLM and failure recovery for the defense.
 
+Final application code handoff/push is **17:00**. After that only a release-blocking fix agreed with Timofey can change code, with new CI/artifact identity and retests. Do not consume final QA with optional work.
+
+## 17:00–20:00 — acceptance and submission
+
+- **17:00–18:00:** review requirement/evidence rows and actual installation/lifecycle/architecture text while final CI runs.
+- **18:00–19:00:** support Petya's final exact-APK cold offline three-file rehearsal and affected retests.
+- **19:00–19:30:** sign off application requirements as pass/fail/blocked/not-run; rehearse the defense. Leave missing mandatory evidence open.
+- **19:30–20:00:** shared submission/link verification reserve, not feature development.
+
 ## Handoffs and blockers
 
 | Need | From | Deliver to others |
 | --- | --- | --- |
-| Acoustic input/result agreement | Andrey, first two hours | Stable source/state/export APIs to Petya |
+| Acoustic input/result agreement | Andrey, by 11:20 | Stable source/state/export APIs to Petya by 11:20; baseline code 12:30 |
 | Valid model lease and embedded assets | Timofey | Runtime/asset requirements and required manifest changes |
-| Text model, tokenizer, prompt/edit contract | Andrey | Working local adapter and lexical-preservation results |
+| Already pushed model/grammar/validator contract, by 12:00 | Andrey | Actual ARM adapter evidence by 14:30; integrated stage by 15:00 |
 | Reproduced UX/lifecycle failures | Petya | Fixed APK commit, affected tests and clear remaining limits |
 
 If weights/CI block device inference, continue serializer, URI validation and orchestration work against interfaces. Mark test doubles explicitly; they are development scaffolding, never delivered as precomputed transcription.

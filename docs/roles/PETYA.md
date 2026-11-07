@@ -4,7 +4,11 @@
 
 Make the evaluator's task obvious, reproduce failures independently and deliver trustworthy release evidence. Own UI, held-out evaluation custody, device acceptance, instructions/results and demonstration video. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H05/H11/H12.
 
-All tasks are pending. Relative schedule assumes 5–7 focused working days. Use CI for application builds/tests/lint, and CI-built APKs for device checks. A planned test case is not a passed test.
+**Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Baseline UI: 12:30; mandatory UI: 15:00; final QA: 18:00–19:00; video/package/sign-off: 19:30; submission confirmed by 20:00.** This replaces the former working-day/effort schedule. Use existing CI for application builds/tests/lint and its APKs for device checks. A planned case is not a passed test.
+
+## Already pushed — reuse instead of recreating
+
+At fetched `origin/main` `4b16e3a`, participant timeline/result UI and model-status UI already exist. PR #2 supplies frozen RU/English study manifests, normalization/scoring tools, host ASR/timestamp/telephone/English results, model feasibility/description and segmenter/tests. Link/reuse them; do not assign a new corpus selection, host benchmark report or timeline redesign. Remaining UX is picker/job-state/cancel/exact-export wiring; remaining evidence is real final Android/offline operation, missing natural call/meeting references and submission material. Pasha owns app APIs; Andrey owns ML.
 
 ## Ownership
 
@@ -15,20 +19,22 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 - Own the new held-out recording/reference selection and final independent evaluation schedule, with Andrey's protocol.
 - Pasha reviews UI state/URI integration; Timofey reviews test/artifact provenance.
 
-## First two hours — define the evaluator journey
+## 11:00–11:20 — agree the missing evaluator flow
 
 - [ ] Read audit and supplied JSON/three-file acceptance procedure.
 - [ ] Write a step-by-step script: install → offline first launch → import → process → inspect → export → repeat twice.
 - [ ] Agree commands/state/error categories with Pasha and model-readiness statuses with Timofey.
 - [ ] Identify at least one primary physical ARM64 phone and a second device where available; record Android/RAM/storage.
 - [ ] Create a test-results table with explicit `not run`, `pass`, `fail`, `blocked` states and APK/model identifiers.
-- [ ] Agree fresh dataset/annotation requirements with Andrey; cover both jury-required call-like and meeting-like cases; separate development inputs from the held-out set.
+- [ ] Reuse Andrey's pushed protocol/manifests; identify only missing natural call/meeting references and predeclare the small final app subset before its predictions. Do not restart source selection.
 
 **Checkpoint:** the team has a single visible acceptance script and device/test ownership before UI polishing starts.
 
-## Days 1–2 — implement the mandatory UI
+## 11:20–15:00 — mandatory UI and document drafts
 
-### E1. Import and processing screens — part of 8–14 h
+Baseline picker/result/export wiring goes to Timofey/Pasha by **12:30** for the **13:00** baseline push. Finish required UI by **15:00**. During integration/CI waits, prepare instructions, reference annotations, validator and video script; do not leave all documentation until coding ends.
+
+### E1. Wire import and processing into the existing screens
 
 - [ ] Make “Import audio” a primary entry point using the system document picker.
 - [ ] Handle picker cancellation without an error; importing must not request microphone permission.
@@ -47,7 +53,17 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 **Done:** another teammate follows the three-file script unaided. A polished screen using fake data is not completion; connect it to real local results.
 
-## Days 2–4 — systematic acceptance tests
+## Candidate and final QA — minimum before the extended matrix
+
+- **13:00–15:00:** review references/validator and test the first real APK as it arrives (target 14:00); update actual instructions.
+- **15:00–16:00:** prepare full-candidate cases and check requirement coverage; no decorative UI changes.
+- **16:00–17:00:** candidate QA. If one phone, Andrey/Timofey share 16:00–16:30 for quality/time and you own 16:30–17:00 for negatives/lifecycle. Report blockers immediately for the 17:00 final source freeze.
+- **17:00–18:00:** assemble documents/video setup while final CI runs. Escalate a missing final APK at 18:00 rather than silently dropping QA.
+- **18:00–19:00:** on the exact final APK, clean cold-offline launch; process three independent files (RU call-like, RU meeting-like, EN smoke); independently validate JSON; test silence, denied microphone permission, picker cancellation, malformed input, cancel→new job, rotation/background/reopen and export failure. Verify source files unchanged and all mandatory models actually local.
+- **19:00–19:30:** exact-build video, final results/limits/links and QA sign-off.
+- **19:30–20:00:** shared submission and receipt/link verification reserve.
+
+Choose short speech inputs (prefer 1–3 minutes each, 3–9 total) and use the measured RTF at 14:30 to budget final QA; do not assume faster-than-real-time processing. Do not silently shorten pipeline work or call unrun cases passing. The following E3–E5 entries are the extended matrix: run today's floor first; ten repetitions, every stage/device/codec and long/max-duration stress remain open when not exercised.
 
 ### E3. Offline and input matrix
 
@@ -76,25 +92,25 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 **Done:** every supported mandatory case has an actual outcome and evidence; fixes are retested on an identified newer APK. Do not turn an unrun case into pass because a similar case succeeded.
 
-## Days 1–5 in parallel — prepare independent quality evidence
+## 11:20–13:00 during integration waits — only missing references
 
 ### E6. Holdout custody
 
-- [ ] Select authorized public/licensed continuous dialogue with Andrey's condition/annotation criteria; record sources, licenses and hashes.
-- [ ] Separate recordings and preferably speakers from algorithm-development material; do not reuse the old diagnostic Dialogs set as a fresh holdout.
+- [ ] Reuse pushed Dialogs/English selections and existing scoring. Add only missing authorized continuous call/meeting references for the three-file app subset, with sources/licenses/hashes; ready by 13:00.
+- [ ] Freeze the app subset before its predictions; separate from development where possible and disclose shared speakers. Do not relabel already scored Dialogs part3 recordings as a newly untouched set after inspecting errors.
 - [ ] Prepare/verify reference words, speaker turns and time boundaries; double-check ambiguous annotations.
-- [ ] Include rapid/short turns, meetings, similar voices, noise/telephone channel and English smoke coverage.
+- [ ] Cover RU call/meeting and short replies where available plus EN smoke, preferably from the existing English manifest. Expanded similar-voice/noise/overlap corpus and 100-boundary/50-short-turn targets are backlog, not another task today.
 - [ ] Keep candidate predictions/scores out of tuning until Andrey freezes models and thresholds.
 - [ ] Run final evaluation on the frozen candidate and report complete per-condition outcomes with denominators.
 
 **Done:** final quality evidence is genuinely independent of candidate selection. If scores inform a new fix, mark that set diagnostic and obtain fresh validation for subsequent generalization claims.
 
-## Days 5–7 — submission and demonstration
+## Drafts from 11:20; final package 19:00–19:30
 
-### E7. Judge-facing package — 5–8 h
+### E7. Finish the judge-facing package using pushed material
 
 - [ ] Prepare quick-start instructions: supported Android/ABI, storage needs, installation, first offline preparation, import and JSON export.
-- [ ] Write architecture/model descriptions from implemented code with Pasha/Andrey review.
+- [ ] Reuse pushed model/study descriptions; add only implemented Android/import/offline/text-runtime details with Pasha/Andrey review.
 - [ ] Write measured limitations: formats, duration, voices, overlap, approximate timings and recovery behavior.
 - [ ] Publish aggregate/per-case results with source/config/device/APK identifiers; no invented example rows.
 - [ ] Map existing source into the organizer's requested layout with a source-location document if needed; adapt unrelated template fields to speech metrics.
