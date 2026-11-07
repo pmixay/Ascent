@@ -36,6 +36,12 @@ This inventory was reconciled against fetched `origin/main`, not just the older 
 
 ## 1. Delivery objective and order
 
+Execution update: [Timofey's 13:55 MSK H01 checkpoint](roles/TIMOFEY_H01_STATUS.md)
+records inspected attempts, the cold cache key, access and current TLS blockers.
+The first inference attempt was cancelled; attempt 2 is running. Latest-run
+diagnosis is recorded, but H01 acceptance, verified embedded assets and the
+remaining inference-policy decision are still open.
+
 Deliver one clearly identified CI-built ARM64 APK containing every model needed for the default pipeline. On a clean supported phone with networking disabled before first launch, a judge can import an unfamiliar local recording, process it on the phone, inspect timestamped speaker turns and export the exact required JSON. Three successive files must work independently. Provide source, measured results, installation instructions, architecture, limitations and a video of the same release.
 
 Priority order:

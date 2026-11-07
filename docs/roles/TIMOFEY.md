@@ -24,7 +24,7 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 
 ## 11:00–12:00 — confirm access and the specific red paths
 
-- [ ] Reuse inspected current run `42358746042`; check for any newer pushed result before integrating.
+- [x] Reuse inspected current run `42358746042`; check for any newer pushed result before integrating. See the [13:55 MSK diagnosis/access handoff](TIMOFEY_H01_STATUS.md): newer build success, cancelled first inference attempt and active second attempt; full H01 remains open.
 - [ ] Use the pushed diagnosis for export run `42257595048`; confirm secure checkpoint access and model publication availability rather than restarting a generic investigation.
 - [ ] Inspect the pushed cache-producing run and its cache key/scope/provenance with Andrey; verify completed inference → scoring. Do not recreate its public-model bootstrap. Escalate actual missing access/data or failed inference by 12:00.
 - [ ] Locate verified model artifacts and establish who has permissions for CI, model publication and signing.

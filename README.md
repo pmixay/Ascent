@@ -31,6 +31,12 @@ failed for missing inputs. Latest model export remains failed run `42257595048`.
 Public-reference results are not deployed-pack or offline ARM acceptance. The
 audit preserves its earlier snapshot.
 
+Timofey's [13:55 MSK H01 checkpoint](docs/roles/TIMOFEY_H01_STATUS.md) records
+newer inspected evidence: the first inference attempt was cancelled, attempt 2
+is running, upstream checkpoint TLS is still expired and the catalog fails TLS
+negotiation here. Repository push/log access is confirmed; complete CI, verified
+embedded assets, signing custody and ARM acceptance remain open.
+
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
 for review: listening stops into automatic local transcription, then the temporary

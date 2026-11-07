@@ -38,6 +38,12 @@ Freeze cache-key inputs by 14:00: cold inference/scoring limits are 150 + 45 min
 before queue overhead. Default-branch pushes preserve the running workflow rather
 than cancelling its cache generation; batch pushes to avoid queued duplication.
 
+The [13:55 MSK H01 checkpoint](docs/roles/TIMOFEY_H01_STATUS.md) completes the
+latest-run diagnosis subtask only. The first inference attempt was cancelled and
+attempt 2 is running; secure checkpoint/catalog access, complete scoring and
+fixture/export inference-policy reconciliation remain open. No release gate is
+completed by this checkpoint.
+
 The old “reserved validation” references below are historical: the original
 Dialogs recordings have since informed algorithm fixes and are diagnostic data.
 New generalization claims require a fresh holdout, as specified in the active plan.
