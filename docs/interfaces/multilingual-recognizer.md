@@ -6,6 +6,13 @@ Status: model choice of the team, 7 November 2026, from host measurements in
 host-mirrored), but no APK contains the files, no UI selects the mode, and nothing here has
 run on Android or ARM.
 
+Timofey's explicit packaging follow-up merges this engine path and adds a
+schema-2 embedded `multilingual-asr/` group with unchanged four file pins,
+CC-BY-4.0 attribution, uncompressed APK entries, triple-revision leases and a
+required minified-emulator recognizer-creation test. [Implementation and evidence
+status](../roles/TIMOFEY_PARAKEET_STATUS.md). New CI is pending; normal app mode
+selection and actual ARM acceptance remain Pasha/Petya handoffs.
+
 ## Decision
 
 | Mode | Model | Languages | Why |
@@ -50,6 +57,7 @@ TranscriptionEngine(
     modelDirectory: File,                                           // GigaAM pack: always used for speakers
     mode: RecognitionMode = RecognitionMode.RUSSIAN_CIS,
     multilingualDirectory: File? = null,                            // directory holding ParakeetFiles.ALL
+    timings: ProcessingTimings? = null,                            // optional exclusive stage counters
 ).transcribeWithSpeakers(source, onProgress)
 ```
 

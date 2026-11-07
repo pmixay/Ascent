@@ -41,7 +41,7 @@ internal data class ModelTransferState(
 )
 
 /** A lease protects the selected acoustic/text pair through every inference stage. */
-internal class ModelLease(val directory: File, val textDirectory: File? = null, private val release: () -> Unit) : Closeable {
+internal class ModelLease(val directory: File, val textDirectory: File? = null, val multilingualDirectory: File? = null, private val release: () -> Unit) : Closeable {
     private val closed = AtomicBoolean(false)
     override fun close() { if (closed.compareAndSet(false, true)) release() }
 }
@@ -67,8 +67,11 @@ internal object ModelSelection {
         val text = if (BuildConfig.EMBEDDED_MODELS) checkNotNull(EmbeddedModels.textDirectory(file)) {
             "Встроенная текстовая модель ещё не готова"
         } else null
+        val multilingual = if (BuildConfig.EMBEDDED_MODELS) checkNotNull(EmbeddedModels.multilingualDirectory(file)) {
+            "Встроенная мультиязычная модель ещё не готова"
+        } else null
         leases[file.absolutePath] = (leases[file.absolutePath] ?: 0) + 1
-        ModelLease(file, text) { synchronized(lock) {
+        ModelLease(file, text, multilingual) { synchronized(lock) {
             val count = (leases[file.absolutePath] ?: 1) - 1
             if (count == 0) leases.remove(file.absolutePath) else leases[file.absolutePath] = count
             // Delete only this released revision; a worker may be promoting a new one.
@@ -92,12 +95,20 @@ internal object ModelSelection {
         }?.forEach(::deleteRevision)
         // Interrupted promotion can leave only the text directory; never delete a leased pair.
         root(context).listFiles()?.filter { it.name.startsWith("text-embedded-") &&
-            !File(root(context), "gigaam-${it.name.removePrefix("text-")}").exists()
+            !File(root(context), "gigaam-${it.name.removePrefix("text-")}").exists() &&
+            !isLeased(File(root(context), "gigaam-${it.name.removePrefix("text-")}"))
+        }?.forEach { it.deleteRecursively() }
+        root(context).listFiles()?.filter { it.name.startsWith("multilingual-embedded-") &&
+            !File(root(context), "gigaam-${it.name.removePrefix("multilingual-")}").exists() &&
+            !isLeased(File(root(context), "gigaam-${it.name.removePrefix("multilingual-")}"))
         }?.forEach { it.deleteRecursively() }
     }
     private fun deleteRevision(file: File) {
         file.deleteRecursively()
-        if (file.name.startsWith("gigaam-embedded-")) File(file.parentFile, "text-${file.name.removePrefix("gigaam-")}").deleteRecursively()
+        if (file.name.startsWith("gigaam-embedded-")) {
+            File(file.parentFile, "text-${file.name.removePrefix("gigaam-")}").deleteRecursively()
+            File(file.parentFile, "multilingual-${file.name.removePrefix("gigaam-")}").deleteRecursively()
+        }
     }
 }
 

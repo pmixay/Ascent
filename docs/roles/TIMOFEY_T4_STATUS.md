@@ -103,12 +103,13 @@ single synthetic text phrase and requires positive load/text durations and exact
 counter reconciliation. Its RTF stays null: it processed no audio. No additional
 corpus inference, model search or acoustic runtime benchmark is added to CI.
 
-New code has static review only until its own push CI finishes. This does not
+T4 source `68487f1` passed both jobs in [CI 42402862397](https://github.com/pmixay/Ascent/actions/runs/42402862397),
+compact `128494207680` and embedded `128494208032`. The required 25 compact cases
+and one embedded timing/text/bootstrap case executed without skips. This does not
 exercise a full phone import/inference/save job or establish physical ARM behavior.
-T4 source is pushed as `68487f1`; [CI 42402862397](https://github.com/pmixay/Ascent/actions/runs/42402862397)
-is running. A read-only [T5 incoming-main review](TIMOFEY_T5_STATUS.md) records the
-separate, not-yet-integrated Parakeet packaging/size/API handoff. It is not silently
-included in the current default-model candidate.
+The user subsequently requested [Parakeet packaging](TIMOFEY_PARAKEET_STATUS.md)
+explicitly; its main merge and schema-2 payload require new CI. Historical
+[T5 review](TIMOFEY_T5_STATUS.md) explains the formerly blocked packaging/API seam.
 Petya/user must install the exact new CI APK, retain the corresponding raw APK,
 bundle, model and source hashes, then record the on-screen total, media duration,
 RTF and stages for the fixed three-file cold/warm sequence. Record run order,

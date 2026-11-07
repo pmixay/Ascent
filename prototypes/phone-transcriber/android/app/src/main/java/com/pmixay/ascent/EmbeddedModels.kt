@@ -70,9 +70,10 @@ internal object EmbeddedModels {
     }
 
     fun textDirectory(acoustic: File): File? = selected?.takeIf { it.acoustic == acoustic && snapshot(it) == stamps }?.text
+    fun multilingualDirectory(acoustic: File): File? = selected?.takeIf { it.acoustic == acoustic && snapshot(it) == stamps }?.multilingual
 
     private fun snapshot(installation: EmbeddedInstallation): Map<String, Pair<Long, Long>> =
-        listOf(installation.acoustic, installation.text).flatMap { directory ->
+        listOf(installation.acoustic, installation.text, installation.multilingual).flatMap { directory ->
             directory.listFiles()?.map { it.absolutePath to (it.length() to it.lastModified()) }.orEmpty()
         }.toMap()
 

@@ -1,5 +1,11 @@
 # Timofey T5 — current-main integration review
 
+**Superseding user handoff:** the user now explicitly requested Parakeet embedding,
+R8/JNI safety and emulator creation smoke. Main was merged in `1f5dbe2`, preserving
+both constructors' seams and timing behavior. [Current implementation/status](TIMOFEY_PARAKEET_STATUS.md).
+T4 `68487f1` also passed both CI jobs in `42402862397`; the findings below are the
+earlier read-only snapshot, not a claim that the new packaging has passed CI.
+
 Read-only review after fetching `origin/main` at
 `2429e141807d619e01cac35f38f3ef14f25a578b`. No main merge,
 model activation, signing setup or release publication was performed here.

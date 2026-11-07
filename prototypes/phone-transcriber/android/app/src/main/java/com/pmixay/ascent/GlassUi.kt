@@ -384,6 +384,12 @@ private fun ModelsStatus(state: ConversationState) {
             Text("Локальный режим. Автоматические обновления отключены.",
                 modifier = Modifier.testTag("model-local-only"), fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
         }
+        if (BuildConfig.EMBEDDED_MODELS) {
+            Text("Parakeet TDT 0.6B v3 — NVIDIA. Лицензия CC-BY-4.0. Конвертация int8 ONNX: csukuangfj / sherpa-onnx.\n" +
+                "Источник: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3\n" +
+                "Лицензия: https://creativecommons.org/licenses/by/4.0/",
+                modifier = Modifier.testTag("multilingual-license"), fontSize = 16.sp, lineHeight = 23.sp, color = Ink)
+        }
         if (ready && state.modelOnlineUpdates) {
             Text(modelCheckAgeLabel(state.modelLastCheckedAtMs, nowMs),
                 modifier = Modifier.testTag("model-check-age"), fontSize = 14.sp, lineHeight = 21.sp, color = Ink)

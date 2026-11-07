@@ -22,6 +22,14 @@ from model_pack import load_json, sha256_file, validate_directory, REQUIRED_FILE
 from export_provenance import load_receipt
 
 PIN = ROOT / "config/embedded-models.json"
+MAX_EMBEDDED_BYTES = 2_200_000_000  # Schema 2 adds the user-requested pinned Parakeet set.
+PARAKEET_NOTICE = ("NVIDIA Parakeet TDT 0.6B v3 — NVIDIA. CC-BY-4.0.\n"
+                  "Original model: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3\n"
+                  "License: https://creativecommons.org/licenses/by/4.0/legalcode.en\n"
+                  "Changes: int8 ONNX conversion distributed by csukuangfj / sherpa-onnx.\n"
+                  "Source: https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8\n"
+                  "Revision: ed5d745623472f97cfc2e6c2916ee248798fc5a8\n"
+                  "No endorsement by NVIDIA is implied.\n").encode("utf-8")
 NOTICE = ("Qwen2.5 0.5B Instruct — Qwen Team / Alibaba Cloud. Apache-2.0.\n"
           "Int8 ONNX conversion: onnx-community. See bundled LICENSE-Qwen.txt,\n"
           "config.json and tokenizer_config.json. The source repository, immutable\n"
@@ -86,6 +94,8 @@ def verify_acoustic(directory, pin):
 
 def prepare(acoustic, output, cache, validation_receipt, pin_path=PIN):
     pin = load_json(pin_path.read_text())
+    if pin.get("schema_version") != 2:
+        raise ValueError("Expected schema-2 embedded source pin")
     verify_acoustic(acoustic, pin)
     receipt = load_receipt(validation_receipt, sha256_file(acoustic / "manifest.json"))
     if output.exists():
@@ -95,6 +105,7 @@ def prepare(acoustic, output, cache, validation_receipt, pin_path=PIN):
         staging = Path(tmp) / "models"
         (staging / "acoustic").mkdir(parents=True)
         (staging / "text-model").mkdir()
+        (staging / "multilingual-asr").mkdir()
         for name in REQUIRED_FILES | {"manifest.json"}:
             shutil.copyfile(acoustic / name, staging / "acoustic" / name)
         text = pin["text_model"]
@@ -104,11 +115,22 @@ def prepare(acoustic, output, cache, validation_receipt, pin_path=PIN):
             download(url, cached, item)
             shutil.copyfile(cached, staging / "text-model" / name)
         (staging / "text-model" / "NOTICE.txt").write_bytes(NOTICE)
+        multilingual = pin["multilingual_model"]
+        for name, item in multilingual["files"].items():
+            url = f"https://huggingface.co/{multilingual['repository']}/resolve/{multilingual['revision']}/{item['source']}"
+            cached = cache / multilingual["revision"] / name
+            download(url, cached, item)
+            shutil.copyfile(cached, staging / "multilingual-asr" / name)
+        (staging / "multilingual-asr" / "NOTICE.txt").write_bytes(PARAKEET_NOTICE)
         files = {str(path.relative_to(staging)): record(path) for path in sorted(staging.rglob("*")) if path.is_file()}
-        bundle = {"schema_version": 1, "source_pin_sha256": sha256_file(pin_path),
+        if sum(item["bytes"] for item in files.values()) > MAX_EMBEDDED_BYTES:
+            raise ValueError("Embedded bundle exceeds the schema-2 byte budget")
+        bundle = {"schema_version": 2, "source_pin_sha256": sha256_file(pin_path),
                   "export_validation": receipt,
                   "acoustic_model_id": pin["acoustic_model_id"],
-                  "text_repository": text["repository"], "text_revision": text["revision"],
+                   "text_repository": text["repository"], "text_revision": text["revision"],
+                   "multilingual_repository": multilingual["repository"], "multilingual_revision": multilingual["revision"],
+                   "multilingual_upstream": multilingual["upstream"], "multilingual_license": multilingual["license"],
                   "pipeline_status": "offline-assets-baseline-text-integration-and-ARM-acceptance-pending",
                   "files": files}
         (staging / "bundle.json").write_text(json.dumps(bundle, sort_keys=True, indent=2) + "\n", encoding="utf-8")

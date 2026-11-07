@@ -94,6 +94,17 @@ table remain required. Signing
 access, ARM/device measurements and final release acceptance remain open. This
 status reconciliation does not change the schedule or relax any gate.
 
+Latest explicit user assignment: Timofey now embeds the four pinned Parakeet TDT
+files under `multilingual-asr/`, uncompressed, with CC-BY-4.0 attribution and a
+required optimized-emulator recognizer-creation smoke test. The
+[packaging status](roles/TIMOFEY_PARAKEET_STATUS.md) records the schema-2 three-group
+lease contract and 2.2 GB embedded payload budget; acoustic/server limits and all
+existing checks stay intact. No additional corpus inference is added. This
+extends the earlier frozen scope only as explicitly requested; mode selection,
+large-APK installation, ARM/model acceptance and final release remain unverified
+until their own evidence exists. T4 source `68487f1` passed both CI jobs in
+`42402862397`, which does not certify these later packaging changes.
+
 Deliver one clearly identified CI-built ARM64 APK containing every model needed for the default pipeline. On a clean supported phone with networking disabled before first launch, a judge can import an unfamiliar local recording, process it on the phone, inspect timestamped speaker turns and export the exact required JSON. Three successive files must work independently. Provide source, measured results, installation instructions, architecture, limitations and a video of the same release.
 
 Priority order:

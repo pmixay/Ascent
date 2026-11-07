@@ -68,7 +68,11 @@ android {
         sourceSets.getByName("release").manifest.srcFile("src/offline/AndroidManifest.xml")
     }
     buildFeatures { compose = true; buildConfig = true }
-    androidResources { noCompress += "onnx" }
+    androidResources {
+        noCompress += "onnx"
+        // Parakeet's tokens.txt (and bundled attribution) must also remain uncompressed.
+        if (embeddedModels) noCompress += "txt"
+    }
     lint { abortOnError = true }
     packaging {
         // Smaller direct APK downloads; Android extracts native libraries on install.

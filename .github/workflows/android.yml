@@ -277,7 +277,7 @@ jobs:
             prototypes/phone-transcriber/tools/requirements-export.txt
             prototypes/phone-transcriber/tools/requirements-gigaam.txt
 
-      - name: Restore pinned text asset downloads
+      - name: Restore pinned text and multilingual asset downloads
         id: text-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -407,13 +407,14 @@ jobs:
           arch: x86_64
           working-directory: prototypes/phone-transcriber/android
           disable-animations: true
-          disk-size: 8192M
+          # Schema 2 tests replacement while the old three-group revision remains leased.
+          disk-size: 12288M
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             adb shell svc wifi disable
             adb shell svc data disable
             gradle --stacktrace -PascentEmbedded=true -PascentAbi=x86_64 -Pandroid.testInstrumentationRunnerArguments.class=com.pmixay.ascent.EmbeddedModelRuntimeTest :app:connectedDebugAndroidTest
-            python3 ../scripts/verify_android_tests.py app/build/outputs/androidTest-results --diagnose-device --require 'com.pmixay.ascent.EmbeddedModelRuntimeTest#coldBootstrapSelectsBothGroupsWithoutDownloadWork'
+            python3 ../scripts/verify_android_tests.py app/build/outputs/androidTest-results --diagnose-device --require 'com.pmixay.ascent.EmbeddedModelRuntimeTest#coldBootstrapSelectsBothGroupsWithoutDownloadWork' --require 'com.pmixay.ascent.EmbeddedModelRuntimeTest#parakeetRecognizerLoadsPinnedFilesWithMinifiedJniConfiguration'
             adb logcat -d -s AscentModelStorage:I '*:S'
       - name: Upload checked offline asset baseline
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

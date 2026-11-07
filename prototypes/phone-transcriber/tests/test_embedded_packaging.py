@@ -20,15 +20,22 @@ from export_provenance import describe
 class EmbeddedPackagingTests(unittest.TestCase):
     def fixture(self, root, corrupt=False, missing=False, compressed=False):
         data = {"acoustic/asr.onnx": b"asr", "acoustic/manifest.json": b"{}",
-                "acoustic/smoke-report.json": b"passed", "text-model/model_int8.onnx": b"text",
-                "text-model/NOTICE.txt": prepare.NOTICE}
+                 "acoustic/smoke-report.json": b"passed", "text-model/model_int8.onnx": b"text",
+                 "text-model/NOTICE.txt": prepare.NOTICE,
+                 "multilingual-asr/encoder.int8.onnx": b"encoder", "multilingual-asr/decoder.int8.onnx": b"decoder",
+                 "multilingual-asr/joiner.int8.onnx": b"joiner", "multilingual-asr/tokens.txt": b"tokens",
+                 "multilingual-asr/NOTICE.txt": prepare.PARAKEET_NOTICE}
         rec = lambda value: {"bytes": len(value), "sha256": hashlib.sha256(value).hexdigest()}
         pin = {"acoustic_model_id": "frozen", "acoustic_files": {"asr.onnx": rec(data["acoustic/asr.onnx"])},
-               "text_model": {"repository": "fixture", "revision": "pinned", "files": {"model_int8.onnx": rec(data["text-model/model_int8.onnx"])}}}
+               "text_model": {"repository": "fixture", "revision": "pinned", "files": {"model_int8.onnx": rec(data["text-model/model_int8.onnx"])}},
+               "multilingual_model": {"repository": "parakeet-fixture", "revision": "frozen", "upstream": "nvidia/fixture", "license": "CC-BY-4.0",
+                                      "files": {name: rec(data["multilingual-asr/" + name]) for name in
+                                                ("encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt")}}}
         pin_path = root / "pin.json"
         pin_path.write_text(json.dumps(pin))
-        bundle = {"schema_version": 1, "acoustic_model_id": "frozen", "text_repository": "fixture", "text_revision": "pinned",
+        bundle = {"schema_version": 2, "acoustic_model_id": "frozen", "text_repository": "fixture", "text_revision": "pinned",
                   "source_pin_sha256": hashlib.sha256(pin_path.read_bytes()).hexdigest(), "files": {k: rec(v) for k, v in data.items()}}
+        bundle.update({"multilingual_" + key: pin["multilingual_model"][key] for key in ("repository", "revision", "upstream", "license")})
         bundle["export_validation"] = describe(
             rec(data["acoustic/manifest.json"])["sha256"], {"commit": "a" * 40, "run_id": "123", "run_attempt": "1"})
         (root / "bundle.json").write_text(json.dumps(bundle))
@@ -97,6 +104,47 @@ class EmbeddedPackagingTests(unittest.TestCase):
         for constant, name in (("MODEL_BYTES", "model_int8.onnx"), ("TOKENIZER_BYTES", "tokenizer.json")):
             actual = re.search(rf'const val {constant} = ([0-9_]+)L', kotlin)
             self.assertEqual(int(actual[1].replace("_", "")), pin["files"][name]["bytes"])
+
+    def test_multilingual_pins_match_the_accepted_kotlin_files_and_redistribution_notice(self):
+        pin = json.loads(prepare.PIN.read_text())["multilingual_model"]
+        kotlin = (ROOT / "android/app/src/main/java/com/pmixay/ascent/MultilingualRecognizer.kt").read_text()
+        self.assertEqual(set(pin["files"]), {"encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"})
+        for value in (pin["repository"], pin["revision"], pin["upstream"], pin["license"]):
+            self.assertIn(value, kotlin)
+            self.assertIn(value, prepare.PARAKEET_NOTICE.decode())
+        for name, item in pin["files"].items():
+            actual = re.search(rf'Asset\("{re.escape(name)}", ([0-9_]+)L, "([0-9a-f]+)"\)', kotlin)
+            self.assertIsNotNone(actual, name)
+            self.assertEqual(item["bytes"], int(actual[1].replace("_", "")))
+            self.assertEqual(item["sha256"], actual[2])
+        self.assertIn("https://creativecommons.org/licenses/by/4.0/legalcode.en", prepare.PARAKEET_NOTICE.decode())
+
+    def test_native_config_boundary_and_required_smoke_gate_are_preserved(self):
+        keep = (ROOT / "android/app/src/main/keepRules/native.keep").read_text()
+        for name in ("Offline*", "FeatureConfig", "HomophoneReplacerConfig", "QnnConfig"):
+            self.assertIn(f"-keep class com.k2fsa.sherpa.onnx.{name} {{ *; }}", keep)
+        workflow = (ROOT.parents[1] / ".github/workflows/android.yml").read_text()
+        self.assertIn("--require 'com.pmixay.ascent.EmbeddedModelRuntimeTest#coldBootstrapSelectsBothGroupsWithoutDownloadWork'", workflow)
+        self.assertIn("--require 'com.pmixay.ascent.EmbeddedModelRuntimeTest#parakeetRecognizerLoadsPinnedFilesWithMinifiedJniConfiguration'", workflow)
+        gradle = (ROOT / "android/app/build.gradle.kts").read_text()
+        self.assertIn('if (embeddedModels) noCompress += "txt"', gradle)
+        self.assertIn('noCompress += "onnx"', gradle)
+
+    def test_missing_corrupt_or_compressed_multilingual_tokens_fail_apk_inspection(self):
+        for mutation in ("missing", "corrupt", "compressed"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                archive, pin = self.fixture(root)
+                with zipfile.ZipFile(archive) as apk:
+                    entries = {item.filename: apk.read(item) for item in apk.infolist()}
+                name = "assets/models/multilingual-asr/tokens.txt"
+                if mutation == "missing": del entries[name]
+                if mutation == "corrupt": entries[name] = b"broken"
+                with zipfile.ZipFile(archive, "w") as apk:
+                    for entry, value in entries.items():
+                        apk.writestr(entry, value, compress_type=zipfile.ZIP_DEFLATED if mutation == "compressed" and entry == name else zipfile.ZIP_STORED)
+                with zipfile.ZipFile(archive) as apk, self.assertRaises(ValueError):
+                    verify_embedded(apk, root, pin)
 
     def test_transport_rejects_non_https(self):
         with tempfile.TemporaryDirectory() as directory, self.assertRaisesRegex(ValueError, "HTTPS"):

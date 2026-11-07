@@ -44,6 +44,16 @@ two-hour JVM evaluation whenever `CI=true`, even if evaluation inputs are suppli
 Pushed host studies and a passing build job do not establish full offline ARM
 acceptance. No deadline exception weakens checks, privacy or LLM requirements.
 
+Latest explicit user handoff to Timofey: embed the four hash-pinned Parakeet TDT
+0.6B v3 files under `multilingual-asr/`, uncompressed, with CC-BY-4.0 attribution,
+and add a bounded emulator recognizer-creation smoke test under R8. This explicitly
+extends the embedded envelope to schema 2 (2,200,000,000 total payload bytes) and
+three leased model groups; it does not change the acoustic/server wire schema or
+its limits. Preserve all existing checks and default GigaAM behavior. The new
+creation probe is not authorization for corpus inference or quality benchmarks
+in CI. Packaging/install success, model selection UI and actual ARM acceptance
+are separate evidence requirements; never bypass an APK size/tooling failure.
+
 T2 ownership update from the user: Petya owns real Android/ARM device validation
 and the model-server repair (TLS, authenticated SSH host-key verification and
 publication). Timofey owns embedded preparation/bootstrap and CI, Pasha the job/

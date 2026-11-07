@@ -12,7 +12,7 @@ import zipfile
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from prepare_embedded_models import PIN
+from prepare_embedded_models import PIN, PARAKEET_NOTICE, MAX_EMBEDDED_BYTES
 from export_provenance import verify_receipt
 
 
@@ -24,7 +24,7 @@ def verify_embedded(archive, assets: Path, pin_path: Path = PIN):
         raise ValueError("APK embedded manifest differs from the checked build input")
     bundle = json.loads(bundle_bytes)
     pin = json.loads(pin_path.read_text())
-    if bundle.get("schema_version") != 1 or bundle.get("source_pin_sha256") != hashlib.sha256(pin_path.read_bytes()).hexdigest():
+    if bundle.get("schema_version") != 2 or bundle.get("source_pin_sha256") != hashlib.sha256(pin_path.read_bytes()).hexdigest():
         raise ValueError("Embedded source pin mismatch")
     if bundle["acoustic_model_id"] != pin["acoustic_model_id"] or (
             bundle["text_repository"], bundle["text_revision"]) != (pin["text_model"]["repository"], pin["text_model"]["revision"]):
@@ -33,6 +33,14 @@ def verify_embedded(archive, assets: Path, pin_path: Path = PIN):
     expected.update({"text-model/" + name: {key: item[key] for key in ("bytes", "sha256")}
                      for name, item in pin["text_model"]["files"].items()})
     required = set(expected) | {"acoustic/manifest.json", "acoustic/smoke-report.json", "text-model/NOTICE.txt"}
+    multilingual = pin["multilingual_model"]
+    for key in ("repository", "revision", "upstream", "license"):
+        if bundle.get("multilingual_" + key) != multilingual[key]:
+            raise ValueError("Embedded multilingual provenance/license mismatch")
+    expected.update({"multilingual-asr/" + name: {key: item[key] for key in ("bytes", "sha256")}
+                     for name, item in multilingual["files"].items()})
+    expected["multilingual-asr/NOTICE.txt"] = {"bytes": len(PARAKEET_NOTICE), "sha256": hashlib.sha256(PARAKEET_NOTICE).hexdigest()}
+    required |= set(expected)
     if set(bundle["files"]) != required:
         raise ValueError("Embedded bundle missing required payloads or contains extras")
     receipt = bundle.get("export_validation")
@@ -53,9 +61,11 @@ def verify_embedded(archive, assets: Path, pin_path: Path = PIN):
         with archive.open(entry) as source:
             if hashlib.file_digest(source, "sha256").hexdigest() != item["sha256"]:
                 raise ValueError("Embedded payload SHA-256 mismatch")
-        if name.endswith(".onnx") and entry.compress_type != zipfile.ZIP_STORED:
-            raise ValueError("Embedded ONNX must be stored uncompressed")
+        if (name.endswith(".onnx") or name.startswith("multilingual-asr/")) and entry.compress_type != zipfile.ZIP_STORED:
+            raise ValueError("Embedded ONNX and multilingual files must be stored uncompressed")
         total += entry.file_size
+    if total > MAX_EMBEDDED_BYTES:
+        raise ValueError("Embedded bundle exceeds the schema-2 byte budget")
     print(f"Embedded bundle SHA-256: {hashlib.sha256(bundle_bytes).hexdigest()}; expanded payload: {total:,} bytes")
     print("Offline asset baseline: text-stage pipeline integration and ARM acceptance require separate evidence.")
     return names

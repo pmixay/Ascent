@@ -10,12 +10,15 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.FixMethodOrder
+import org.junit.runners.MethodSorters
 import org.junit.runner.RunWith
 import org.json.JSONObject
 import java.io.File
 
 /** Offline-only extraction/recovery and one synthetic text-stage invocation; no ARM acceptance. */
 @RunWith(AndroidJUnit4::class)
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 class EmbeddedModelRuntimeTest {
     @Test fun coldBootstrapSelectsBothGroupsWithoutDownloadWork() = runBlocking {
         assertTrue(BuildConfig.EMBEDDED_MODELS)
@@ -82,6 +85,7 @@ class EmbeddedModelRuntimeTest {
         // must preserve BOTH old directories while a job still holds their lease.
         val old = ModelSelection.acquire(context)
         val oldText = requireNotNull(old.textDirectory)
+        val oldMultilingual = requireNotNull(old.multilingualDirectory)
         try {
             File(oldText, "NOTICE.txt").writeText("corrupted test notice")
             assertNull(ModelSelection.current(context))
@@ -93,8 +97,35 @@ class EmbeddedModelRuntimeTest {
             assertNotEquals(old.directory, ModelSelection.current(context))
             assertTrue(old.directory.isDirectory)
             assertTrue(oldText.isDirectory)
+            assertTrue(oldMultilingual.isDirectory)
         } finally { old.close() }
         assertFalse(old.directory.exists())
         assertFalse(oldText.exists())
+        assertFalse(oldMultilingual.exists())
+    }
+
+    /** Creation traverses JNI config fields by original name in the actual R8-optimized APK. */
+    @Test fun parakeetRecognizerLoadsPinnedFilesWithMinifiedJniConfiguration() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertTrue(BuildConfig.EMBEDDED_MODELS)
+        assertEquals(PackageManager.PERMISSION_DENIED, context.checkSelfPermission(Manifest.permission.INTERNET))
+        ModelDownloads.schedule(context)
+        val ready = withTimeout(300_000) {
+            EmbeddedModels.states.first { it.phase == ModelTransferPhase.READY || it.phase == ModelTransferPhase.ERROR }
+        }
+        assertEquals(ready.message, ModelTransferPhase.READY, ready.phase)
+        ModelSelection.acquire(context).use { lease ->
+            val directory = requireNotNull(lease.multilingualDirectory)
+            assertTrue(ParakeetFiles.installed(directory))
+            for (asset in ParakeetFiles.ALL) {
+                val file = File(directory, asset.name)
+                assertEquals(asset.bytes, file.length())
+                assertEquals(asset.sha256, file.inputStream().use(::sha256))
+            }
+            assertTrue(File(directory, "NOTICE.txt").readText().contains("CC-BY-4.0"))
+            // Existing Java ORT + isolated sherpa runtime coexist in this process.
+            // No corpus, benchmark audio, transcript, quality claim or ARM acceptance.
+            ParakeetRecognizer(directory).use { assertNotNull(it) }
+        }
     }
 }

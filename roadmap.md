@@ -62,6 +62,11 @@ evidence. The raw-APK identity follow-up passed both jobs at `d9776cd`. The next
 [T4 measurement slice](docs/roles/TIMOFEY_T4_STATUS.md) adds exclusive stage timing
 and completed-job RTF in volatile UI state; its CI and actual ARM results remain
 required. No device timing/memory or release criterion is completed by tooling.
+T4 timing hooks passed both jobs at `68487f1` / [42402862397](https://github.com/pmixay/Ascent/actions/runs/42402862397).
+The user's explicit [Parakeet handoff](docs/roles/TIMOFEY_PARAKEET_STATUS.md) now
+adds a schema-2 third embedded group, pinned/uncompressed assets and attribution,
+and a required emulator JNI-configuration creation probe. Its new CI and enlarged
+APK installation evidence are pending; mode selection/ARM acceptance stay open.
 Historical teammate runs are in
 [T2 status](docs/roles/TIMOFEY_T2_STATUS.md).
 

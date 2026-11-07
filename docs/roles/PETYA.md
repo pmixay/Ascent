@@ -181,6 +181,11 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
 
 ### Explicit T2 handoff from Timofey — user-assigned
 
+- [ ] After its own green CI, validate the new [schema-2 Parakeet APK](TIMOFEY_PARAKEET_STATUS.md)
+  on ARM: install/extraction/storage costs, readable NVIDIA/CC-BY-4.0 attribution,
+  old triple-lease recovery and actual selected-mode operation. The requested
+  emulator creation probe is not ARM acceptance; mode control remains Pasha's work.
+
 - [ ] Perform exact-build ARM cold-offline acoustic and text inference; record
   commit/APK/bundle hashes, OS/ABI/RAM/storage, cold/warm RTF and peak memory.
   The user will do phone trials later; x86_64 extraction is separate evidence.

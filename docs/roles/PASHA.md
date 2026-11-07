@@ -2,6 +2,18 @@
 
 ## Mission
 
+### New explicit packaging handoff — Parakeet
+
+Timofey is implementing the user's requested [schema-2 Parakeet bundle](TIMOFEY_PARAKEET_STATUS.md),
+not the mode chooser. After verified bootstrap, the same `ModelLease` exposes
+`multilingualDirectory` beside `directory` and `textDirectory`; it stays leased
+through both acoustic and text stages. Compact leases return null. Default GigaAM
+behavior remains unchanged; new packaging/smoke still needs its own CI.
+
+- [ ] Wire explicit recognition-mode selection using the leased multilingual directory;
+  keep GigaAM default and report missing files without automatic fallback. Coordinate
+  the now-merged constructor (`mode`, `multilingualDirectory`, optional named `timings`).
+
 Deliver the application path from a selected local audio file to a safely retained transcript and specification-compatible JSON. Own the job lifecycle and meaningful local text-LLM integration. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H00/H02/H03/H06/H07/H12.
 
 **Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Code handoff: 17:00; acceptance sign-off: 19:30; submission reserve: 19:30–20:00.** This replaces all working-day/effort estimates below. Builds, application tests and lint use existing GitHub CI; phones install its APKs. Missing mandatory work is a blocker, not automatically complete at the deadline.
