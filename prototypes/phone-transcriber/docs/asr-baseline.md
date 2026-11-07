@@ -258,6 +258,33 @@ checking later changes. Comparisons between runs on the same audio are paired;
 single runs without a significance test cannot show that two variants are
 equivalent, only that no large difference appeared.
 
+## Highest-impact failures and next hypotheses
+
+These are ranked by the jury's weights and by what the evidence above shows; each
+hypothesis still needs its own paired development measurement.
+
+1. **Short replies in fast exchanges (diarization, 25 points).** Phrases join words
+   across gaps up to 500 ms into 1.8 s embedding windows, windows under 320 ms of
+   speech are skipped, and only windows with 800 ms or more can seed a voice. The
+   earlier fixed evaluation scored 800 ms replies at 33.33%. Hypothesis: add
+   embeddings for word groups split by short internal pauses that may vote but
+   never seed, and let the narrowest covering window win. Measuring it needs fresh
+   embedding inference and the CI scorer, whose cache is currently missing.
+2. **Inflection and spelling substitutions (transcription, 40 points).** Close
+   forms and other substitutions are 92 of 162 development errors. The text model
+   is not allowed to change words, so this needs an acoustic or decoding change.
+   Hypothesis: compare a Russian-only GigaAM v3 model on the same frozen inputs
+   under a new provenance record before the APK model is frozen.
+3. **Phrase-start lag that depends on the speaker (timestamps, 10 points).** The
+   start lags the energy proxy by −12 to +87 ms across speakers and recordings, so
+   a constant shift failed. Hypothesis: refine each phrase start to a local energy
+   or VAD onset within a bounded window, never before the previous phrase. It must
+   be judged on manually checked boundaries in continuous recordings, not on this
+   proxy, which would make the check circular.
+
+Clip-edge words (about twice the interior error rate) and laughter in reference
+text are also visible, but they may be artifacts of segmented, acted clips.
+
 ## Decisions
 
 | Candidate | Selection data | Validation | Decision |
@@ -265,6 +292,7 @@ equivalent, only that no large difference appeared.
 | Shift phrase start 80 ms earlier | Development start bias +82 to +90 ms across 25, 30 and 35 dB proxies | Rule stated in the working session before the validation run, but committed only afterwards (now `asr_study.py timing-candidate`, which reproduces both outcomes): mean absolute start error must fall by at least 10 ms at 30 dB, with no loss in the 100 ms share and the same direction at 25 and 35 dB. It rose from 98.1 to 101.5 ms; the share fell from 61.1% to 59.5%; the 25 dB proxy worsened and 35 dB improved | **Rejected, no code change.** The bias depends on speaker (validation: S +79 ms, M +16.5 ms, D −12 ms), so one constant does not generalize |
 | Level normalization before recognition | Gain ×0.35 changed nothing | Not run | Not warranted |
 | Different chunk seam or context policy | Interior seam errors 2.39% against 2.00%, small samples | Not run | Undecided; needs continuous recordings |
+| Split replies longer than 20 s at their longest pause (`TranscriptSegmenter`) | Ordinary phrases unchanged; only runs over 20 s are cut, now at a pause instead of mid-sentence | Unit-tested in CI; no corpus here has 20 s monologues | **Adopted.** Behaviour change limited to long monologues; turn granularity for the JSON export is agreed separately with the export owner |
 | int8 weights instead of float32 | Errors 160 against 162; file 3.9 times smaller | 436 against 432; RTF 8% lower | **Candidate for the embedded APK, not yet adopted.** No large accuracy difference appeared, and 225 MB instead of 885 MB matters when weights ship inside the APK; ARM speed and the deployed export's own int8 behaviour still need measurement |
 
 No accuracy improvement was found, so none is claimed.

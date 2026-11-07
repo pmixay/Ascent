@@ -29,6 +29,25 @@ INSTRUCTION = ("Расставь знаки препинания и заглав
                "Верни только исправленный текст без пояснений.")
 
 
+def edit_grammar(source_words):
+    """GBNF that admits only the input words, in order, each with optional capital and mark.
+
+    With this grammar the text model cannot add, drop, reorder or respell words; it
+    only chooses capitalization and punctuation. llama.cpp applies the same grammar
+    format on Android.
+    """
+    def literal(text):
+        return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+    rules, sequence = [], []
+    for index, word in enumerate(source_words):
+        variants = {word, word[:1].upper() + word[1:]}
+        rules.append(f"w{index} ::= ({' | '.join(literal(v) for v in sorted(variants))}) mark?")
+        sequence.append(f"w{index}")
+    rules.append('mark ::= "," | "." | "?" | "!"')
+    return "root ::= " + ' " " '.join(sequence) + "\n" + "\n".join(rules) + "\n"
+
+
 def word_labels(text):
     """Per word: (normalized word, capitalized, mark after it) from punctuated text."""
     labels = []
@@ -103,7 +122,7 @@ def clip_inputs(checkpoints, limit):
 
 
 def run(args):
-    from llama_cpp import Llama
+    from llama_cpp import Llama, LlamaGrammar
 
     clips = clip_inputs(args.checkpoints, args.limit)
     started = time.perf_counter()
@@ -119,9 +138,10 @@ def run(args):
         text = " ".join(clip["words"])
         prompt = text + (" /no_think" if args.no_think else "")
         begin = time.perf_counter()
+        grammar = LlamaGrammar.from_string(edit_grammar(clip["words"]), verbose=False) if args.grammar else None
         reply = model.create_chat_completion(
             messages=[{"role": "system", "content": INSTRUCTION}, {"role": "user", "content": prompt}],
-            temperature=0.0, top_k=1, max_tokens=min(768, 6 * len(clip["words"]) + 32), seed=0)
+            temperature=0.0, top_k=1, max_tokens=min(768, 6 * len(clip["words"]) + 32), seed=0, grammar=grammar)
         generation_seconds += time.perf_counter() - begin
         audio_seconds += clip["seconds"]
         tokens_out += reply["usage"]["completion_tokens"]
@@ -137,7 +157,7 @@ def run(args):
                 raw[kind][key] += raw_counts[kind][key]
         capital += correct
         words += len(clip["reference"])
-    summary = {"model": args.model.name, "threads": args.threads, "clips": len(clips), "words": words,
+    summary = {"model": args.model.name, "grammar": args.grammar, "threads": args.threads, "clips": len(clips), "words": words,
                "valid_outputs": valid, "fallbacks": len(clips) - valid,
                "f1_with_fallback": {kind: f1(item) for kind, item in totals.items()},
                "f1_raw_asr": {kind: f1(item) for kind, item in raw.items()},
@@ -157,6 +177,7 @@ def main():
     parser.add_argument("--threads", type=int, default=2, choices=[1, 2, 3, 4])
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--no-think", action="store_true", help="Append Qwen3's /no_think switch.")
+    parser.add_argument("--grammar", action="store_true", help="Constrain output to the input words (GBNF).")
     parser.add_argument("--output", type=Path)
     run(parser.parse_args())
 

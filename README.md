@@ -75,8 +75,13 @@ model pack could not be reached. It measured 2.9074% WER (162/5,572) and RTF 0.0
 on a four-core server CPU for development, and 4.2972% WER (432/10,053) on new
 validation recordings that no earlier selection used. A phrase-start correction
 frozen on development failed validation and was rejected, and int8 weights matched
-float32 accuracy without a meaningful x86 speedup. These are not deployed-model,
-phone, diarization-error or natural-conversation results.
+float32 accuracy without a meaningful x86 speedup. A simulated telephone channel
+raised development WER to 2.9792% and an 80-utterance English smoke set scored
+6.73%. These are not deployed-model, phone, diarization-error or
+natural-conversation results. A host-only
+[local text-model study](prototypes/phone-transcriber/docs/text-model-feasibility.md)
+proposes Qwen2.5 1.5B Instruct with grammar-constrained punctuation edits that
+cannot change words; it is not integrated or measured on ARM.
 
 The hackathon jury ([brief](docs/hackathon/hackathon-brief-2026-11.pdf),
 [clarifications](docs/hackathon/jury-clarifications.md)) requires a verification APK

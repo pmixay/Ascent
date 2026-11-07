@@ -256,8 +256,6 @@ class ReferenceModelTest(unittest.TestCase):
             log_mel(np.zeros(100, dtype=np.float32), np)
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class TextModelContractTest(unittest.TestCase):
@@ -291,3 +289,15 @@ class TextModelContractTest(unittest.TestCase):
         perfect, capitals = self.score_marks(reference, reference)
         self.assertEqual({"tp": 2, "fp": 0, "fn": 0}, perfect["terminal"])
         self.assertEqual(4, capitals)
+
+    def test_grammar_admits_only_the_input_words_with_optional_capital_and_mark(self):
+        from text_model_study import edit_grammar
+        grammar = edit_grammar(["привет", "don't"])
+        self.assertTrue(grammar.startswith('root ::= w0 " " w1\n'))
+        self.assertIn('w0 ::= ("Привет" | "привет") mark?', grammar)
+        self.assertIn('w1 ::= ("Don\'t" | "don\'t") mark?', grammar)
+        self.assertIn('mark ::= "," | "." | "?" | "!"', grammar)
+
+
+if __name__ == "__main__":
+    unittest.main()
