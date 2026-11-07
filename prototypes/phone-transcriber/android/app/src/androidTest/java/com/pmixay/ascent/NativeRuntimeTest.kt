@@ -127,11 +127,16 @@ class NativeRuntimeTest {
     }
 
     private fun uiHasText(text: String): Boolean = InstrumentationRegistry.getInstrumentation()
-        .uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText(text)?.isNotEmpty() == true
+        .uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText(text)?.any { hasExactLabel(it, text) } == true
+
+    private fun hasExactLabel(node: AccessibilityNodeInfo, text: String): Boolean =
+        node.text?.toString()?.lineSequence()?.any { it == text } == true
 
     private fun clickText(text: String) {
         val root = checkNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.rootInActiveWindow)
-        var node = root.findAccessibilityNodeInfosByText(text).firstOrNull()
+        // Android's query is a case-insensitive substring search: "Русский" also matches
+        // Auto's subtitle. Select the exact label within a merged semantics node instead.
+        var node = root.findAccessibilityNodeInfosByText(text).firstOrNull { hasExactLabel(it, text) }
         while (node != null && !node.isClickable) node = node.parent
         assertNotNull("Missing accessible control: $text", node)
         assertTrue("Disabled control: $text", node!!.isEnabled)
