@@ -104,6 +104,13 @@ Next source slice: [T3 storage measurements](TIMOFEY_T3_STATUS.md), separating
 installed APK/code/data/cache, payload, sampled model-directory peaks and the
 fresh extraction budget. Actual ARM and full physical-peak evidence remain open.
 
+T3 `62fbe3f` subsequently passed both jobs in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795).
+Its [measured table](TIMOFEY_T3_STATUS.md#inspected-ci-measurements--62fbe3f)
+separates the inspected ARM64 APK from the actually installed x86_64 emulator
+variant. A raw-APK identity logging follow-up leaves export inputs unchanged and
+provides the next warm-cache check; inspect that push's result rather than
+promoting an earlier passing revision.
+
 Next: run the existing push CI on the reviewed branch, inspect both jobs and a
 subsequent exact-input warm reuse, then obtain the missing access/device inventory.
 Leave Petya's ARM/QA and Andrey's model approval assigned to their existing role

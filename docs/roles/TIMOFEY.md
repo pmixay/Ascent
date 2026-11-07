@@ -14,7 +14,9 @@ in run `42393688781` passed. Embedded packaging and real sequential text integra
 are already in source. The validation-input receipt changes in
 `timofey/plan-next-incomplete` are pushed as `2270a40`; both jobs in [CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
 passed, including cold export/receipt generation. Warm receipt reuse is pending.
-[T3 measurement tooling](TIMOFEY_T3_STATUS.md) follows; ARM/release acceptance stays open.
+[T3 measurement tooling](TIMOFEY_T3_STATUS.md) at `62fbe3f` also passed both jobs
+in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795),
+with separate measured emulator/ARM64-archive figures. ARM/release acceptance stays open.
 
 - Existing push-only Android/model workflows, R8/JNI isolation, downloader verification/leases and acoustic pipeline are the base, not tasks to recreate.
 - At fetched `origin/main` `4b16e3a`, historical [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042) has a **successful build/validation job**. The overall run failed because the since-removed two-hour inference inputs were missing; that failure is not a current CI gate.
@@ -47,7 +49,7 @@ passed, including cold export/receipt generation. Warm receipt reuse is pending.
 
 - [x] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks. Existing recovery and current exact-main publication verified in `42393688781`; no new exporter repair is needed.
 - [x] Verify the pushed integrity-checked model/export regeneration path from pinned public sources; do not rely only on a warm cache. `2270a40` / `42395674575` actually executed export validation and receipt recording on an output-cache miss; historical cold checkpoint transport evidence remains in T1 status.
-- [ ] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope. Independent cached-export receipt added in the current T1 slice; new cold/warm branch CI is pending. See the current review above.
+- [ ] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope. Independent receipt and cold output-cache path passed at `2270a40` and `62fbe3f`; the next exact-input push verifies warm reuse. Inspect that revision's result before closing this item.
 - [x] Keep the two-hour public-corpus evaluation on a development machine; never turn absence into skip/success or restore it as a push-CI gate. No long jobs in the inspected `2270a40` run; explicit CI scorer exclusion retained.
 - [x] Keep the narrowly scoped fixture and model-export speech checks while the long dialogue study stays off CI. Retained export checks actually ran at `2270a40`.
 - [x] Preserve existing push triggers/workflow names, R8, native integrity and emulator checks. Both original bounded jobs passed at `2270a40`.
@@ -72,24 +74,24 @@ repair; Timofey owns assets/bootstrap/CI, Pasha actual job/text integration and
 Andrey model/runtime approval. Cross-role blockers are assigned in their checklists,
 not claimed as completed work here.
 
-- [ ] Pin model manifest and build-time asset hashes; package current acoustic models first to unblock an internal baseline.
-- [ ] Replace the competition APK's weight-absence check with required-payload, integrity, ABI and provenance checks.
-- [ ] Include all necessary tokenizer/config/license files; add Andrey's selected text-model assets and runtime through a versioned contract. Confirmed by the 19:00 comparison: `model_int8.onnx` and `tokenizer.json` from `onnx-community/Qwen2.5-0.5B-Instruct` with the revision, sizes and hashes in [text-punctuation.md](../interfaces/text-punctuation.md) and `TextModelFiles`; it runs on the existing ONNX Runtime, so no new native library is needed.
+- [x] Pin model manifest and build-time asset hashes; package current acoustic models first to unblock an internal baseline. Required payloads/receipt checked in successful `62fbe3f` CI.
+- [x] Replace the competition APK's weight-absence check with required-payload, integrity, ABI and provenance checks. Embedded checks pass at `62fbe3f`; compact weight-absence gate remains unchanged.
+- [x] Include all necessary tokenizer/config/license files; add Andrey's selected text-model assets and runtime through a versioned contract. Confirmed by the 19:00 comparison: `model_int8.onnx` and `tokenizer.json` from `onnx-community/Qwen2.5-0.5B-Instruct` with the revision, sizes and hashes in [text-punctuation.md](../interfaces/text-punctuation.md) and `TextModelFiles`; it runs on the existing ONNX Runtime, so no new native library is needed. Packaging and synthetic x86_64 execution passed at `62fbe3f`; ARM approval remains open.
 - [ ] Coordinate exact file-set/schema changes across Kotlin, Python and server validators/tests.
-- [ ] Stream assets to a staging directory with disk-space checks; verify hashes before atomically selecting an immutable revision.
-- [ ] Preserve active inference leases and clean failed/interrupted staging safely; recover on the next launch.
-- [ ] Ensure first-launch readiness does not wait for DNS, catalog access, WorkManager or downloads.
-- [ ] Keep update behavior deterministic for evaluation; expose local readiness separately from optional transfer activity.
+- [x] Stream assets to a staging directory with disk-space checks; verify hashes before atomically selecting an immutable revision. Installer regressions and actual embedded extraction passed at `62fbe3f`.
+- [x] Preserve active inference leases and clean failed/interrupted staging safely; recover on the next launch. JVM interrupted-promotion regressions and required paired-lease corruption recovery passed at `62fbe3f`; physical process-kill acceptance remains in T3/Petya's checklist.
+- [x] Ensure first-launch readiness does not wait for DNS, catalog access, WorkManager or downloads. Required network-disabled bootstrap and absence of download work passed at `62fbe3f`.
+- [x] Keep update behavior deterministic for evaluation; expose local readiness separately from optional transfer activity. Offline network permissions/download service stay disabled; compact transfer gates retained in `62fbe3f` CI.
 
 **Done:** clean install with Wi-Fi/mobile data off before first launch reaches real inference. Then add all mandatory model stages and repeat. A basic acoustic-only checkpoint is not proof of full LLM compliance.
 
 ### T3. Verify native and installation behavior
 
-- [ ] Preserve isolation between Java ONNX Runtime and sherpa's C runtime; do not resolve collisions using arbitrary `pickFirst`.
+- [x] Preserve isolation between Java ONNX Runtime and sherpa's C runtime; do not resolve collisions using arbitrary `pickFirst`. Retained native checks and required emulator execution passed at `62fbe3f`; no ARM inference claim.
 - [ ] Verify added text-model runtime ABI/JNI/R8 behavior with CI and actual ARM inference.
-- [ ] Measure APK archive size, installed size, expanded model size and peak extraction disk requirement separately. [T3 tooling](TIMOFEY_T3_STATUS.md) adds distinct own-package statistics and model-only sampled observations; new CI and actual ARM/physical-peak measurements remain required.
+- [ ] Measure APK archive size, installed size, expanded model size and peak extraction disk requirement separately. [T3 evidence](TIMOFEY_T3_STATUS.md#inspected-ci-measurements--62fbe3f) provides actual ARM64 APK sizes and distinct x86_64 own-package/model statistics. Actual ARM installation and physical-peak measurements remain required.
 - [ ] Test corrupted payload, insufficient space and process kill during extraction.
-- [ ] Ensure models are not activated merely because a saved success flag exists.
+- [x] Ensure models are not activated merely because a saved success flag exists. Required corruption/readiness recovery and hash-recheck regressions passed at `62fbe3f`.
 
 **Done:** interrupted/corrupted installs cannot create false readiness; the delivered artifact works on declared ARM targets. Removing extracted files must not be presented as reclaiming immutable APK asset bytes.
 

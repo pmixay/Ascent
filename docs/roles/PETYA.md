@@ -187,7 +187,7 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
 - [ ] Exercise corrupted/missing assets, low storage, kill during extraction and
   processing, reopen and three consecutive files. Original inputs stay unchanged.
   Timofey's [T3 storage diagnostics](TIMOFEY_T3_STATUS.md) supplies a content-free
-  model-preparation record, pending its own CI. Collect exact-build ARM values;
+  model-preparation record, verified in x86_64 CI at `62fbe3f`. Collect exact-build ARM values;
   distinguish Android package stats, model logical bytes and sampled lower bounds
   from the estimated extraction reserve. This is tooling, not completed evidence.
 - [x] Repair authenticated model publication and verify live HTTPS payloads.

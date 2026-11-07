@@ -54,8 +54,11 @@ passed; phone acceptance is deferred at the user's request. The
 access, ARM, measurement and release gaps. Its new cached-export validation receipt
 checks are pushed as `2270a40`, with [branch CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
 successful for both jobs and actual cold export/receipt generation; warm receipt
-reuse is pending. [T3 storage tooling](docs/roles/TIMOFEY_T3_STATUS.md) is the next slice,
-not completed ARM/physical-peak evidence. Historical teammate runs are in
+reuse is pending. [T3 storage tooling](docs/roles/TIMOFEY_T3_STATUS.md) at `62fbe3f`
+passed both jobs in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795)
+and reports separate APK/x86_64 measurements, not completed ARM/physical-peak
+evidence. The raw-APK identity follow-up preserves export inputs for warm reuse.
+Historical teammate runs are in
 [T2 status](docs/roles/TIMOFEY_T2_STATUS.md).
 
 Model publication is repaired and independently verified; see

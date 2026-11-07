@@ -2,8 +2,10 @@
 
 Work branch: `timofey/plan-next-incomplete`. This follows the receipt-aware T1
 push `2270a40` ([Android CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575),
-both jobs **passed**, including actual cold export/receipt generation). New T3 code needs its own CI.
-No physical-device result, installed-size number or final acceptance is claimed.
+both jobs **passed**, including actual cold export/receipt generation). T3 implementation
+`62fbe3f4a36361dbd37b35299f2bd8cf2fc928de` also passed both jobs in
+[Android CI 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795).
+No physical-device or final acceptance is claimed. Measured emulator values follow.
 
 ## Implemented measurement path
 
@@ -78,3 +80,57 @@ ADB installation (do not install a local Android toolchain):
 The x86_64 CI measurement is about its installed emulator APK, **not** the
 downloadable ARM64 artifact or a phone. No existing device/release gate is checked
 merely because measurement tooling exists.
+
+## Inspected CI measurements — 62fbe3f
+
+Compact job `128475396232` and embedded job `128475396006` both succeeded.
+The embedded job's console contains actual storage records after the required
+instrumentation method passed. Source/bundle/ABI identities were checked by the
+test, not inferred from an uploaded file. Export/receipt generation executed on
+this revision too; the changed workflow correctly invalidated the older cache.
+
+### Downloadable ARM64 APK — inspection only
+
+| Item | Measured identity |
+| --- | --- |
+| Offline APK bytes | 1,496,578,255 |
+| Offline APK SHA-256 | `e2b63de5a759f1aa7a83ae16ba0e6ee54fb5355b28f734e205a2e6d02ff71622` |
+| Embedded bundle SHA-256 | `ef0378fb122baaec876bf9e5a02bd2dc91a9252eb007b3a29407abfd7a5be878` |
+| Expanded payload bytes | 1,476,434,947 |
+| Compact APK bytes | 25,231,345 |
+
+These are actual APK-file figures from packaging steps, not Actions ZIP sizes.
+No ARM installation or inference follows from these inspection measurements.
+
+### Installed x86_64 emulator variant — Android API 36
+
+Both records below identify `62fbe3f`, the bundle above and `apk_abi=x86_64`.
+The emulator's advertised secondary ARM ABI is **not** ARM execution evidence.
+The second case deliberately damages the old notice while a paired lease is
+held, then re-extracts without deleting that leased revision.
+
+| Measurement (bytes unless stated) | Fresh extraction | Corruption recovery with old lease |
+| --- | ---: | ---: |
+| Installed base/split APK lengths | 1,499,889,980 | 1,499,889,980 |
+| Android app/code statistic | 1,577,127,936 | 1,577,127,936 |
+| Android data, including cache | 1,477,242,880 | 2,953,781,248 |
+| Cache component (already included above) | 421,888 | 421,888 |
+| Model-root logical bytes before | 0 | 1,476,434,628 |
+| Model-root logical bytes after install | 1,476,434,947 | 2,952,869,575 |
+| Sampled peak model-root logical bytes | 1,476,434,947 | 2,952,869,575 |
+| Sampled minimum volume free bytes | 4,084,113,408 | 2,607,362,048 |
+| Successful / failed samples | 41 / 0 | 38 / 0 |
+| Extraction/validation time (ms, not total readiness or RTF) | 10,025 | 14,968 |
+
+Both copied 1,476,434,947 asset bytes. The shared fresh-extraction payload-plus-
+reserve budget is 1,509,989,379 bytes; it is not either observed peak. The old
+corrupted notice explains the recovery baseline's slightly smaller logical size.
+The final observations precede lease-aware cleanup. Android's asynchronous app
+data query and model-only observations are separate measurements, not guaranteed
+atomic snapshots. No maximum-duration or phone performance claim is made.
+
+Follow-up: print raw checked APK SHA-256 in **both** packaging paths (compact
+previously reported only its size; offline already printed a digest). Synthetic
+archive regressions ensure a failed integrity/ABI/weight gate emits no verified
+identity. This follow-up changes no export inputs; its next push is the intended
+warm-receipt validation. Its actual result must be inspected separately.

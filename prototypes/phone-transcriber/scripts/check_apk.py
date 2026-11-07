@@ -111,6 +111,9 @@ def inspect(apk_path: Path, mapping_path: Path, embedded_assets: Path | None = N
         print(f"DEX: {len(dex)} files, {class_count:,} classes; R8 mapping: {mapped_classes:,} classes")
         print("Verified: compressed code/native libraries, " +
               ("pinned embedded payloads" if embedded_assets else "no model weights") + ", no unused native wrappers.")
+    # Hash the actual checked file, not its later Actions ZIP container.
+    with apk_path.open("rb") as source:
+        print(f"APK SHA-256: {hashlib.file_digest(source, 'sha256').hexdigest()}")
 
 
 def main() -> None:

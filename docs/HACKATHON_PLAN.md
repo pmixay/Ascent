@@ -83,8 +83,10 @@ See [Timofey's ordered review](roles/TIMOFEY_PLAN_REVIEW.md) before reassigning
 already implemented bootstrap/text integration. The first follow-up adds independent
 cached-export input/producer receipts; pushed `2270a40` has [CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
 successful for both jobs and actual cold export/receipt generation; warm reuse
-remains pending. [T3 storage instrumentation](roles/TIMOFEY_T3_STATUS.md) follows without
-substituting sampled logical bytes for physical-device evidence. Signing
+remains pending. [T3 storage instrumentation](roles/TIMOFEY_T3_STATUS.md) at `62fbe3f`
+passed both jobs in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795),
+without substituting sampled logical bytes for physical-device evidence. The
+raw-APK identity follow-up preserves export inputs for warm-cache validation. Signing
 access, ARM/device measurements and final release acceptance remain open. This
 status reconciliation does not change the schedule or relax any gate.
 
