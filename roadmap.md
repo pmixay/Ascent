@@ -1,5 +1,19 @@
 # Ascent roadmap
 
+## Active competition track — 6 November 2026
+
+Execute [the four-person hackathon plan](docs/HACKATHON_PLAN.md), grounded in
+[the source-specification and current-CI audit](docs/HACKATHON_AUDIT.md), for the
+phone competition release. It prioritizes import, exact JSON, bundled usable
+models, local-LLM compliance, offline ARM operation and measured speech quality.
+Its unchecked release gates supersede the old watch-first delivery order for
+this scope. The older product milestones below are retained as a separate
+future track, not additional competition prerequisites or completed work.
+
+The old “reserved validation” references below are historical: the original
+Dialogs recordings have since informed algorithm fixes and are diagnostic data.
+New generalization claims require a fresh holdout, as specified in the active plan.
+
 Checked boxes indicate **confirmed product decisions only**, not completed software or validated performance. Implementation and acceptance work remains unchecked.
 
 See [README.md](README.md) and [AGENTS.md](AGENTS.md). Use existing GitHub CI exclusively for Gradle, builds, tests, lint, and build artifacts. **Never build locally.** Verify existing workflow names.

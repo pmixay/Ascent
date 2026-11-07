@@ -1,5 +1,28 @@
 # Ascent engineering contract
 
+## Current task and scoped precedence — 6 November 2026
+
+The current user supplied the Neuro-stenographer competition specification and
+requested an audit and four-person delivery plan. Read
+[docs/HACKATHON_AUDIT.md](docs/HACKATHON_AUDIT.md) and
+[docs/HACKATHON_PLAN.md](docs/HACKATHON_PLAN.md) for this work. The competition APK
+must contain the complete usable offline model set, expose audio import and export
+the exact `transcript` / `speaker_id` / `start_ms` / `end_ms` / `text` JSON contract.
+Resolve the explicit local-LLM requirement; ASR alone must not be relabeled as a
+text LLM without organizer clarification. All application processing, including
+text processing, stays on Android for the competition release.
+
+For that scope these newer requirements take precedence over older instructions
+below forbidding APK model weights, exposing only microphone capture, or putting
+watch delivery first. The older optional remote-AI plan is outside this release.
+The no-local-build rule, existing workflow/check integrity, encrypted storage and
+honest evidence reporting remain in force. Imported user-owned audio is a source
+to read, not permission for an app recording archive or deletion of the source.
+No additional app-owned audio-persistence exception is introduced by this plan.
+The older watch-first production requirements remain a separate future track.
+The plan is not implementation evidence. Reconcile its identified CI-inference
+policy inconsistency explicitly before changing inference behavior or checks.
+
 Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation. Write project documentation in English; the app's user-facing language remains Russian.
 
 ## Review prototype scope
