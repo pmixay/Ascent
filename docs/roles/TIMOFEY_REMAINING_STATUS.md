@@ -2,6 +2,15 @@
 
 ## PR integration with current main
 
+PR [#8](https://github.com/pmixay/Ascent/pull/8) was opened against main. During
+creation, main advanced again to `77dd372` (PR #7). That revision was also merged
+without conflicts: it adds a per-job text-stage budget, real ViewModel job-path
+instrumentation and cancellation-cleanup correction. These are no longer missing
+source tasks in this PR; prior open-work tables below are historical snapshots.
+The offline workflow retains the two existing required cases and additionally
+requires the new application-path case. New merged-head CI/device acceptance is
+still required; neither teammate source presence nor older green runs prove it.
+
 Fetched main `18c3599` (PR #6) and merged it into Timofey's branch for review.
 Pasha/Petya's language-mode API/UI, triple-lease wiring, actual-used-mode result
 and timing presentation are now included in source. Their code merged without
