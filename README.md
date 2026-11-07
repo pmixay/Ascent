@@ -1,4 +1,4 @@
-# Ascent
+# AscenT
 
 ## Current competition delivery plan — 6 November 2026
 
