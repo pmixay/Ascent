@@ -109,7 +109,11 @@ dependencies {
 
 // The long evaluation reads verified resources outside the regular JVM source set.
 // Score supplied development inputs; the long corpus study stays off push CI.
-if (providers.environmentVariable("ASCENT_DIALOG_EVALUATION").isPresent) {
+if (providers.environmentVariable("CI").orNull == "true") {
+    tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+        exclude("**/TwoHourSpeechEvaluationTest*")
+    }
+} else if (providers.environmentVariable("ASCENT_DIALOG_EVALUATION").isPresent) {
     tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
         outputs.upToDateWhen { false }
         outputs.doNotCacheIf("External two-hour evaluation must be scored on this run") { true }

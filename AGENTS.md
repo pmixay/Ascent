@@ -35,6 +35,12 @@ integration, packaging, device evidence and submission work remain assigned.
 The dedicated CI inference/cache and scoring jobs pushed in `6a078e3` were
 removed by user instruction because they made push CI too slow. Keep the existing
 bounded build, lint, unit, APK and emulator checks fast and useful.
+The user's later CI optimization request allows shared Python/JVM tests and lint
+to run once in the compact job. The embedded job retains its independent ARM64
+build, manifest/payload checks and offline instrumentation. Reuse acoustic exports
+only under an exact input/dependency/fixture cache key and always reverify pinned
+payload hashes and successful export provenance before packaging. Exclude the
+two-hour JVM evaluation whenever `CI=true`, even if evaluation inputs are supplied.
 Pushed host studies and a passing build job do not establish full offline ARM
 acceptance. No deadline exception weakens checks, privacy or LLM requirements.
 

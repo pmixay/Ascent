@@ -30,7 +30,11 @@ Optional model/quality research and extended tests are backlog, not marked done.
 The development evaluation tooling pushed in `6a078e3` remains available for
 algorithm improvement, but the user removed its long public-corpus inference and
 scoring jobs from push CI on 7 November 2026 because they made CI too slow. Those
-two-hour evaluations now run on a development machine only; the historical [run
+two-hour evaluations now run on a development machine only; CI explicitly excludes
+the opt-in JVM scorer too. Shared checks run once and embedded packaging reuses
+exactly keyed exports with pinned hash revalidation. See the
+[CI waiting and reuse procedure](prototypes/phone-transcriber/docs/ci-waiting.md).
+The historical [run
 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969) is not a
 current gate. Earlier `4b16e3a` had a passing build job but failed for missing
 inputs. Model publication is restored: [Model Export 42369233159, attempt 2](https://github.com/pmixay/Ascent/actions/runs/42369233159/attempts/2) passed, and all live transport/payload hashes were independently checked. See [Petya’s server evidence](docs/roles/PETYA_SERVER_STATUS.md).

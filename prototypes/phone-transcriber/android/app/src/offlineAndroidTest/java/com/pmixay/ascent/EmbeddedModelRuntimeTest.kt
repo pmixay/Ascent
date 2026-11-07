@@ -42,7 +42,7 @@ class EmbeddedModelRuntimeTest {
             // A bounded application integration check, not a quality/corpus benchmark.
             // Bundled bytes must be callable through the exact paired pipeline API.
             val input = listOf(TranscriptSegment("speaker_1", 100, 900, "привет мир", speakerInferred = true))
-            val presented = TextStages.run(text, input)
+            val presented = TextStages.run(text, input) { throw AssertionError("Bundled text runtime failed on synthetic input", it) }
             assertEquals(TextStageStatus.COMPLETED, presented.report.status)
             assertEquals(1, presented.report.phrases)
             assertEquals(0, presented.report.fallbacks)

@@ -170,6 +170,13 @@ save it. Required checks run on cache hits and misses. Cache reuse avoids
 repeated work, but no fixed warm-cache duration is promised. The artifact uses an
 uncompressed outer ZIP around the already compressed APK.
 
+Shared tooling/JVM tests and lint run in the compact job. The offline job checks
+its own permissions, payload hashes and real first-launch/text runtime, reusing a
+validated acoustic export only for an exact input/dependency/fixture cache key.
+The two-hour JVM evaluation is excluded whenever `CI=true`. Use
+[`scripts/wait_for_ci.py`](scripts/wait_for_ci.py) to wait for a specific commit
+and required successful jobs; see [usage and cache boundaries](docs/ci-waiting.md).
+
 The initial ASR export uses FP32, so model storage is substantial (approximately
 1 GB when expanded). Lossless gzip compresses each transport chunk independently;
 this changes network transfer size, not model precision or installed model size.

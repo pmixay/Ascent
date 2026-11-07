@@ -37,6 +37,10 @@ today's deadline without being marked done.
 The development evaluation tooling pushed in `6a078e3` remains available for
 algorithm improvement. The former CI `dialog-inference` and `speech-evaluation`
 jobs were removed; no cache bootstrap, long inference or scoring runs in push CI.
+The opt-in two-hour JVM scorer is also excluded whenever `CI=true`. Shared tests
+and lint run once; embedded packaging reuses only exactly keyed, reverified exports.
+Use the [condition waiter](prototypes/phone-transcriber/docs/ci-waiting.md) for a
+specific commit's completed compact and offline jobs.
 Reference-export provenance must remain explicit in development reports.
 
 Timofey's embedded assets/bootstrap and Pasha's job/text-stage work are now

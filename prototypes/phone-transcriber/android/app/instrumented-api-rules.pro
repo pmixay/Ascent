@@ -50,3 +50,8 @@
 # combined CI 42383364630 exposed a removed CoroutineContext factory method.
 # Keep this library's public/protected ABI on the debug/test boundary as well.
 -keep class kotlinx.coroutines.** { public *; protected *; }
+
+# This small UI policy helper is directly asserted by the runtime status test.
+-keep class com.pmixay.ascent.ModelStatusPolicyKt {
+    public static java.lang.String modelCheckAgeLabel(long, long);
+}

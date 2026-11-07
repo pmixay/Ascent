@@ -55,19 +55,24 @@ internal object TextStages {
      * is an acoustic-only revision, never permission to open an unversioned or newer text model.
      * A cancelled job surfaces as [InterruptedException].
      */
-    fun run(directory: File?, segments: List<TranscriptSegment>): TextStageOutcome {
+    // Tests may rethrow failures on synthetic input to expose native/runtime integration errors.
+    // Production keeps the fallback and never logs exception messages or recognized text.
+    fun run(directory: File?, segments: List<TranscriptSegment>, onFailure: (Throwable) -> Unit = {}): TextStageOutcome {
         if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
         if (segments.none { it.text.isNotBlank() }) return TextStageOutcome(segments, TextStageReport(TextStageStatus.SKIPPED))
         val files = locate(directory) ?: return TextStageOutcome(segments, TextStageReport(TextStageStatus.UNAVAILABLE))
         val started = System.nanoTime()
         return try {
             val tokenizer = QwenTokenizer.load(files.tokenizer)
-            OnnxTextModel(files.model, TextPunctuator.instructionPrefix(tokenizer)).use { model ->
-                present(segments, TextPunctuator(tokenizer, model))
+            val outcome = OnnxTextModel(files.model, TextPunctuator.instructionPrefix(tokenizer)).use { model ->
+                present(segments, TextPunctuator(tokenizer, model), onFailure)
             }
+            // Include tokenizer/session initialization and teardown in the stage's reported time.
+            TextStageOutcome(outcome.segments, outcome.report.copy(elapsedMs = (System.nanoTime() - started) / 1_000_000))
         } catch (error: InterruptedException) {
             throw error
         } catch (error: Throwable) {
+            onFailure(error)
             TextStageOutcome(segments, TextStageReport(TextStageStatus.FAILED, elapsedMs = (System.nanoTime() - started) / 1_000_000))
         }
     }
@@ -77,7 +82,7 @@ internal object TextStages {
      * confirms the same words in the same order; the recognized text moves to [TranscriptSegment.rawText].
      * Speakers, times and attribution flags are copied untouched.
      */
-    fun present(segments: List<TranscriptSegment>, stage: TextPunctuator): TextStageOutcome {
+    fun present(segments: List<TranscriptSegment>, stage: TextPunctuator, onFailure: (Throwable) -> Unit = {}): TextStageOutcome {
         val started = System.nanoTime()
         var attempted = 0
         var fallbacks = 0
@@ -96,6 +101,7 @@ internal object TextStages {
             } catch (error: InterruptedException) {
                 throw error
             } catch (error: Exception) {
+                onFailure(error)
                 fallbacks++
                 segment
             }
