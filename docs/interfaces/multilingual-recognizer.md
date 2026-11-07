@@ -137,14 +137,15 @@ TranscriptionEngine(
   (`AUTO` recommended as default), passed with the installed Parakeet directory to
   `TranscriptionEngine`; show the mode actually used from `TranscriptionResult.recognitionMode`;
   in a fixed multilingual mode show the "not installed" error instead of switching silently.
-  *Integrated on Petya's branch:* remembered selection, a job-frozen mode and the actual-used
-  label now reach the Russian UI. Inference uses the job's leased Parakeet directory. The compact
+  *Integrated (Petya's branch, PR #5):* remembered selection, a job-frozen mode and the actual-used
+  label reach the Russian UI. Inference uses the job's leased Parakeet directory. The compact
   APK still has no Parakeet files: Auto uses GigaAM and fixed multilingual is refused before
   capture/input opening. Selection is disabled during capture/processing/watch reception.
-  [Current handoff](../roles/PETYA_HANDOFF.md); phone evidence remains open. Pasha's
-  backend merge also passed both jobs in [run 42408030599](https://github.com/pmixay/Ascent/actions/runs/42408030599)
-  (`5886020`). No Auto or Multilingual audio job has been verified on Android or ARM;
-  the x86_64 packaging smoke proves recognizer creation only.
+  CI: [run 42408030599](https://github.com/pmixay/Ascent/actions/runs/42408030599) (`5886020`, ViewModel wiring) and
+  [run 42411299817](https://github.com/pmixay/Ascent/actions/runs/42411299817) (`16932d3`, picker and its emulator check)
+  concluded success for both jobs. No `AUTO` or `MULTILINGUAL` job has run on Android or ARM; the packaging
+  evidence is recognizer creation on x86_64, not inference.
+  [Current handoff](../roles/PETYA_HANDOFF.md); phone evidence remains open.
 - **QA and submission (Petya):** in the judge instructions, name the default mode and how to
   pick "Другие языки" for English; include an English and a mixed recording in device checks.
 - **Speech lead:** measure both modes on the device with `tools/score_competition_json.py`
