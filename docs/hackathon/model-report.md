@@ -135,6 +135,12 @@ pack, and switching is a team model decision. The CI Dialogs cache still measure
 without `AsrGain`, because the rule lives outside the cache-key inputs; the host table above
 is the evidence for its effect.
 
+**Script guard, measured and not adopted.** Re-decoding a window without Cyrillic letters when
+Latin letters dominate its greedy path (frozen on ES2011a: 38.67% -> 37.86%) moved EN2002a
+only from 54.65% to 54.05% (IHM, 4,332 errors) and from 74.96% to 74.85% (SDM, 5,999), and
+left Russian development unchanged (2.8715%). The gain was too small to justify a code change
+an hour before submission.
+
 **Fine-tuned GigaAM models.** A search of Hugging Face (7 November 2026) for models derived
 from `ai-sage/GigaAM-Multilingual` or `ai-sage/GigaAM-v3` found no usable English
 fine-tune. `nur-dev/asr-220m-kk-ru-en` (Kazakh/Russian/English) is gated with manual approval
