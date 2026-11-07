@@ -23,12 +23,13 @@ Reuse them; remaining qualification work is Android import/JSON/text integration
 complete offline packaging, matching CI inputs, device evidence and submission.
 Optional model/quality research and extended tests are backlog, not marked done.
 
-Current inspected `origin/main` commit `4b16e3a`,
-[run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042):
-the Android build/validation job passed, but the overall workflow failed because
-the two-hour evaluation inputs were unavailable. Latest model export remains the
-failed run `42257595048`. Neither pushed host studies nor the passing build job
-establish complete offline ARM acceptance. The audit preserves its earlier snapshot.
+Newly pushed `6a078e3` adds dedicated public inference/cache generation and a
+provenance-aware scorer; its [run 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969)
+was in progress when inspected. Verify that path instead of implementing it again;
+no completed success is claimed. Earlier `4b16e3a` had a passing build job but
+failed for missing inputs. Latest model export remains failed run `42257595048`.
+Public-reference results are not deployed-pack or offline ARM acceptance. The
+audit preserves its earlier snapshot.
 
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present

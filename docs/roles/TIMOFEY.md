@@ -12,6 +12,7 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 - At fetched `origin/main` `4b16e3a`, [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042) has a **successful build/validation job**. The overall run fails because two-hour inference inputs are missing. Do not assign generic build repair; repair the specific input bootstrap.
 - PR #2 already supplies study/scoring tools, frozen RU/English selections, host timing/int8 results, text-model hashes/licenses/contract and the segmenter/tests. Use these instead of a new performance harness or host-model search. Reference-export ASR outputs do not substitute for deployed-model speaker cache.
 - The pushed ASR report diagnoses the failed model export's expired upstream TLS certificate and unreachable deployed host. Verify a secure source/deployment repair; never bypass certificate validation. Packaging, ARM text runtime and final device cost are still open.
+- **Newly pushed `6a078e3`:** dedicated `dialog-inference` job, public-reference ASR + identical pinned speaker model, provenance-aware scoring and the scoped policy exception. Do not implement bootstrap again. [Run 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969) was in progress when inspected; remaining work is complete-run/cache/provenance verification and diagnosed failure repair. Reference results are not deployed-pack measurements.
 
 ## Ownership
 
@@ -25,7 +26,7 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 
 - [ ] Reuse inspected current run `42358746042`; check for any newer pushed result before integrating.
 - [ ] Use the pushed diagnosis for export run `42257595048`; confirm secure checkpoint access and model publication availability rather than restarting a generic investigation.
-- [ ] Locate matching completed two-hour inference inputs and inspect cache key/scope; agree a durable integrity-checked bootstrap with Andrey. Missing access/data is a blocker to escalate by 12:00.
+- [ ] Inspect the pushed cache-producing run and its cache key/scope/provenance with Andrey; verify completed inference → scoring. Do not recreate its public-model bootstrap. Escalate actual missing access/data or failed inference by 12:00.
 - [ ] Locate verified model artifacts and establish who has permissions for CI, model publication and signing.
 - [ ] Agree embedded-install readiness/lease contract with Pasha and expected status UI with Petya.
 - [ ] Identify available ARM phones with RAM/OS/ABI/storage information.
@@ -37,7 +38,7 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 ### T1. Repair specific failed checks; keep the working build path
 
 - [ ] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks.
-- [ ] Provide a durable integrity-checked source/bootstrap process for completed evaluation inputs. GitHub cache is an accelerator, not the sole source of truth.
+- [ ] Verify the pushed integrity-checked regeneration path from durable pinned public sources; do not rely only on a warm cache or implement this path again.
 - [ ] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope.
 - [ ] Keep two-hour scoring required; never turn absence into skip/success or reuse inputs for a different model silently.
 - [ ] Reconcile the documented CI-inference policy inconsistency explicitly: existing fixture/export validation runs inference while the written rule broadly forbids it. Do not remove validation to conceal the contradiction.
@@ -97,7 +98,7 @@ Full candidate target: **16:00**. Measure the same jobs as Andrey/Petya rather t
 
 ## 17:00–20:00 — final CI, exact artifact and submission
 
-Final APK-producing push by **17:00**. Inspected workflow limits are **45 min** for Android and **120 min** for model export, before queue/retry overhead: last model/export inputs must be pushed by **15:00**, not first changed at 17:00. Keep all checks and push-only triggers. Batch integration pushes: a new push to the same ref cancels the existing run. Do not cancel final checks with documentation/cosmetic pushes.
+Final APK-producing push by **17:00**. Workflow limits: **45 min** Android, **150 min inference + 45 min scoring** on a cold cache, **120 min** model export, plus queues/retries. Freeze cache-key inputs by **14:00** and model/export inputs by **15:00**. Since `6a078e3`, default-branch pushes no longer cancel the running workflow; other branches retain cancellation. Let the running cache job finish, batch pushes and avoid redundant queued runs. Do not weaken checks or triggers to recover time.
 
 - **17:00–18:00:** inspect all applicable checks; target final APK 17:45, latest useful QA handoff 18:00. Supply APK/commit/model hashes and run links. Required model-export evidence must match pinned inputs; an earlier run cannot certify changed tooling/assets.
 - **18:00–19:00:** support Petya's cold offline exact-build rehearsal and capture final provenance/measurements. Do not substitute an untested APK.

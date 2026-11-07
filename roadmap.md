@@ -30,6 +30,14 @@ has a passing build job but fails overall for missing two-hour inference inputs.
 Keep that check required. New acoustic tuning/quantization/VAD and the expanded
 corpus/device/stress matrix move beyond today's deadline without being marked done.
 
+Newer pushed `6a078e3` already implements dedicated public inference/cache
+generation and provenance-aware scoring. [Run 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969)
+was in progress when inspected; remaining H01 work is verification/failure repair,
+not bootstrap implementation. Reference-export provenance must remain explicit.
+Freeze cache-key inputs by 14:00: cold inference/scoring limits are 150 + 45 min,
+before queue overhead. Default-branch pushes preserve the running workflow rather
+than cancelling its cache generation; batch pushes to avoid queued duplication.
+
 The old “reserved validation” references below are historical: the original
 Dialogs recordings have since informed algorithm fixes and are diagnostic data.
 New generalization claims require a fresh holdout, as specified in the active plan.

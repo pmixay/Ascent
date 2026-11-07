@@ -32,6 +32,9 @@ Petya owns UX/QA/submission. Subtract already pushed work: reuse PR #2's frozen
 study selections, reference ASR/scoring tools, host RU/telephone/English and
 text-model studies, grammar contract and segmenter/tests. Only missing Android
 integration, packaging, device evidence and submission work remain assigned.
+The dedicated public inference/cache job and provenance-aware scorer are also
+already pushed in `6a078e3`; verify their completed run rather than reimplementing
+them, and freeze cache-key inputs by 14:00 for the 150 + 45 minute cold path.
 Pushed host studies and a passing build job do not establish full CI/offline ARM
 acceptance. No deadline exception weakens checks, privacy or LLM requirements.
 
