@@ -1,5 +1,23 @@
 # Ascent engineering contract
 
+## Latest submission handoff — 8 November 2026
+
+The user now requests execution of the remaining competition submission work,
+with the latest deadline **09:00 MSK**, prioritizing the literal jury requirements
+over optional development and expanded QA. The 7 November 20:00 schedule below
+is historical, not the active deadline. See [docs/SUBMISSION.md](docs/SUBMISSION.md)
+and [artifacts/submission.json](artifacts/submission.json) for the pinned candidate,
+actual evidence and remaining external actions. Keep README and roadmap aligned.
+Do not turn this priority change into fabricated test results, waived existing CI,
+privacy/signing/ARM gates, or authorization to generate a team key or use an
+unapproved upload host. No local builds or SDK/toolchain preparation are allowed.
+Source `25ae8eee` has inspected green CI with 25/four actually executed required
+cases; this does not establish ARM spoken-audio acceptance. Record unavailable
+offline-pipeline video, durable APK publication and organizer receipt as pending
+until real. A user-supplied prototype MP4 is now included under `artifacts/demo/`;
+it explicitly shows text-model assets unavailable and does not establish the
+offline candidate's APK identity, ARM execution or local-LLM acceptance.
+
 ## Current task and scoped precedence — 7 November 2026
 
 The current user supplied the Neuro-stenographer competition specification and

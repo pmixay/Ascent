@@ -1,6 +1,82 @@
 # Competition test protocol and results
 
-No fresh offline ARM install, three-file sequence, held-out quality run or demonstration video has been recorded for this checkout. The table below is an execution register, not a claim of passing tests. Fill it only from an inspected CI run or a physical-device trial on a named APK/model revision.
+## Current submission summary — source 25ae8eee
+
+Inspected 8 November 2026 (MSK): actual GitHub API metadata and authenticated job
+logs, without local builds, application tests or corpus inference. Subsequently,
+the attempt-2 artifact was downloaded and both ZIP/raw APK hashes verified locally;
+the file is ready in `~/Downloads/ascent-offline-25ae8eee.apk`, not installed/run.
+The current application source is
+[`25ae8eeeef2f96e9784c886a8c96ed4bce11c32e`](https://github.com/pmixay/Ascent/tree/25ae8eeeef2f96e9784c886a8c96ed4bce11c32e),
+not the older branch identities in the historical ledger below.
+
+| Current evidence | Observed result | Scope / limitation |
+| --- | --- | --- |
+| [Android CI 42420616552](https://github.com/pmixay/Ascent/actions/runs/42420616552), run 156, attempt **2** | Both required jobs succeeded | Separately initiated rerun replaced attempt-1 artifacts; source/version unchanged, debug signatures changed |
+| Compact job `128554620091` | Shared tooling, JVM/lint/build, APK inspection and x86_64 runtime checks succeeded; **25 required cases executed without skips** | Count confirmed from actual `Verified instrumentation XML` log output |
+| Embedded job `128554620245` | ARM64 payload/signature inspection and offline x86_64 runtime succeeded; **four required cases executed without skips** | Cold extraction/recovery plus one synthetic Qwen call, Parakeet creation, silent ViewModel import/export and cancellation/restart/background checks; not speech-quality inference |
+| Offline raw APK | 2,167,298,546 bytes; SHA-256 `5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d` | Attempt-2 CI SDK-verified identity, not attempt 1's APK |
+| Available offline ZIP | 2,167,298,696 bytes; SHA-256 `d17d0abd84d6558227fde5d9b73ea09cd4a6bfe3b9ec36d45a18147742067f95` | [Artifact 13594571558](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594571558), expires 14 November, 22:54:39 UTC; temporary, not durable public publication |
+| Signing | Actual offline certificate `d6cd89c07d2e4babaa6b082b8107214da4e1e1ea0a62ea0a94f2a127b0765575`; `unprotected-debug` | Signature checked in CI; stable owner-key acceptance not established |
+| Full evidence collector | **Pass on actual attempt 2** | Unchanged `collect_ci_evidence.inspect` checked both jobs/artifacts, exact APK identity, 25/four executions and two matching storage records; TLS verification used system CA trust |
+| Real ARM/offline speech, local-LLM feasibility and phone WER/RTF | **Not established** | x86_64 success and the supplied compact-prototype video do not prove these conditions |
+| Supplied prototype screen recording | **Observed, limited demo** | [26-second silent MP4](../artifacts/demo/ascent-prototype-2026-11-08.mp4) shows capture, one-speaker result and JSON button, but explicitly reports text model unavailable; exact APK/device/ABI unknown; not an offline acceptance pass |
+
+The four embedded methods are mandatory in the existing workflow and passed:
+`coldBootstrapSelectsBothGroupsWithoutDownloadWork`,
+`parakeetRecognizerLoadsPinnedFilesWithMinifiedJniConfiguration`,
+`viewModelCancelDoubleTapAndBackgroundLeaveOneCoherentJobAndANewJobStartsAfterwards`,
+`viewModelSilentImportCompletesAndExportsAnEmptyTranscriptWithoutTouchingTheSource`.
+Their fixtures are synthetic and do not establish natural call/meeting quality.
+Rotation/process-kill and real provider behavior are not inferred from the
+ViewModel-only synthetic coverage. Wear lint/assembly are included in compact CI;
+watch pairing/capture acceptance is still unverified.
+
+### Existing measured speech results (not new candidate/phone measurements)
+
+These published studies are reused, not rerun. The [model report](hackathon/model-report.md)
+holds exact model sources, normalization, splits, conditions and fuller tables.
+
+| Measurement | Existing result | Evidence boundary |
+| --- | --- | --- |
+| Historical constructed Russian Dialogs, 1,134 clips / 15,740 words / 7,232.6 s | WER 2.79% (439/15,740), cpWER 10.28% (1,618/15,740); strict/completed clip-time attribution 89.90%/95.31% | Historical CI `42363045969`, public reference ASR export and cached Kotlin attribution; not natural-conversation DER, not current `AsrGain`/ARM quality; old validation is diagnostic |
+| Separate Russian validation study, 959 clips / 10,053 words | WER 4.30% (432/10,053) | x86 host, reference export; recordings frozen before that study, not a new unseen set for subsequent tuning |
+| Simulated telephone Russian validation | WER 4.63% | Host channel simulation, not real Android call integration |
+| English continuous AMI meetings, six 10-min excerpts / 8,539 reference words | GigaAM WER 32.32% (2,760/8,539); Parakeet v3 28.62% (2,444/8,539) | Host, headset mix with overlaps; no app diarization score; now inspected, not an unseen future holdout |
+| AMI matched-word starts, Parakeet v3 | Absolute median/p95 80/240 ms; 96.2% within 250 ms | Host, matched-word annotation comparison, not every phrase boundary or phone timing |
+| Text model, 120 development clips / 2,115 words / 1,067.59 s | Sentence-end F1 0.456, capitals 88.98%; added host RTF 0.081 | Qwen presentation-only task; not a WER improvement or ARM runtime measurement |
+| Recognition speed on Russian study | Host RTF about 0.069, float32, development | Excludes decoding/model loading/diarization/Qwen/save; **not total app RTF** |
+
+No minimum new corpus size, two-device report or numerical WER/RTF pass threshold
+is specified by the brief. Existing own tests are reportable with these boundaries;
+unmeasured required behavior and existing internal acceptance gates stay open.
+No new benchmark was run to fill this table.
+
+### Actual x86_64/API 36 storage observations from the current run
+
+| Bytes unless specified | Fresh extraction | Recovery with old triple leased |
+| --- | ---: | ---: |
+| Installed x86_64 APK file lengths | 2,170,610,323 | 2,170,610,323 |
+| Android reported app/code bytes | 2,248,077,312 | 2,248,077,312 |
+| Android reported data including cache | 2,147,840,000 | 2,818,449,408 |
+| Model-root logical bytes before | 0 | 2,147,011,852 |
+| Model-root logical bytes after / sampled peak | 2,147,012,171 | 4,294,024,023 |
+| Extraction/validation elapsed ms | 9,604 | 23,531 |
+| Successful / failed samples | 38 / 0 | 63 / 0 |
+
+These observations are asynchronous package statistics and sampled logical lower
+bounds, not exact physical high-water allocation, ARM installed size or RAM.
+The payload-plus-reserve figure 2,180,566,603 bytes is a budget, not a measured
+phone free-space requirement. See [full candidate identity](SUBMISSION.md) and
+[machine-readable submission record](../artifacts/submission.json).
+
+## Historical execution register and remaining device cases
+
+No fresh offline ARM install, three-file sequence or held-out quality run has been
+recorded for this checkout. A prototype video was subsequently supplied, not an
+identified offline-candidate trial; its scope is recorded above. The historical
+table below is not a claim of passing device tests. Fill results only from actual
+inspected evidence tied to its observed build and conditions.
 
 | Evidence | Status | APK commit / SHA-256 | Model manifest / SHA-256 | Device / Android / ABI | Evidence link or failure |
 | --- | --- | --- | --- | --- | --- |
@@ -29,7 +105,7 @@ No fresh offline ARM install, three-file sequence, held-out quality run or demon
 | Silence and independent export validation | not run | — | — | ARM64 phone | Include exact empty array. |
 | Negative/lifecycle/repeated-use matrix | not run | — | — | ARM64 phone | Record each case ID. |
 | Second ARM64 device or emulator | not run | — | — | — | Record hardware and OS. |
-| Final demonstration of delivered APK | not run | — | — | ARM64 phone | Link video in `artifacts/demo/README.md`. |
+| Final demonstration of delivered offline APK | not run | — | — | — | Supplied prototype clip has no exact APK identity and says text model unavailable; see `artifacts/demo/README.md`. |
 | AMI English meeting host ASR/probe evaluation | pass (host only) | main `2133dfa`; no APK | GigaAM / Parakeet / Auto, report pins | Development machine | Six frozen 10-minute meetings; [denominators and results](hackathon/model-report.md#second-recognizer-english-and-multilingual-candidates-host). Aggregate results now inspected; not a new unseen set or phone result. |
 | AMI English meeting source/crop integrity | pass (data prep only) | — | — | Development machine | Six source/crop hashes and manual annotation archive matched the [frozen manifest](../tools/qa/fixtures/ami_holdout_manifest.json). No inference or score. |
 | DataHive Russian call source integrity | pass (data prep only) | — | — | Development machine | Six original MP3 byte counts/hashes match the [source manifest](../tools/qa/fixtures/datahive_ru_source_manifest.json); manual references and inference are pending. |

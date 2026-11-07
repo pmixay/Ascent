@@ -1,15 +1,19 @@
 # ML defense notes
 
-Speaking notes for the speech lead at the defense, 7 November 2026. Every figure comes from
-[model-report.md](model-report.md), which holds denominators, sources and conditions. Do not
-quote a number that is not there, and say "host" or "CI" with each one: **no Android device
-measurement exists yet.**
+Speaking notes, reconciled on 8 November 2026 against candidate `25ae8eee`.
+Figures come from [model-report.md](model-report.md), with denominators and conditions.
+Say "host" or "historical CI" with quality figures. Current bounded x86_64 Android
+checks passed, but **no full ARM spoken-audio measurement exists**. Candidate and
+open release gates: [SUBMISSION.md](../SUBMISSION.md).
 
 ## The pipeline in one minute
 
 Everything runs on the phone, offline, one stage after another:
 
-1. **Speech to text: GigaAM Multilingual CTC** (about 220M parameters, MIT). A Conformer
+1. **Speech to text:** remembered `Авто`, fixed Russian/CIS GigaAM or multilingual
+   Parakeet TDT 0.6B v3 (int8, CC-BY-4.0). Parakeet is now bundled and wired;
+   creation passed x86_64 CI, not spoken ARM acceptance. **GigaAM Multilingual CTC**
+   (about 220M parameters, MIT) is a Conformer
    encoder with a character-level CTC head for Russian and English. The recording is cut
    into 20 s windows with 1.25 s of context, and the cut is moved into a pause so that words
    are not split. Each window is level-normalized (peak to -1 dBFS, at most +30 dB) before
@@ -20,16 +24,18 @@ Everything runs on the phone, offline, one stage after another:
    but cannot create one. Every word gets a participant label; best-effort assignments are
    marked inferred internally and never train voice memory.
 3. **Phrases:** words are grouped by speaker; runs longer than 20 s are split at the longest
-   pause. Times in the JSON are these CTC times, in milliseconds.
+   pause. JSON times are approximate CTC-derived GigaAM or token-derived Parakeet
+   times, in original-media milliseconds.
 4. **Local LLM: Qwen2.5 0.5B Instruct, int8 ONNX** (Apache-2.0). It adds
    punctuation and capitals with one forward pass: at each word boundary the model scores
    ", . ? !" against the next word. It can only choose marks and capitals, so it cannot
    change, drop or invent words, speakers or times. It runs on the ONNX Runtime the
    recognizer already ships, with no extra native library. **Status:** packaged and integrated
-   in the embedded APK, including raw-word competition JSON export. Pre-gain Android CI
-   [42387321849](https://github.com/pmixay/Ascent/actions/runs/42387321849) passed an actual
-   synthetic text-model call on x86_64. The latest merged candidate is recorded in
-   [PR #4](https://github.com/pmixay/Ascent/pull/4); physical ARM acceptance remains open.
+   in the embedded APK, including raw-word competition JSON export. Current
+   [CI 42420616552](https://github.com/pmixay/Ascent/actions/runs/42420616552) passed
+   actual synthetic text execution on x86_64; ARM spoken-pipeline acceptance remains
+   open. Its soft budget starts after loading and is checked between phrases;
+   timeouts/fallbacks are reported, not disguised as successful formatting.
 
 ## Why these choices
 
@@ -45,8 +51,9 @@ Everything runs on the phone, offline, one stage after another:
   fails much worse (54.65% vs 18.57%). Quote the meeting numbers first; they are the realistic
   case.
   Models that are strong on both, such as Whisper large-v3 with about 1.5B parameters, are
-  too large for on-device use. **Say clearly whether the multilingual mode is in the shipped
-  APK:** at the time of writing it is measured on the host only, not integrated.
+   too large for the selected package. **Say clearly:** the identified offline
+   candidate embeds and integrates Parakeet v3; host scores and recognizer creation
+   are not proof of ARM speech quality. The compact build has no Parakeet/Qwen.
 - **Positioning:** "two specialised local models instead of one compromise": GigaAM for
   Russian and CIS languages, Parakeet v3 for English and European languages, behind one
   pipeline (speakers, timestamps, local LLM). The user picks a language, not a model: "Авто",
@@ -72,11 +79,11 @@ Everything runs on the phone, offline, one stage after another:
 | Telephone-channel validation WER | 4.63% | host |
 | English read speech (LibriSpeech, 1,901 words) | 6.73% | host |
 | English meeting, headsets / distant microphone, with level rule | 54.65% / 74.96% | host |
-| Same, Parakeet TDT 0.6B v3 (multilingual candidate, not shipped) | 18.57% / 44.74% | host |
+| Same, Parakeet TDT 0.6B v3 (now bundled/integrated; ARM open) | 18.57% / 44.74% | host |
 | English continuous meetings (Petya's AMI holdout, 8,539 words): GigaAM vs Parakeet | 32.3% vs 28.6% WER; starts within 250 ms 63% vs 96% | host |
 | Russian validation, Parakeet v3 vs GigaAM | 6.73% vs 4.30% | host |
 | Recognition RTF, x86, 2 threads | about 0.07 | host |
-| Whole pipeline RTF, x86 | about 0.26 | host |
+| Rough sum of separate native stage estimates (not measured Android end-to-end RTF) | about 0.26 | host / worst-case comparison protocol |
 
 ## Honest limitations (say them before you are asked)
 
@@ -85,8 +92,9 @@ Everything runs on the phone, offline, one stage after another:
   270 times slower in our worst-case test.
 - Dialogs is acted, constructed dialogue: two clean speakers with synthetic gaps. Real calls
   and meetings with overlap are harder.
-- Conversational English is weak (about half the words wrong on AMI headsets); English
-  diarization is unmeasured.
+- Conversational English is difficult: bundled Parakeet v3 has host WER 28.62%
+  on six continuous AMI meetings; the much worse GigaAM figures are a different
+  recognizer/condition. English Android quality and diarization are unmeasured.
 - Short replies and similar voices are the main source of speaker errors: about three
   quarters of cpWER beyond WER comes from attribution.
 - Numbers are written as words and text is lowercase from the recognizer; the LLM adds
@@ -94,8 +102,8 @@ Everything runs on the phone, offline, one stage after another:
 
 ## Likely questions
 
-- **"Is the LLM real or decorative?"** It is a real local model that decides every
-  punctuation mark and capital of the text it processes; on 120 development clips (host) it
+- **"Is the LLM real or decorative?"** It is a real local model scoring constrained
+  punctuation/capital choices for phrases it processes; on 120 development clips (host) it
   raised correct capitals from 84.87% (lowercase baseline) to 88.98%. It does not touch
   recognition. Check whether the shipped APK already runs it before answering.
 - **"Why not Whisper?"** We measured the phone-sized English Whispers on AMI meetings:
@@ -116,4 +124,7 @@ Everything runs on the phone, offline, one stage after another:
   measured but not shipped.
 - **"Did you fine-tune?"** No weights were trained. No usable English fine-tune of GigaAM
   exists publicly (searched 7 November 2026).
-- **"What leaves the phone?"** Nothing. Recognition, speakers and text processing are local.
+- **"What leaves the phone?"** The offline app has no Internet permission; inference
+  stays local. The user explicitly exports text through a document provider, whose
+  chosen destination may be cloud-backed. Do not describe export as never leaving
+  the device, or the temporary microphone WAV as production zero persistence.

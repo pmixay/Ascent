@@ -1,24 +1,32 @@
 # Models, licences and measured quality
 
-Speech lead's report for the hackathon verification build, 7 November 2026. It separates
-four kinds of evidence: an inspected GitHub CI run, host measurements on a development
-container, decisions without measurements, and Android device results. **No Android
-device measurement exists yet**; ARM is covered only by a software-emulation worst case.
-The last section is the table to fill.
+Speech lead's measured studies, 7 November 2026, with integration status reconciled
+on 8 November against source `25ae8eee`. Numeric studies are retained, not rerun
+or upgraded into device results. Current Android CI executes bounded synthetic
+x86_64 cases, but **no real ARM spoken-audio measurement exists**. Software ARM
+emulation below is not Android device acceptance. See [current tests](../TEST_RESULTS.md)
+and [submission identity](../SUBMISSION.md).
 
 ## Pipeline
 
-All stages run on the phone, one after another, so only one model family is loaded at a time.
+The implemented pipeline runs locally on Android, closing acoustic sessions before
+Qwen opens. All three embedded groups and language modes are integrated; full ARM
+runtime/quality acceptance remains open.
 
-1. **Recognition.** GigaAM CTC over 20 s windows with 1.25 s of context on each side and a
+1. **Recognition.** Russian/CIS uses GigaAM CTC; English/multilingual uses Parakeet
+   TDT v3 with token-to-word timing. Remembered `Авто` starts GigaAM and may restart
+   the whole recording with Parakeet based on an early script probe. GigaAM uses
+   20 s windows with 1.25 s of context on each side and a
    quiet-seam search (`AsrChunking`), per-window level normalization of the recognizer
    input (`AsrGain`: peak to -1 dBFS, at most +30 dB), greedy CTC decoding into timed words
-   (`CtcDecoder`), stitched across windows (`CtcChunkStitcher`).
+   (`CtcDecoder`), stitched across windows (`CtcChunkStitcher`). Parakeet uses the
+   bounded chunk/stitching seam without GigaAM's level normalization.
 2. **Speakers.** ERes2NetV2 embeddings over short windows around recognized speech, stable
    seeds, agglomerative clustering and completion so that every word carries a label;
    assignments without enough evidence are marked inferred internally (`Speaker*.kt`).
 3. **Phrases.** `TranscriptSegmenter` groups words by speaker and splits runs over 20 s at
-   the longest pause. Times stay CTC-derived and approximate (40 ms frames).
+   the longest pause. Times are approximate: CTC-derived for GigaAM (40 ms frames),
+   token-derived for Parakeet, not human-verified phonetic alignment.
 4. **Text model.** Word-preserving punctuation and capitals (`TextPunctuator`), see
    [text-punctuation.md](../interfaces/text-punctuation.md). It cannot change words,
    speakers or times.
@@ -29,7 +37,7 @@ All stages run on the phone, one after another, so only one model family is load
 | --- | --- | --- | --- | --- |
 | ASR | GigaAM Multilingual CTC, about 220M parameters | Deployed pack exported from `salute-developers/GigaAM` `7447938d791c4f3e643386ee22c33777004293a5`; measurements below used the public conversion `istupakov/gigaam-multilingual-ctc-onnx` `458860e1983aef670dd9795fb6af603c82767d5d` | 885 MB float32, 225 MB int8 (host study) | MIT |
 | Speaker embeddings | 3D-Speaker ERes2NetV2 (`3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx`) | `csukuangfj/speaker-embedding-models`, SHA-256 `bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239` | 71,441,526 bytes | Apache-2.0 |
-| Multilingual ASR (chosen, not integrated) | NVIDIA Parakeet TDT 0.6B v3, int8 | `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` `ed5d745623472f97cfc2e6c2916ee248798fc5a8`; hashes in [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md) | 670,576,784 bytes | CC-BY-4.0 |
+| Multilingual ASR (embedded/integrated; ARM open) | NVIDIA Parakeet TDT 0.6B v3, int8 | `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` `ed5d745623472f97cfc2e6c2916ee248798fc5a8`; hashes in [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md) | 670,576,784 bytes | CC-BY-4.0 |
 | Text model | Qwen2.5 0.5B Instruct, int8 ONNX | `onnx-community/Qwen2.5-0.5B-Instruct` `22942cb7d7ba4cc81bb4673549ca4d4614469b5e`, SHA-256 `41834041ab1b29eff9fc592f1a29a1844133aea35832ea9fa91682be13016100` | 512,096,557 bytes plus 7,031,673-byte tokenizer | Apache-2.0 |
 
 Runtimes: ONNX Runtime Android 1.31.0 (ASR and text model) and sherpa-onnx 2.0.0 with its
@@ -39,13 +47,12 @@ Qwen2.5 1.5B, Qwen3 0.6B and Qwen3.5 0.8B on the same stage and clips and kept
 ([text-punctuation.md](../interfaces/text-punctuation.md)). The acoustic model stays GigaAM
 Multilingual 220M for this release; the Large comparison is below.
 
-The application branch packages and integrates both model groups. Pre-gain
-[Android CI 42387321849](https://github.com/pmixay/Ascent/actions/runs/42387321849)
-at `32e3bc8` passed compact and embedded checks, including a synthetic invocation
-of the bundled text stage on x86_64. The latest candidate after merging `AsrGain`
-and its APK identities/checks are recorded in
-[PR #4](https://github.com/pmixay/Ascent/pull/4). This is integration evidence;
-the physical ARM quality/performance table below remains open.
+The current APK packages acoustic, text and Parakeet groups. Source `25ae8eee`
+passed both jobs in [Android CI 42420616552](https://github.com/pmixay/Ascent/actions/runs/42420616552):
+synthetic text execution, minified Parakeet creation and silent ViewModel
+import/export/cancel/restart checks on x86_64. Actual logs confirm 25/four required
+cases. [Exact identity](../SUBMISSION.md). These are integration checks, not speech
+quality measurements; the ARM table below remains open.
 
 ## Historical CI evidence: two hours of Russian dialogue
 
@@ -162,10 +169,10 @@ without retraining. GigaAM Multilingual Large is the only stronger model of the 
 
 ## Second recognizer: English and multilingual candidates (host)
 
-**Team decision, 7 November:** two recognition modes. **Russian and CIS languages** (default)
-keep GigaAM Multilingual (its card covers Russian, Kazakh, Kyrgyz and Uzbek); **multilingual**
-(English and other European languages) uses NVIDIA Parakeet TDT 0.6B v3. Not integrated yet;
-files, hashes and the engine contract are in
+**Team decision, 7 November:** Russian/CIS keeps GigaAM Multilingual (its card
+covers Russian, Kazakh, Kyrgyz and Uzbek); multilingual uses Parakeet TDT 0.6B v3.
+Fixed modes and remembered Auto are integrated and embedded in `25ae8eee`; actual
+ARM speech execution remains unverified. Files, hashes and the engine contract are in
 [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md). The candidates
 below all run on sherpa-onnx 2.0.0, which the app already ships for speaker embeddings, so no
 new native library is needed. Same container, 2 threads (runs shared the 4 cores, so RTF is
@@ -253,10 +260,11 @@ Findings:
   they cannot feed speaker attribution or the JSON timestamps; Whisper also pads every input
   to 30 s, which makes it slow on short phrases. SenseVoice is weak on English meetings, and
   its licence (FunASR model licence) was not reviewed.
-- Caveats: AMI is utterance-level recognition only, English diarization is unmeasured, and
-  Parakeet ran on clips one by one while GigaAM ran on assembled windows. Parakeet is not
-  integrated into the app yet: it needs a mode control, the sherpa-onnx recognizer path
-  producing timed words, and about 670 MB more in the embedded APK.
+- Caveats: EN2002a comparison is utterance-level; the six-meeting study uses
+  continuous headset mixes. English diarization is unmeasured. In the per-clip
+  Russian comparison Parakeet ran clips separately while GigaAM used assembled
+  windows; a separate windowed table is provided. Parakeet, its mode control,
+  timed-word engine and assets are now integrated; host scores are not ARM scores.
 
 ## Worst case: software ARM emulation on an x86 host
 
@@ -288,8 +296,9 @@ therefore a risk, unobserved on real hardware.
 - **No device evidence.** Speed, memory and behaviour on ARM devices and on the jury's ARM
   emulator are unmeasured. Software emulation on an x86 host is about 270× slower than the
   host (see the worst case above); an ARM-host emulator should be close to native.
-- **Not the deployed pack.** CI and host numbers come from the public reference export,
-  which is not byte-identical to the deployed pack.
+- **Not the deployed pack.** Historical Russian corpus CI/host ASR measurements
+  use a public reference export, not byte-identical to the deployed acoustic graph.
+  Current bounded Android checks validate packaged assets, not new corpus WER/RTF.
 - **Acted, constructed dialogue.** Two speakers per session, clean studio audio and
   synthetic gaps. Real calls, meetings with three or more speakers, overlap, far-field
   audio and background talk are not represented. Natural-conversation DER is not reported.
@@ -298,12 +307,13 @@ therefore a risk, unobserved on real hardware.
 - **`AsrGain` is host-evidence only.** The CI two-hour Dialogs scores above were produced
   without it, and its effect on the device is unmeasured.
 - **Timestamps** are CTC-derived and approximate; no human-checked boundaries exist yet.
-- **Text model** improves presentation only. If the jury does not normalize text before
-  WER, punctuation could add word errors; the integration contract recommends exporting the
-  raw ASR text.
-- **English** conversation is weak with the shipped model: 54.65% WER on AMI headsets and
-  74.96% on a distant microphone. Parakeet TDT 0.6B (18.02% / 44.72%) is measured on the host
-  but not integrated. English diarization is unmeasured.
+- **Text model** changes presentation only. Competition JSON exports raw recognized
+  words. English punctuation is unmeasured; the instruction was studied on Russian.
+- **English** is difficult: GigaAM with gain scored 54.65%/74.96% WER on isolated
+  AMI headsets/distant microphone; bundled Parakeet **v3** scored 18.57%/44.74%
+  there and 28.62% on six continuous meetings. The v2 comparison 18.02%/44.72%
+  is not the shipped v3 identity. These are host scores; Android English quality
+  and diarization remain unmeasured.
 
 ## Device measurements (to fill)
 

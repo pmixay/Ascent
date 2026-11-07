@@ -1,5 +1,31 @@
 # Petya implementation and acceptance handoff
 
+## Current submission update — 8 November 2026
+
+PR #5 is merged as `25ae8eee`. Both jobs in
+[42420616552](https://github.com/pmixay/Ascent/actions/runs/42420616552) passed;
+actual logs confirm 25 compact/four offline required executions. The missing
+four-case collector requirement and protected cleanup are integrated. Current
+documents, APK identity, existing measurements and a short real-video script are
+prepared in [SUBMISSION.md](../SUBMISSION.md), [TEST_RESULTS.md](../TEST_RESULTS.md)
+and [artifacts/demo](../../artifacts/demo/README.md). No new device trial/video
+or organizer submission was performed by document preparation. Actual ARM,
+stable signing, authorized durable whole-file hosting and final approval remain
+open. The user now requests a solo handoff by **09:00 MSK**, not the historical
+four-person 20:00 schedule. Do not reassign implemented mode/UI/model integration.
+
+Latest explicit user assignment: **Petya makes the actual demonstration video**.
+Use the identified attempt-2 APK and short script, or record the real different
+APK identity rather than copy a candidate hash. The user will upload the verified
+local CI APK to Google Drive and return its public link; no deployment/server
+repair is newly assigned for that upload.
+
+The user subsequently supplied a 26-second silent prototype recording, included
+at `artifacts/demo/ascent-prototype-2026-11-08.mp4`. It shows microphone/result UI,
+but explicitly unavailable text-model assets and compact-only language behavior.
+The filmed APK identity is unknown; it is not the offline candidate demo. See
+the observed scope and remaining short recording script in `artifacts/demo/README.md`.
+
 Updated 7 November 2026. Work branch: `codex/petya-open-work`, created from fetched
 main `2133dfa` in a clean worktree. PR #4 is merged historical evidence, not this
 candidate. The user will install and test the phone APK later; device acceptance,

@@ -1,5 +1,37 @@
 # Timofey — remaining-work reconciliation
 
+## Current solo submission preparation — 8 November 2026
+
+The user requests completion of independent remaining delivery work by **09:00
+MSK**. PR #5 is now merged on main as `25ae8eee`. Both jobs in
+[42420616552](https://github.com/pmixay/Ascent/actions/runs/42420616552) passed.
+Read-only authenticated actual-log inspection confirms 25 compact/four embedded
+required cases, both SDK-verified APK identities and two matching x86_64 storage
+observations. [SUBMISSION.md](../SUBMISSION.md),
+[submission.json](../../artifacts/submission.json) and [TEST_RESULTS.md](../TEST_RESULTS.md)
+now record this exact candidate rather than reuse earlier APK hashes.
+
+Attempt 1's compact artifact was initially absent and its offline artifact later
+returned 404. A separately initiated rerun completed as attempt 2, with both new
+artifacts expiring 14 November, 22:54:39 UTC. The unchanged strict full collector
+now succeeded on the actual run/logs/artifacts. Attempt-2 hashes/certificates in the
+new submission record supersede attempt 1; no check was weakened. The candidate
+remains `unprotected-debug`.
+Prepared submission documentation and video instructions are not ARM execution,
+stable signing, video capture, durable publication or an organizer receipt. No
+Android/ADB/device or existing video was available here. Hosting/key custody and
+organizer access still need an authorized operator. No local build/test/inference,
+new workflow, corpus job, server write, key replacement or acceptance waiver.
+
+Older branch plans/tables below are historical where these facts supersede them.
+
+Subsequent handoff: the actual attempt-2 APK was downloaded/extracted and ZIP/raw
+APK SHA-256 verified locally; upload-ready path is
+`/Users/timofey/Downloads/ascent-offline-25ae8eee.apk`. No local build/execution.
+The user will upload to Google Drive and return the public link. A supplied
+prototype MP4 is included with its hash and visible unavailable text model;
+no offline/LLM acceptance is inferred, and a matching offline demo remains open.
+
 The combined `codex/petya-open-work` branch now includes main `77dd372`, Pasha
 through `3429c4c` and Timofey through `481dc8d`. It retains protected cancellation
 cleanup, actual certificate-byte identity checks and all **25 compact / four

@@ -1,5 +1,14 @@
 # CI identity and release handoff
 
+Current pinned main candidate: `25ae8eee`, run
+[42420616552](https://github.com/pmixay/Ascent/actions/runs/42420616552).
+Actual logs confirm both jobs, 25/four required executions and SDK-verified APK
+identities. [SUBMISSION.md](SUBMISSION.md) records exact current bytes/hashes and
+temporary access for attempt **2**. The actual unchanged full evidence collector
+succeeded after this separately initiated rerun replaced both artifacts; attempt
+1's removed offline URL is not reused. No acceptance, durable publication or
+stable signing is inferred.
+
 The checked APKs are **internal candidates**, not an accepted competition release.
 Current integration and exact-run evidence are tracked in
 [PR #5](https://github.com/pmixay/Ascent/pull/5); historical identities and cross-role

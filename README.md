@@ -1,5 +1,77 @@
 # Ascent
 
+Offline Android conversation transcription: Russian first, English second, with
+speaker labels, phrase timestamps and JSON export. The interface is in Russian.
+
+## Competition handoff
+
+**Candidate, not an accepted release.** Application source
+[`25ae8eee`](https://github.com/pmixay/Ascent/tree/25ae8eeeef2f96e9784c886a8c96ed4bce11c32e)
+passed both jobs in [Android CI #156](https://github.com/pmixay/Ascent/actions/runs/42420616552).
+Actual logs confirm **25 compact and four embedded required cases without skips**.
+Runtime checks use x86_64 Android; full spoken-audio ARM execution remains unverified.
+Documentation changes after this source pin do not identify a different tested APK.
+
+| Material | Location / status |
+| --- | --- |
+| Offline ARM64 APK with all models | [Download candidate ZIP](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594571558), extract `ascent-offline.apk`. GitHub sign-in/read access may be required. CI attempt **2**; temporary artifact expires **14 November 2026, 22:54:39 UTC**; durable public APK URL is still missing. |
+| Exact APK identity | [Submission record](docs/SUBMISSION.md#candidate-identity) and [machine-readable manifest](artifacts/submission.json) |
+| Installation and use | [Offline quick start](docs/INSTALLATION.md) |
+| Source | [Pinned Android source](https://github.com/pmixay/Ascent/tree/25ae8eeeef2f96e9784c886a8c96ed4bce11c32e/prototypes/phone-transcriber/android), [source map](src/README.md) |
+| Architecture and models | [Architecture](docs/ARCHITECTURE.md), [models, licences and measured results](docs/hackathon/model-report.md) |
+| Limitations | [Known limits](docs/LIMITATIONS.md) |
+| Our tests | [Current CI and existing measured results](docs/TEST_RESULTS.md) |
+| Demonstration video | [Prototype screen recording](artifacts/demo/ascent-prototype-2026-11-08.mp4) (26 s, silent). It shows microphone transcription but reports **text model unavailable**; it does not demonstrate the offline competition APK. [Scope and remaining video](artifacts/demo/README.md). |
+| Final submission | **Not sent / no receipt recorded.** [Remaining handoff](docs/SUBMISSION.md) |
+
+### Use the offline candidate
+
+1. Install **`ascent-offline.apk`**, not the compact `ascent.apk`. Android 12+
+   (`minSdk 31`), ARM64. The APK alone is **2,167,298,546 bytes**; model extraction
+   adds **2,147,012,171 bytes**, before installation overhead and reserve. These are
+   not a measured phone free-space recommendation.
+2. Open Ascent and wait for `Встроенные модели готовы`. This variant extracts its
+   bundled models locally, has no Internet permission and needs no model download.
+3. Choose `Язык`: `Русский` for Russian, `Другие языки` for English, or `Авто`.
+   Automatic language selection is heuristic; mixed-language support is unqualified.
+4. Tap `Импорт аудио`, select a local audio file and wait for processing. Import
+   does not require microphone permission. Read participant turns and approximate
+   source-relative times. Check the text-model status separately from job completion.
+5. Use the conversation's JSON export action and choose a destination. Output:
+
+```json
+{"transcript":[{"speaker_id":"speaker_1","start_ms":1250,"end_ms":4380,"text":"Добрый день!"}]}
+```
+
+The example illustrates the schema; it is not a measured application output.
+JSON preserves raw recognized words; the UI/TXT may show Qwen punctuation and
+capitals. Silent results export `{"transcript":[]}`. Read [format and duration
+limits](docs/LIMITATIONS.md) before choosing input.
+
+### What runs locally
+
+- **GigaAM Multilingual CTC 220M** for Russian/CIS speech (MIT).
+- **NVIDIA Parakeet TDT 0.6B v3 int8** for English/multilingual speech (CC-BY-4.0).
+- **ERes2NetV2** voice embeddings with local speaker clustering (Apache-2.0).
+- **Qwen2.5 0.5B Instruct int8 ONNX** for constrained punctuation/case restoration
+  (Apache-2.0), after acoustic sessions close. Words, speaker IDs and times are
+  preserved; failed edits retain raw text and are reported, not hidden as success.
+
+The offline app does not send audio/text to a backend. Imported audio is read from
+the selected URI without an app-owned audio copy. Microphone capture in this
+prototype **does use a temporary WAV**; cleanup is not a production zero-persistence
+guarantee. Text history is encrypted locally. The Wear OS preview and future
+OpenRouter/Rewind/product features below are **not competition prerequisites**.
+
+The latest user deadline is **09:00 MSK**; the earlier 7 November 20:00 schedule is
+historical. Remaining delivery is APK access, offline-pipeline video, final evidence/limitations
+and submission. Existing CI/privacy/signing/ARM acceptance gates are not waived.
+See [the submission checklist](docs/SUBMISSION.md) for evidence and external blockers.
+The user will upload the verified local APK to Google Drive and supply its public
+link for this page; publication is not claimed until that actual link is available.
+
+<details>
+<summary>Historical competition implementation and CI notes (superseded by the handoff above)</summary>
 
 Petya follow-up: `codex/petya-open-work` started from main `2133dfa` and now includes
 main `77dd372`, Timofey `481dc8d` and Pasha `3429c4c`. Language selection and the actual-used label
@@ -188,6 +260,10 @@ the separate embedded baseline includes the provisional local text model. The
 [judge procedure](docs/QA_JUDGE_SCRIPT.md), [installation guide](docs/INSTALLATION.md)
 and [test ledger](docs/TEST_RESULTS.md) record the remaining evidence. See
 [Hackathon verification build](#12-hackathon-verification-build).
+
+</details>
+
+## Future product specification (not a claim of shipped competition features)
 
 Russian speech memory for Android and Wear OS.
 
@@ -589,7 +665,13 @@ Later ideas include personal vocabulary, source-linked commitment tracking, conv
 
 ## 11. Remaining engineering choices
 
-Implementation still needs measured device pairs, battery and latency budgets, strict volatile-frame limits, local model selection, transport validation, speaker thresholds, and a verified OpenRouter model/endpoint configuration. The hackathon track adds the choice between two APKs and a deletable embedded model, the local LLM, and two open questions for the jury (extra JSON keys, live streaming versus call-like recordings).
+Production still needs measured device pairs, battery/latency budgets, strict
+volatile-frame limits, transport validation and a reviewed optional OpenRouter
+configuration. The separate competition candidate already embeds acoustic,
+Parakeet and Qwen assets and integrates its local text stage. ARM execution,
+stable release identity, durable publication and actual video remain open; see
+[the current handoff](docs/SUBMISSION.md). Extra JSON keys and live-call integration
+are not silently assumed organizer requirements or permissions.
 
 These choices do not reopen continuous watch input, on-device STT, zero audio persistence, simple full-text rewind, seven-day text history, or the CI-only build rule.
 
@@ -600,10 +682,10 @@ The jury's [task brief](docs/hackathon/hackathon-brief-2026-11.pdf) and
 install on an ARM emulator, import three recordings into, transcribe and export,
 then score against reference transcripts. This is a separate deliverable on the
 phone only. It does not change the production plan above. These are release
-requirements, not acceptance claims: T2's internal embedded-assets/bootstrap
-baseline implements part of the track but does not close the complete pipeline
-or ARM gates. Owners and ordering are in the
-[four-person delivery plan](docs/HACKATHON_PLAN.md) and the [audit](docs/HACKATHON_AUDIT.md).
+requirements, not acceptance claims. The current `25ae8eee` baseline integrates
+the full source pipeline and passed bounded CI; ARM/final release gates remain
+open. [Current submission handoff](docs/SUBMISSION.md) supersedes historical
+schedules in the [plan](docs/HACKATHON_PLAN.md) and [audit](docs/HACKATHON_AUDIT.md).
 
 | Requirement | Plan |
 | --- | --- |
@@ -611,12 +693,13 @@ or ARM gates. Owners and ordering are in the
 | Input | Record in the app or import a file from device storage. Imported audio is decoded in memory from the selected stream, never copied into application storage, and has no playback or audio export. |
 | Output | An exported JSON file: a `transcript` array of objects with `speaker_id`, `start_ms`, `end_ms` and `text`. Every phrase has a participant label. Inferred provenance stays internal. |
 | Processing | Offline and on device: recognition, diarization and a local LLM. No cloud API, remote server, prepared transcript, application backend or OpenRouter call. |
-| Languages | Russian first, English second. English is unmeasured. |
+| Languages | Russian first, English second. Existing host results are separate; English ARM/app quality is unmeasured. |
 | Scenarios | Recordings resembling real-time calls and meetings; test cases differ and both are scored. |
 | Scoring | Transcription 40, diarization 25, timestamps 10, speed 10, usability 10, defense 5. WER and real-time factor (RTF) are measured by the jury; device load is not. |
-| Report | APK, source, instructions, architecture and models, limitations, our own test results and a demonstration video, in the jury's template repository (not yet inspected). |
+| Report | APK, source, instructions, architecture/models, limitations, own results and video. The template structure is mapped through `src/`, `config/`, `docs/` and `artifacts/`; no disruptive source move is needed. |
 
-The local LLM, the APK packaging choice and the ARM-emulator behavior are open.
+Qwen integration and separate embedded packaging are implemented; ARM behavior,
+model/runtime approval, actual video and final publication remain open.
 Report WER and RTF on our own data separately from the constructed Dialogs
 evaluation and never state an expected jury score. See the hackathon track in
 [roadmap.md](roadmap.md) and the contract in [AGENTS.md](AGENTS.md).

@@ -149,5 +149,10 @@ output. Leaving every word lowercase gets 84.87% of capitals right.
   reference single-pass implementation exactly on all 120 clips.
 - The tokenizer test fixture is a subset of the pinned `tokenizer.json`. Its expected IDs come
   from the Hugging Face `tokenizers` library.
-- Not run yet: the JVM unit tests in CI, `OnnxTextModel` against ONNX Runtime Android
-  (including zero-length past tensors for the prefix), the packaged APK, ARM timing and memory.
+- Current integration reconciliation: source `25ae8eee`, run
+  [42420616552](https://github.com/pmixay/Ascent/actions/runs/42420616552), attempt 2,
+  passed the shared JVM checks and actual bundled synthetic Qwen execution on
+  x86_64 Android, including session/prefix setup. The strict real evidence collector
+  succeeded with 25/four required cases. This supersedes earlier pending-CI notes,
+  not the host study. Real ARM spoken-pipeline execution, timing and memory remain
+  unmeasured; [exact identity and limits](../SUBMISSION.md).

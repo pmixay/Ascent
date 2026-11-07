@@ -1,5 +1,13 @@
 # Andrey — speech and model-quality lead
 
+Current handoff reconciliation, 8 November: source `25ae8eee` integrates and embeds
+GigaAM, Parakeet and Qwen, including language selection. Actual attempt-2 CI and
+read-only evidence collection passed with 25/four required executions. Older
+"not packaged/integrated" statuses below are historical, not missing code.
+[Submission identity](../SUBMISSION.md), [reconciled model report](../hackathon/model-report.md)
+and [current tests](../TEST_RESULTS.md) retain host/Android/ARM boundaries. Actual
+ARM runtime approval remains open; no new quality experiment was performed.
+
 ## Mission
 
 ### Current integration/ARM handoff from Timofey

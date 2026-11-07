@@ -1,5 +1,34 @@
 # Ascent roadmap
 
+## Current submission handoff — 8 November 2026
+
+Latest user deadline: **09:00 MSK**. The 7 November 20:00 role schedule below is
+historical. Focus on the literal phone competition deliverable, not optional
+features or new model studies. [Submission checklist](docs/SUBMISSION.md),
+[candidate identity](artifacts/submission.json), [current tests](docs/TEST_RESULTS.md).
+
+- [x] Source `25ae8eee` has inspected successful Android CI
+  [42420616552](https://github.com/pmixay/Ascent/actions/runs/42420616552), with
+  25 compact and four offline required cases actually executed without skips.
+- [x] Prepare current installation, architecture/model, limitations, results and
+  defense documents, separating implementation from ARM acceptance.
+- [ ] Provide an authorized durable complete-APK download; current Actions access
+  is temporary and may require sign-in. Attempt 2 now contains both artifacts and
+  passed actual full evidence collection; attempt 1 URLs/hashes are superseded.
+- [ ] Close existing exact-build ARM/offline/local-LLM and signing acceptance gates.
+  No physical-phone-only report is a separate literal jury requirement; no result
+  may be invented or inferred from x86_64 CI.
+- [x] Include the user-supplied prototype recording with honest scope: missing
+  text-model assets, unknown filmed APK, not the offline candidate's acceptance.
+- [ ] Record and publish the identified offline-pipeline demonstration.
+- [ ] Verify all submission links, send the repository link and record the receipt.
+
+Wear OS, Rewind, remote AI, new benchmarks and model/quality research remain outside
+this handoff. The user requested implementation of independent submission work;
+device/video, key custody, hosting and organizer access remain explicit blockers.
+
+<details>
+<summary>Historical four-person competition plan and integration notes</summary>
 
 Petya follow-up: `codex/petya-open-work` started from main `2133dfa` and now includes
 main `77dd372`, Timofey `481dc8d` and Pasha `3429c4c`. Language selection and the actual-used label
@@ -106,7 +135,11 @@ The old “reserved validation” references below are historical: the original
 Dialogs recordings have since informed algorithm fixes and are diagnostic data.
 New generalization claims require a fresh holdout, as specified in the active plan.
 
-Checked boxes indicate **confirmed product decisions only**, not completed software or validated performance. Implementation and acceptance work remains unchecked.
+</details>
+
+Below, checked product-scope boxes indicate **confirmed product decisions only**,
+not completed software or validated performance. The current handoff above has
+separately identified source/CI evidence. Older acceptance lists remain open.
 
 See [README.md](README.md) and [AGENTS.md](AGENTS.md). Use existing GitHub CI exclusively for Gradle, builds, tests, lint, and build artifacts. **Never build locally.** Verify existing workflow names.
 

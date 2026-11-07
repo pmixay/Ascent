@@ -6,7 +6,12 @@ The [jury brief](hackathon/hackathon-brief-2026-11.pdf) requires a phone APK tha
 
 Choose an audio file through Android's document picker. The file remains owned by its provider. Processing must read the selected content URI without replacing, deleting or retaining a copy of the source in app storage. The pipeline must preserve timing relative to the beginning of that original media, including leading silence and pauses. Current source handles selected PCM WAV variants and delegates other audio formats to device-supported Android decoders; seekability and codec support depend on the source/provider and device. Supported formats, channel layouts, rates and duration limits are recorded from actual release/device trials in [LIMITATIONS.md](LIMITATIONS.md). A format named in the test matrix is a test obligation, not proof it works.
 
-Three unrelated files are processed one after another. The test does not grant microphone permission and disables networking before a fresh first launch. Canceling the picker leaves the prior result intact. The remembered phone language
+The jury imports three recordings in sequence (brief, p. 16). Our stricter internal
+rehearsal additionally denies microphone permission and disables networking before
+a fresh first launch; these are test conditions, not a separate jury-mandated
+physical-phone report. No-network processing itself is mandatory. Current candidate
+and evidence: [SUBMISSION.md](SUBMISSION.md). Canceling the picker leaves the prior
+result intact. The remembered phone language
 choice defaults to `Авто`; select `Русский` or `Другие языки` before import for
 fixed-mode trials. The status shows the actual recognizer for the last result.
 Timing/mode metadata stays outside the exact competition JSON. See
@@ -38,4 +43,3 @@ python3 tools/qa/validate_transcript.py exported.json --duration-ms 30000
 ```
 
 This checks schema and basic timing semantics. It cannot prove that the words, speakers, identities, model outputs or original audio were correct. Compare exported content to independently prepared reference annotations in [TEST_RESULTS.md](TEST_RESULTS.md).
-

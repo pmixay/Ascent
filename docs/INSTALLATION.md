@@ -1,95 +1,121 @@
-# Android verification build: installation and use
+# Install and use the offline Android candidate
 
-The jury-ready offline verification APK is **not yet accepted**. Checked internal
-candidates are tracked in [PR #5](https://github.com/pmixay/Ascent/pull/5), with
-[historical exact-build evidence](roles/TIMOFEY_REMAINING_STATUS.md). ARM and final
-release evidence remain open. The compact `ascent.apk` downloads its acoustic
-models from the [repaired server](roles/PETYA_SERVER_STATUS.md). Read Actions expiry
-from the exact artifact metadata; these are not durable submission links. See
-[release/signing/publication constraints](RELEASE.md).
+Use **`ascent-offline.apk`** for competition review, not the compact network APK.
+Candidate source `25ae8eee` passed both Android CI jobs; it remains an internal
+candidate with ARM/final acceptance open. Exact hashes, expiry and pending durable
+publication are in [SUBMISSION.md](SUBMISSION.md#candidate-identity).
 
-## Current compact prototype: phone trial
+## 1. Obtain the identified APK
 
-The user will perform these phone trials later. Use the identified CI candidate
-from [TEST_RESULTS.md](TEST_RESULTS.md), not an APK from Pasha's earlier branch.
+1. Open [offline-baseline-25ae8eee](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594571558)
+   from the [successful CI run](https://github.com/pmixay/Ascent/actions/runs/42420616552).
+   GitHub sign-in/read access may be required. The ZIP expires **14 November 2026,
+   22:54:39 UTC**; a durable public download is still pending. This is attempt **2**;
+   attempt 1's removed artifact and differently signed APK are not substituted.
+2. Extract `ascent-offline.apk`. The **raw APK** is **2,167,298,546 bytes**,
+   SHA-256 `5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d`.
+   This is not the ZIP hash. Ordinary `shasum -a 256 ascent-offline.apk` or an
+   equivalent file hashing utility can compare bytes without building the app.
+3. Use an **Android 12+ ARM64** device or ARM64 Android emulator. Package:
+   `com.pmixay.ascent.offline`; version `0.1.156-25ae8eee-offline-baseline`, code 156.
+   Do not install this ARM64 download on an x86-only emulator. x86_64 CI APKs are
+   validation variants, not distributed phone files.
 
-1. Download the `debug-<commit>` artifact from its successful Android CI run,
-   extract `ascent.apk` and check its SHA-256 against the candidate record.
-2. Install on an Android 12+ ARM64 phone. Keep networking enabled for the first
-   acoustic-model download and wait until the separate model panel says ready.
-   Record the APK hash, model manifest digest, device/Android/ABI and free storage.
-3. Disable networking. Select `Импорт аудио` and import three unrelated files
-   consecutively. Microphone permission is unnecessary for import. Inspect the
-   filename, source-relative times and participant turns; export each result as
-   JSON and run the independent validator with the original media duration.
-4. Include silence, a cancelled picker, bad input, cancellation followed by a new
-   job and force-stop/reopen. The interrupted-job notice must appear once; saved
-   history and the original source must remain intact. Follow the complete
-   [judge script](QA_JUDGE_SCRIPT.md) and record outcomes without filling unrun cases.
+## 2. Install and prepare models locally
 
-The compact artifact includes no text or Parakeet assets. Auto stays on the Russian
-recognizer; selecting `Другие языки` shows an unavailable-model message and refuses
-processing until another mode is chosen. Its text-stage status
-must report unavailable and preserve recognized words. This trial verifies the
-prototype after download; it does not satisfy fresh offline/local-LLM acceptance.
+- Allow installation from the chosen source in Android's system settings, open the
+  APK and complete installation. If ADB already exists, `adb install ascent-offline.apk`
+  is an alternative; no local SDK/toolchain setup or app build is required.
+- Use a fresh authorized test install/profile for cold-offline evidence; removing
+  app data or uninstalling destroys encrypted history. Do not remove a valuable
+  existing installation without the owner's permission. Existing debug-signed
+  builds can have different certificates: an incompatible-update error is not
+  fixed by silently deleting history.
+- Disable Wi-Fi/mobile data before the first launch to demonstrate offline startup.
+  Open Ascent and wait for `Встроенные модели готовы`. Extraction verifies all
+  three bundled groups: acoustic, multilingual and text. There is no model download
+  or Internet permission in this variant. A failed preparation must not be hidden
+  by installing models through another app or enabling networking.
 
-## Embedded baseline: fresh offline phone trial
+**Storage:** the APK is about 2.17 GB and extracted model payload is
+**2,147,012,171 bytes**. Android installation copies, native extraction and reserve
+need additional space. These two numbers are not a measured phone peak/free-space
+recommendation. CI-only x86_64 observations are in [TEST_RESULTS.md](TEST_RESULTS.md).
+If the app reports insufficient space, free space and reopen. Interrupted model
+extraction is retried with validation; a partially extracted set is not ready.
 
-After both jobs pass on the combined branch, the same Android CI run provides
-`offline-baseline-<commit>` containing `ascent-offline.apk`. This separate package
-uses `com.pmixay.ascent.offline`, so it can coexist with the compact app. Verify
-its APK/bundle identities in the candidate record before installing.
+## 3. Import and transcribe
 
-1. Use a fresh offline-package install/data state. Disable Wi-Fi/mobile data before
-   first launch; no model predownload is needed. Record available storage, including
-   space for the >2.16 GB APK, Android's install copies and **2,147,012,171 bytes**
-   of expanded model payloads in the inspected `91e2598` baseline. This is a payload
-   lower bound, not a measured peak storage need; use the current candidate's identity
-   for exact bytes.
-2. Wait for local verification/extraction of all three model groups (acoustic, text
-   and multilingual). This package does not download missing models. The offline app
-   has no Internet permission and shows disabled automatic updates.
-3. Set `Язык` before import or phone capture. `Авто` is the remembered default;
-   choose `Русский` for Russian and `Другие языки` for English comparison trials.
-   Auto uses an early-window probe and is not a promise of mixed-language support.
-   The result status identifies the recognizer actually used.
-4. Run the three-file judge procedure, including import without microphone
-   permission, microphone capture, cancellation and reopen. Record actual text-stage
-   processed/fallback counts and time. Missing/failed text processing is an open
-   acceptance failure, even when an acoustic transcript is preserved.
-5. Record total/media time and completed RTF; expand `Показать время по этапам`
-   for exclusive stage durations. These values are only in memory. Record cold/warm
-   conditions, peak memory and the extraction/lifecycle negative cases separately.
-   CI's bounded x86_64 extraction/text check does not perform ARM model inference.
+1. Tap `Язык` and choose `Русский` for Russian, `Другие языки` for English, or
+   `Авто` (remembered default). Auto is a heuristic based on early recognizer output,
+   not a mixed-language guarantee. The mode shown after completion is the actual
+   recognizer used, distinct from the next job's selection.
+2. Tap **`Импорт аудио`** and select a local file using Android's document picker.
+   Microphone permission is not required. Canceling the picker does not start a job.
+3. Wait for actual recognition, speaker separation, local text processing and save.
+   The app reads the selected URI in place; it does not modify or delete your file.
+   One job runs at a time. `Отменить обработку` requests cancellation; native calls
+   can finish their current work before cancellation takes effect.
+4. Open the saved conversation. Read participant turns and source-relative times.
+   Times are approximate; a label is not a confirmed real-world identity. Check the
+   separate text-model report: failed/unavailable Qwen is **not** LLM acceptance.
+5. Total/media duration and completed RTF appear for the last job; expand
+   `Показать время по этапам` for exclusive timings. These values are volatile and
+   include model loading, text, save and cleanup, not prior model extraction.
 
-## Target device and package
+### Input limits
 
-The Android module currently declares Android 12+ (`minSdk 31`) and builds ARM64 (`arm64-v8a`) for download. Its x86_64 variant is for CI instrumentation. Current source accepts seekable WAV PCM 8/16/24/32, float32, A-law/μ-law, one to eight channels and 4–192 kHz input rates, plus other audio tracks decodable by the device's Android media stack. The latter format support is device dependent and unverified; unsupported sources must show an error. The WAV adapter declares a two-hour limit; the compressed decoder declares 30 minutes. These are source limits, not measured phone capacity. The final verification build must include all runtime weights, tokenizer and local text-model assets needed for the default pipeline; the actual APK size, installed storage requirement, model version/hash, signing identity and ARM performance remain to be measured. Leave enough free storage for model extraction and results after measuring the exact final package. Do not infer an installed size from the compressed ZIP.
+Source declares seekable WAV PCM 8/16/24/32-bit, float32, A-law/μ-law, 1–8 channels,
+4–192 kHz; conversion supplies bounded mono 16 kHz windows. Other audio uses the
+device's Android decoder, including MP3/AAC/M4A where supported. WAV limit: two
+hours; compressed audio and microphone: 30 minutes. Unknown compressed duration,
+RF64 WAV and unsupported/nonseekable providers may be rejected. These are source
+limits, not measured phone capacity or a promise of every codec/provider. Save a
+provider's file locally if it cannot supply seekable input.
 
-## Install the exact inspected build
+## 4. Export the jury JSON
 
-These are the **future embedded-release** steps. Use them only after a final
-offline APK, successful CI, model/APK hashes and durable release link are recorded.
+1. In the desired conversation select **`Экспорт JSON`**, choose the save destination and
+   wait for confirmation. Export preserves the recognized words, not Qwen's
+   presentation punctuation. Participant renaming does not change exported IDs.
+2. The root is `transcript`; entries contain exactly `speaker_id` (string),
+   `start_ms` / `end_ms` (integer milliseconds) and `text` (string). Times refer to
+   the original file including silence. Silent input exports `{"transcript":[]}`.
+3. TXT is optional presentation export, not a substitute for the required JSON.
+   A provider/write error leaves saved text intact so export can be retried.
 
-1. Open the durable release link listed in the final [TEST_RESULTS.md](TEST_RESULTS.md). Confirm the linked commit, all required CI jobs and SHA-256 match the release record. Download the identified offline APK from that release (the CI baseline is named `ascent-offline.apk`).
-2. Use a dedicated test device/profile with no valuable Ascent history. Removing an
-   earlier installation/data destroys its encrypted history; obtain the owner's
-   explicit permission before doing so. On that authorized fresh state, turn off
-   Wi-Fi and mobile data and enable airplane mode **before** first launch. Do not
-   preinstall or predownload models.
-3. Install the APK using Android's package installer, or from a development host with `adb install ascent-offline.apk`. Confirm that Android reports a successful install. Keep the tested APK and hash fixed for the entire three-file rehearsal.
-4. Open Ascent and wait for model readiness. If the first launch requires a network request, record a failed offline readiness case; do not silently turn networking back on to call the trial a pass.
-5. Select **Import audio** (Russian UI: `Импорт аудио`), choose a user-owned file in Android's document picker and wait for processing. Import must work without microphone permission. Inspect the result's participant turns and times.
-6. Choose the JSON export action, select a destination through Android's save picker, and copy the saved file to a host for the independent validator. Repeat for two unrelated files on the same installation. See [QA_JUDGE_SCRIPT.md](QA_JUDGE_SCRIPT.md) for negative and lifecycle cases.
-
-For a known 30-second input, the checker invocation is:
+The independent checker on a host can inspect an exported file without building
+Android or running model inference:
 
 ```sh
 python3 tools/qa/validate_transcript.py exported.json --duration-ms 30000
 ```
 
-The duration must come from the original file, not from the exported JSON. If the UI wording changes before release, revise these instructions against the actual installed APK and record the final screenshots/video. A successful JSON shape check does not establish word or speaker accuracy.
+Supply the actual source duration, not an assumed value from JSON. Schema checking
+does not measure recognition, speakers or boundary accuracy. Protocol:
+[PROTOCOL.md](PROTOCOL.md). No host processing substitutes for the submitted app.
 
-## Companion watch preview
+## 5. Optional microphone and interruption behavior
 
-The new watch module targets Wear OS 6.0 on the Galaxy Watch7 SM-L305F. The phone baseline remains Android 12+; the named first phone test target is Samsung Android 17. A CI-built watch APK and paired-device trial have not yet been recorded. When both matching APKs exist, install the phone and watch packages on their respective devices, pair them through Bluetooth, make the phone's watch receiver visible/active, and open Ascent. on the watch. Grant `RECORD_AUDIO` and `BLUETOOTH_CONNECT` on the watch; notification permission is requested separately. Choose the bonded phone, start listening, then try pause, resume and stop. The watch should show real connection state, elapsed time, dropped frames and the latest phone-produced text. A phone without a ready local model rejects the watch handshake. See [QA_JUDGE_SCRIPT.md](QA_JUDGE_SCRIPT.md) for the unrun watch matrix.
+`Начать разговор` requests microphone permission. Stop listening to process
+automatically; there is no separate transcribe button. This prototype writes a
+temporary microphone WAV, attempts cleanup after processing/failure, and cleans
+abandoned audio on next launch. It does **not** establish production zero audio
+persistence. File import does not use this temporary-WAV path.
+
+Rotation retains the ViewModel; ordinary backgrounding does not deliberately stop
+an import, but no transcription foreground service guarantees process survival.
+Force-stop/process death loses the active job. Reopen reports interruption and
+asks for file reselection while preserving committed history. No audio recovery
+is promised. See [limitations](LIMITATIONS.md) for unverified conditions.
+
+## Compact and watch variants are not required for this handoff
+
+The compact package `com.pmixay.ascent` downloads acoustic models from the fixed
+HTTPS catalog. It has no Qwen/Parakeet assets, refuses fixed multilingual mode and
+cannot satisfy fresh-offline/local-LLM acceptance. Its [attempt-2 artifact](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594382036)
+is available; it is optional for this handoff and not a substitute for the offline APK.
+
+Wear OS is a separate preview, unnecessary for importing local files. Pairing,
+capture, screen-off behavior and power measurements remain unverified. The
+competition demonstration does not need a watch.

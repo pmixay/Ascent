@@ -1,5 +1,24 @@
 # Ascent four-person delivery plan
 
+## Current override — submission handoff, 8 November 2026
+
+The latest user deadline is **09:00 MSK**. Execute the bounded remaining work in
+[SUBMISSION.md](SUBMISSION.md): identified offline APK access, actual video,
+current instructions/architecture/limitations and existing test results, then
+organizer submission. Source `25ae8eee` passed both jobs in
+[42420616552](https://github.com/pmixay/Ascent/actions/runs/42420616552), with
+25 compact/four embedded required executions confirmed from actual logs. This is
+an internal candidate, not completed ARM/signing/release acceptance.
+
+The user is completing the handoff alone; reuse all pushed application/model work.
+Do not assign new model studies, two-hour corpus runs, watch delivery or expanded
+QA as literal jury prerequisites. Existing CI, privacy and acceptance gates remain;
+unrun device work, missing video/hosting and absent receipt stay explicitly open.
+The four-person timetable and status snapshots below are retained as history and
+do not override this new deadline or the current evidence record.
+
+## Historical 7 November execution plan
+
 Updated: 7 November 2026. Pushed baseline inspected: `6a078e3` on `origin/main`, including PR #2 (`e1a27f7`) and role swap `4b16e3a`. Historical audit baseline: `d7759627`.
 
 **Hard deadline: today, 7 November 2026, 20:00 Moscow time (MSK, UTC+3). Planning window: 11:00–20:00 MSK, nine wall-clock hours for four people.** All times below are MSK on this date. This schedule replaces the previous 5–7-day estimate and the 36–48-hour fallback, including the relative dates in the role plans.
