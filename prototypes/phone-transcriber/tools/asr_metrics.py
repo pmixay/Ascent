@@ -166,6 +166,7 @@ def score_blocks(blocks, distance=None, energy_key="30"):
                                    "end": summarize_timing(timing["energy_end_error_ms"]),
                                    "mean_iou": round(sum(timing["energy_iou"]) / len(timing["energy_iou"]), 4)
                                    if timing["energy_iou"] else None},
+        "energy_proxy_clips": len(timing["energy_start_error_ms"]),
         "speed": {"asr_seconds": round(asr_seconds, 3), "model_seconds": round(model_seconds, 3),
                   "rtf": round(asr_seconds / audio_seconds, 4) if audio_seconds else None,
                   "block_rtf_min": round(min(block_rtf), 4) if block_rtf else None,
@@ -343,8 +344,12 @@ def compare_runs(first_blocks, second_blocks, distance=None):
         other = second.get(block["id"])
         if other is None:
             continue
+        for key in ("audio_sha256", "condition", "preprocess"):
+            if block.get(key) != other.get(key):
+                raise ValueError(f"Runs differ in {key}; this is not a reproducibility comparison")
         result["blocks"] += 1
-        identical = True
+        identical = len(block["asr_windows"]) == len(other["asr_windows"])
+        result["windows_with_different_length"] += abs(len(block["asr_windows"]) - len(other["asr_windows"]))
         for left, right in zip(block["asr_windows"], other["asr_windows"]):
             result["windows"] += 1
             if len(left["ids"]) != len(right["ids"]):
@@ -367,3 +372,40 @@ def compare_runs(first_blocks, second_blocks, distance=None):
             result["max_word_time_shift_ms"] = max([result["max_word_time_shift_ms"], *shifts])
         result["blocks_bitwise_identical"] += int(identical and left_words == right_words)
     return result
+
+
+def start_shift_effect(blocks, shift_ms, thresholds=("25", "30", "35")):
+    """Start-boundary error against each energy-proxy threshold, before and after shifting every turn start."""
+    rows = []
+    for block in blocks:
+        for reference, assigned in zip(block["references"], assign_words(block["references"], block["words"])):
+            if assigned:
+                rows.append((assigned[0]["start_ms"], reference["start_ms"], reference.get("energy_bounds") or {}))
+    result = {}
+    for threshold in thresholds:
+        errors = [start - (clip + bounds[threshold][0]) for start, clip, bounds in rows if threshold in bounds]
+        if not errors:
+            continue
+        result[threshold] = {}
+        for label, shift in (("baseline", 0), ("candidate", shift_ms)):
+            absolute = [abs(error + shift) for error in errors]
+            result[threshold][label] = {"n": len(errors), "mean_abs_ms": round(sum(absolute) / len(absolute), 1),
+                                        "within_100_ms": round(sum(v <= 100 for v in absolute) / len(absolute), 4)}
+    return result
+
+
+def start_shift_accepted(effect, primary="30", minimum_gain_ms=10.0):
+    """Acceptance rule declared for the phrase-start candidate before validation.
+
+    The primary-threshold mean absolute error must fall by at least ``minimum_gain_ms``,
+    its 100 ms share must not fall, and every other threshold must move the same way.
+    """
+    if primary not in effect:
+        return False
+    base, candidate = effect[primary]["baseline"], effect[primary]["candidate"]
+    if base["mean_abs_ms"] - candidate["mean_abs_ms"] < minimum_gain_ms:
+        return False
+    if candidate["within_100_ms"] < base["within_100_ms"]:
+        return False
+    return all(values["candidate"]["mean_abs_ms"] < values["baseline"]["mean_abs_ms"]
+               for key, values in effect.items() if key != primary)

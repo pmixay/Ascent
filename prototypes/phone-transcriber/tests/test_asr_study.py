@@ -6,10 +6,12 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from asr_metrics import (align, analyze_errors, assign_words, classify_run, clip_timing, compare_runs, error_runs,
-                         operation_times, percentile, score_blocks, summarize_timing)
+                         operation_times, percentile, score_blocks, start_shift_accepted, start_shift_effect,
+                         summarize_timing)
 from asr_study import load_study, role_manifest, validate_study
 from evaluate_dialogs import MANIFEST, blocks
 from evaluate_speech import edit_distance
@@ -56,6 +58,16 @@ class StudySelectionTest(unittest.TestCase):
             self.earlier["recordings"][1]["files"][0]["sha256"]
         with self.assertRaises(ValueError):
             validate_study(overlapping, self.earlier)
+
+    def test_recording_speakers_must_match_the_named_pair(self):
+        mislabelled = copy.deepcopy(self.study)
+        mislabelled["roles"]["validation"]["recordings"][0]["files"][0]["speaker"] = "S"
+        with self.assertRaisesRegex(ValueError, "pair"):
+            validate_study(mislabelled, self.earlier)
+        missing_pair = copy.deepcopy(self.study)
+        missing_pair["roles"]["validation"]["recordings"] = missing_pair["roles"]["validation"]["recordings"][:1]
+        with self.assertRaisesRegex(ValueError, "one recording per speaker pair"):
+            validate_study(missing_pair, self.earlier)
 
     def test_validation_paths_cannot_escape_the_corpus(self):
         escaped = copy.deepcopy(self.study)
@@ -167,6 +179,33 @@ class MetricsTest(unittest.TestCase):
                                      changed["windows_with_different_ids"]))
 
 
+    def test_a_missing_window_is_not_reported_as_identical(self):
+        first, second = synthetic_block(), synthetic_block()
+        second["asr_windows"] = second["asr_windows"][:1]
+        result = compare_runs([first], [second], edit_distance)
+        self.assertEqual((0, 1), (result["blocks_bitwise_identical"], result["windows_with_different_length"]))
+
+    def test_runs_on_different_audio_are_not_compared(self):
+        first, second = synthetic_block(), synthetic_block()
+        first["audio_sha256"], second["audio_sha256"] = "a" * 64, "b" * 64
+        with self.assertRaisesRegex(ValueError, "audio_sha256"):
+            compare_runs([first], [second], edit_distance)
+
+    def test_start_shift_rule_needs_a_real_gain_in_every_proxy(self):
+        block = synthetic_block()
+        for reference in block["references"]:
+            reference["energy_bounds"] = {"25": [0, 1000], "30": [0, 1000], "35": [0, 1000]}
+        # Turn starts are 150 ms and 300 ms after the proxy onset.
+        effect = start_shift_effect([block], -150)
+        self.assertEqual({"n": 2, "mean_abs_ms": 225.0, "within_100_ms": 0.0}, effect["30"]["baseline"])
+        self.assertEqual({"n": 2, "mean_abs_ms": 75.0, "within_100_ms": 0.5}, effect["30"]["candidate"])
+        self.assertTrue(start_shift_accepted(effect))
+        self.assertFalse(start_shift_accepted(start_shift_effect([block], -5)))
+        worse = start_shift_effect([block], -600)
+        self.assertFalse(start_shift_accepted(worse))
+        self.assertFalse(start_shift_accepted({}))
+
+
 class ReferenceModelTest(unittest.TestCase):
     def test_reference_pins_are_immutable_revisions_and_sha256_values(self):
         self.assertRegex(REFERENCE["revision"], r"^[0-9a-f]{40}$")
@@ -179,6 +218,12 @@ class ReferenceModelTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError, "failed verification"):
                 verify_reference(directory)
+            small = {name: record for name, record in REFERENCE["files"].items() if record["bytes"] < 4096}
+            for name, record in small.items():  # same size, wrong content
+                (Path(directory) / name).write_bytes(b"x" * record["bytes"])
+            with patch.dict(REFERENCE["files"], small, clear=True):
+                with self.assertRaisesRegex(ValueError, "failed verification: multilingual_vocab.txt"):
+                    verify_reference(directory)
 
     def test_vocabulary_must_have_seventy_characters_then_the_blank(self):
         entries = ["▁"] + [chr(0x430 + index) for index in range(1, 70)]
@@ -213,3 +258,36 @@ class ReferenceModelTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TextModelContractTest(unittest.TestCase):
+    """The text model may add punctuation and capitals only; any lexical change falls back."""
+
+    def setUp(self):
+        from text_model_study import render, score_marks, validate_output, word_labels
+        self.render, self.score_marks, self.validate_output, self.word_labels = \
+            render, score_marks, validate_output, word_labels
+        self.words = ["привет", "дима", "как", "дела"]
+
+    def test_punctuation_and_case_are_projected_onto_the_original_words(self):
+        labels = self.validate_output(self.words, "<think>\n</think>\nПривет, Дима! Как дела?")
+        self.assertEqual("Привет, Дима! Как дела?", self.render(self.words, labels))
+
+    def test_added_removed_or_reordered_words_are_rejected(self):
+        for output in ("Привет, Дима! Как твои дела?", "Привет, Дима!", "Дима, привет! Как дела?",
+                       "Привет, Дима! Как дело?"):
+            self.assertIsNone(self.validate_output(self.words, output), output)
+
+    def test_yo_and_hyphen_spelling_follow_the_shared_normalization(self):
+        self.assertIsNotNone(self.validate_output(["ещё", "как", "нибудь"], "Ещё как-нибудь."))
+
+    def test_mark_counts_score_commas_terminals_and_questions(self):
+        reference = self.word_labels("Привет, Дима! Как дела?")
+        raw = [(word, False, None) for word in self.words]
+        counts, capitals = self.score_marks(reference, raw)
+        self.assertEqual({"tp": 0, "fp": 0, "fn": 1}, counts["comma"])
+        self.assertEqual({"tp": 0, "fp": 0, "fn": 2}, counts["terminal"])
+        self.assertEqual(1, capitals)  # only the lowercase "дела" matches
+        perfect, capitals = self.score_marks(reference, reference)
+        self.assertEqual({"tp": 2, "fp": 0, "fn": 0}, perfect["terminal"])
+        self.assertEqual(4, capitals)

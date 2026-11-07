@@ -127,18 +127,8 @@ class TranscriptionEngine(private val modelDirectory: File) {
             val stable = SpeakerEvidence.stableSeeds(windows, regions)
             val clustered = SpeakerClusterer().cluster(stable)
             val attribution = SpeakerAttribution.complete(words, stable, clustered)
-            val result = mutableListOf<TranscriptSegment>()
-            for ((index, word) in words.withIndex()) {
-                checkCancelled()
-                val label = attribution.speakerIds[index]
-                val previous = result.lastOrNull()
-                if (previous != null && previous.speakerId == label && word.startMs - previous.endMs <= 700 &&
-                    word.endMs - previous.startMs <= 20000) {
-                    result[result.lastIndex] = previous.copy(endMs = word.endMs.coerceAtLeast(previous.endMs),
-                        text = previous.text + " " + word.text,
-                        speakerInferred = previous.speakerInferred || attribution.inferred[index])
-                } else result += TranscriptSegment(label, word.startMs, word.endMs, word.text, attribution.inferred[index])
-            }
+            checkCancelled()
+            val result = TranscriptSegmenter.segment(words, attribution.speakerIds, attribution.inferred)
             val used = result.map { it.speakerId }.toSet()
             progress("Расшифровка готова")
             return TranscriptionResult(result, clustered.signatures.filter { it.speakerId in used })

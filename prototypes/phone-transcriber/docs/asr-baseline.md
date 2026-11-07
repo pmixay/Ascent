@@ -39,9 +39,11 @@ repository's LFS records and are pinned in `tools/reference_asr.py`.
 - The graph takes mel features, while the deployed graph takes a waveform. The
   NumPy extractor in `tools/reference_asr.py` mirrors the upstream one. Its Hann
   window and mel filterbank must be rounded to bfloat16, as in the upstream
-  checkpoint; with that rounding they equal the published reference arrays bit
-  for bit (10,304 filter values and 320 window values), and log-mel features on
-  four real clips differed from the independent `onnx-asr` preprocessor by 0.0.
+  checkpoint. With that rounding, a local check on the development machine found
+  them equal to the arrays published with `onnx-asr` (10,304 filter values and 320
+  window values) and log-mel features on four real clips identical to its
+  preprocessor. That check is not committed; the CI test only checks shapes and
+  bfloat16 rounding, and it is skipped there because CI has no NumPy.
 - On the first 12 development clips the output text matched the references
   exactly.
 - On the development subset, the reference export made 162 word errors against
@@ -96,8 +98,10 @@ python3 tools/asr_study.py analyze .cache/asr-study/runs/dev
 python3 tools/asr_study.py compare .cache/asr-study/runs/dev .cache/asr-study/runs/other
 ```
 
-`infer` accepts `--variant int8`, `--condition gain035|noise20db|channel`, and
-`--max-blocks`. Each checkpoint records the model hash, thread count, code
+`infer` accepts `--variant int8`, `--condition gain035|noise20db|channel|telephone`,
+and `--max-blocks`. `timing-candidate CHECKPOINTS --start-shift-ms N` applies the
+phrase-start rule below; `freeze-english` and `english` run the English smoke set;
+`tools/text_model_study.py` runs the text-model study. Each checkpoint records the model hash, thread count, code
 fingerprint, audio hash and the CPU/runtime that produced it. `.cache/` is
 ignored by Git; checkpoints contain public transcripts and are never artifacts.
 CI does not run this tool; it only unit-tests its scoring and selection logic.
@@ -112,7 +116,7 @@ two intra-op threads, float32.
 | --- | --- |
 | Word error rate | 162 / 5,572 = 2.9074% |
 | Character error rate | 255 / 29,095 = 0.8764% |
-| Without the 168 laughter-annotation words | 129 / 5,404 = 2.39% |
+| Excluding the 168 words in laughing-labelled clips (by hand from the emotion table) | 129 / 5,404 = 2.39% |
 | Speaker D / M | 58 / 2,753 = 2.11% / 104 / 2,819 = 3.69% |
 | Real-time factor (RTF) | 0.069 (blocks 0.062 to 0.074) |
 
@@ -121,12 +125,13 @@ word error rate); the other seven emotion labels range from 0% (25 words) to 2.8
 
 ### Reproducibility on one machine
 
-Greedy token IDs were identical, frame for frame, across a repeat run and runs
-with 1, 2 and 4 threads (three blocks, 48 windows, 25,025 frames, 1,758 words;
-word times identical). Thread count and run-to-run variation therefore do not
-explain the earlier difference of 19 words between a local and a cached CI run of
-the deployed pack, which remains unresolved. A different CPU instruction path or
-runtime build is untested here.
+For the reference export on this machine, greedy token IDs were identical, frame
+for frame, across a repeat run and runs with 1, 2 and 4 threads (three blocks, 48
+windows, 25,025 frames, 1,758 words; word times identical). This does not show
+what caused the earlier 19-word difference between a local and a cached CI run of
+the deployed pack: that was a different graph, and another CPU instruction path
+or runtime build is untested here. Checkpoints record the runtime and CPU, and a
+resumed run now reuses a checkpoint only when they match.
 
 ### Error profile
 
@@ -135,14 +140,18 @@ edits, mostly endings), 43 other substitutions, 29 insertions, 27 deletions and
 14 word-boundary variants such as "не просто" versus "непросто". Errors are
 4.17% on first words and 3.88% on last words of a clip, against 2.06% for interior
 words. Interior words within 1.5 s of a chunk seam had 18 errors in 752 words
-(2.39%), against 83 in 4,149 (2.00%) elsewhere, a difference too small to
-distinguish from noise. An earlier summary that showed seam words at 5.6% mixed
-seams with clip edges, because seams fall in the quiet gaps between clips; it is
-not a finding. Substitution pairs repeat rarely (one pair twice).
+(2.39%), against 83 in 4,149 (2.00%) elsewhere; clip-edge words had 6 in 104
+(5.77%) near seams and 21 in 567 (3.70%) elsewhere. These samples are too small
+to show or rule out a seam effect (z is about 0.7 for interior words). Seams fall
+in the quiet gaps between concatenated clips, so this corpus cannot represent
+seams inside continuous speech, and a deleted first word takes the time of the
+next recognized word. An earlier summary that showed seam words at 5.6% mixed
+seams with clip edges and is not a finding. Substitution pairs repeat rarely
+(one pair twice).
 
-These errors are mostly inflection and spelling variants, annotation of laughter,
-and edge words in cut clips. None can be fixed by retuning chunking, and the
-fixed contract rules out new weights or a language model.
+The visible errors are mostly inflection and spelling variants, laughter in the
+reference text, and edge words in cut clips. Seam behaviour needs continuous
+recordings before any chunking change is judged.
 
 ### Robustness (development, same model)
 
@@ -182,8 +191,11 @@ Word times are quantized by the 40 ms encoder frame.
 
 ### Speed
 
-Real-time factor is wall time for features, encoder and decoding divided by the
-assembled block duration, on the container above. It is not a phone number.
+Real-time factor here is wall time for features, encoder and CTC decoding divided
+by the assembled block duration, which includes 1 to 2% inserted silence. It
+excludes file decoding, resampling and model loading, so it is lower than the
+plan's complete-processing RTF, and it is not a phone number. Each row is one run
+on a shared container.
 
 | Run | RTF |
 | --- | --- |
@@ -191,6 +203,40 @@ assembled block duration, on the container above. It is not a phone number.
 | float32, 2 threads (10 blocks) | 0.069 |
 | float32, 4 threads (3 blocks) | 0.047 |
 | int8, 2 threads (10 blocks) | 0.068 |
+
+### Slices the jury named
+
+The jury says call-like and meeting-like recordings are both scored, Russian is
+first and English second, and the test device is ARM. This corpus cannot supply
+real calls or meetings, so the slices below are controlled stand-ins.
+
+| Slice | Development | Validation |
+| --- | --- | --- |
+| Clean (float32) | 162 / 5,572 = 2.9074% | 432 / 10,053 = 4.2972% |
+| Telephone channel | 166 / 5,572 = 2.9792% | 465 / 10,053 = 4.6255% |
+| Clips under 2 s (clip-level) | 1 / 18 words | 13 / 665 = 1.95% |
+
+The telephone condition resamples to 8 kHz, applies a 300 Hz high-pass and 8-bit
+mu-law companding (G.711-like), then returns to 16 kHz. It is a deterministic
+codec simulation, not a phone network, handset or packet loss. Short clips are
+whole utterances under 2 s, not short replies inside fast overlapping exchanges;
+speaker attribution on them was not measured here.
+
+**English smoke.** `tools/fixtures/english_smoke.json` freezes the first two
+utterances in ID order of each of the 40 LibriSpeech test-clean speakers
+(`openslr/librispeech_asr` revision `71cacbfb7e2354c4226d01e70d77d5fca3d04ba1`,
+CC-BY-4.0; 80 utterances, 732.075 s). It was fixed before any English inference.
+Each utterance is recognized on its own with the same chunking and decoder.
+
+| English smoke | Word errors | Rate | Character error rate | RTF |
+| --- | --- | --- | --- | --- |
+| float32, clean | 128 / 1,901 | 6.73% | 1.90% | 0.058 |
+| float32, telephone | 140 / 1,901 | 7.36% | 2.82% | 0.057 |
+| int8, clean | 132 / 1,901 | 6.94% | 2.00% | 0.054 |
+
+English output is lowercase letters and apostrophes with numbers spelled out;
+read audiobook speech is easier than conversation. These are smoke results, not
+an English benchmark, and every Russian figure stays separate.
 
 ## Validation
 
@@ -201,28 +247,27 @@ on it; the candidates below were frozen on development first.
 | --- | --- | --- |
 | Word error rate | 432 / 10,053 = 4.2972% | 436 / 10,053 = 4.3370% |
 | Character error rate | 772 / 53,851 = 1.4336% | 778 / 53,851 = 1.4447% |
-| Speaker D / M / S | 4.65% / 5.01% / 2.13% | 4.75% / 5.09% / 1.97% |
+| Speaker D / M / S (clip-level counts) | 4.65% / 5.01% / 2.13% | 4.75% / 5.09% / 1.97% |
 | RTF (2 threads) | 0.070 | 0.064 |
 
 Error rates are higher than on development and differ by speaker (S 2.1%, M 5.0%).
 The per-clip score is 438 errors (4.36%) because words at clip joins can be
 assigned to a neighbor; block-level scores follow the earlier evaluation. The
 validation errors were deliberately not analyzed, so this set stays usable for
-checking later changes. The spread across speakers (2.1% to 5.0%) is larger than
-the largest model-variant or condition difference measured above (0.3 percentage
-points), so those differences would be hard to see on other speech.
+checking later changes. Comparisons between runs on the same audio are paired;
+single runs without a significance test cannot show that two variants are
+equivalent, only that no large difference appeared.
 
 ## Decisions
 
 | Candidate | Selection data | Validation | Decision |
 | --- | --- | --- | --- |
-| Shift phrase start 80 ms earlier | Development start bias +82 to +90 ms across 25, 30 and 35 dB proxies | Rule fixed beforehand: mean absolute start error must fall by at least 10 ms at 30 dB, with no loss in the 100 ms share and the same direction at 25 and 35 dB. It rose from 98.1 to 101.5 ms; the share fell from 61.1% to 59.5%; the 25 dB proxy worsened and 35 dB improved | **Rejected, no code change.** The bias depends on speaker (validation: S +79 ms, M +16.5 ms, D −12 ms), so one constant does not generalize |
+| Shift phrase start 80 ms earlier | Development start bias +82 to +90 ms across 25, 30 and 35 dB proxies | Rule stated in the working session before the validation run, but committed only afterwards (now `asr_study.py timing-candidate`, which reproduces both outcomes): mean absolute start error must fall by at least 10 ms at 30 dB, with no loss in the 100 ms share and the same direction at 25 and 35 dB. It rose from 98.1 to 101.5 ms; the share fell from 61.1% to 59.5%; the 25 dB proxy worsened and 35 dB improved | **Rejected, no code change.** The bias depends on speaker (validation: S +79 ms, M +16.5 ms, D −12 ms), so one constant does not generalize |
 | Level normalization before recognition | Gain ×0.35 changed nothing | Not run | Not warranted |
-| Different chunk seam or context policy | Interior seam errors 2.39% against 2.00% | Not run | Not warranted |
-| int8 weights instead of float32 | Errors 160 against 162; file 3.9 times smaller | 436 against 432; RTF 8% lower | **No change.** Accuracy is equivalent on this evidence, but there is no meaningful speedup on this x86 CPU and ARM phone speed is unmeasured |
+| Different chunk seam or context policy | Interior seam errors 2.39% against 2.00%, small samples | Not run | Undecided; needs continuous recordings |
+| int8 weights instead of float32 | Errors 160 against 162; file 3.9 times smaller | 436 against 432; RTF 8% lower | **Candidate for the embedded APK, not yet adopted.** No large accuracy difference appeared, and 225 MB instead of 885 MB matters when weights ship inside the APK; ARM speed and the deployed export's own int8 behaviour still need measurement |
 
-No accuracy improvement was found, so none is claimed. A fixed-weights pipeline
-that already scores 2.9% on this development data leaves little to retune.
+No accuracy improvement was found, so none is claimed.
 
 ## Limitations and open work
 
@@ -240,6 +285,10 @@ that already scores 2.9% on this development data leaves little to retune.
   97.6839% completed clip-time attribution on development) are clip-time
   attribution, not diarization error rate, and the Kotlin scorer needs a
   restored inference cache to run.
-- Other models (for example the Russian-only GigaAM v3 CTC or RNNT variants) were
-  not compared, because the project contract fixes the model weights. Choosing
-  among them is a decision for the project owners.
+- Other speech models (for example the Russian-only GigaAM v3 CTC or RNNT
+  variants) were not compared. The hackathon plan allows a new model only with a
+  new provenance record and fresh inference inputs.
+- The timing method is not the plan's P4 method: it uses concatenated isolated
+  clips, a turn is the words owned by one clip rather than an application turn,
+  and there are no manually checked boundaries. The proxy covered every clip in
+  both roles (336 and 959).

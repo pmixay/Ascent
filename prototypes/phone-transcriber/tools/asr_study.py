@@ -22,7 +22,8 @@ import re
 import time
 import urllib.request
 
-from asr_metrics import analyze_errors, compare_runs, distance_function, score_blocks
+from asr_metrics import (add_counts, analyze_errors, compare_runs, distance_function, score_blocks, start_shift_accepted,
+                         start_shift_effect, text_counts)
 from evaluate_dialogs import FIXTURES, MANIFEST, RATE, assemble, blocks, checkpoint_digest, fetch, recognize, write_json
 from reference_asr import (REFERENCE, VARIANTS, ReferenceSession, environment_fingerprint, load_tokens, reference_url,
                            verify_reference)
@@ -76,6 +77,17 @@ def validate_study(study, earlier):
                 previous = int(match[1])
                 paths.add(item["path"])
                 hashes.add(item["sha256"])
+    for key in ("repository", "revision", "metadata"):
+        if study["dataset"][key] != earlier["dataset"][key]:
+            raise ValueError("Study must use the same pinned dataset revision and metadata")
+    pairs = sorted(re.fullmatch(r"masha_(dima|sveta)_part[0-9]+", r["id"])[1] for r in roles["validation"]["recordings"])
+    if pairs != sorted(PAIRS):
+        raise ValueError("Validation needs exactly one recording per speaker pair")
+    for record in roles.values():
+        for recording in record["recordings"]:
+            allowed = {"M", "D"} if "_dima_" in recording["id"] else {"M", "S"}
+            if not recording["files"] or {item["speaker"] for item in recording["files"]} != allowed:
+                raise ValueError("Recording speakers must match its named pair")
     if [r["id"] for r in roles["development"]["recordings"]] != ["masha_dima_part1"]:
         raise ValueError("Development must remain the frozen masha_dima_part1 recording")
 
@@ -199,6 +211,113 @@ def energy_bounds(clip, np, margins=(25, 30, 35)):
 PREPROCESSORS = {"none": lambda samples, np: samples}
 
 
+def telephone_channel(samples, np):
+    """Narrowband call simulation: 8 kHz, 300 Hz high-pass, 8-bit mu-law (G.711-like), back to 16 kHz.
+
+    A deterministic synthetic codec path, not a measured phone network or handset.
+    """
+    from scipy.signal import butter, resample_poly, sosfilt
+
+    narrow = resample_poly(samples.astype(np.float64), 1, 2)
+    narrow = sosfilt(butter(4, 300, btype="highpass", fs=8000, output="sos"), narrow)
+    narrow = np.clip(narrow, -1.0, 1.0)
+    mu = 255.0
+    encoded = np.sign(narrow) * np.log1p(mu * np.abs(narrow)) / np.log1p(mu)
+    encoded = np.round(encoded * 127.0) / 127.0
+    decoded = np.sign(encoded) * np.expm1(np.abs(encoded) * np.log1p(mu)) / mu
+    wide = resample_poly(decoded, 2, 1)[:len(samples)]
+    if len(wide) < len(samples):
+        wide = np.pad(wide, (0, len(samples) - len(wide)))
+    return np.clip(wide, -1.0, 1.0).astype(np.float32)
+
+
+ENGLISH = FIXTURES.parent / "english_smoke.json"
+LIBRISPEECH = {"repository": "openslr/librispeech_asr", "revision": "71cacbfb7e2354c4226d01e70d77d5fca3d04ba1",
+               "path": "all/test.clean/0000.parquet", "bytes": 350452636,
+               "sha256": "7113aa4c3cf963fb54697145719a7725f984c8836d1c494a554cbb9f1a017df0", "license": "CC-BY-4.0"}
+ENGLISH_PER_SPEAKER = 2
+
+
+def librispeech_table(cache, columns):
+    import pyarrow.parquet as pq
+
+    path = cache / "librispeech" / LIBRISPEECH["revision"] / "test.clean.parquet"
+    url = (f"https://huggingface.co/datasets/{LIBRISPEECH['repository']}/resolve/"
+           f"{LIBRISPEECH['revision']}/{LIBRISPEECH['path']}")
+    fetch(url, path, LIBRISPEECH["bytes"], LIBRISPEECH["sha256"])
+    return pq.read_table(path, columns=columns)
+
+
+def freeze_english(args):
+    """First utterances (by ID) of every test-clean speaker; fixed before any English inference."""
+    import io
+    import soundfile
+
+    table = librispeech_table(args.cache, ["id", "speaker_id", "text", "audio"]).to_pylist()
+    chosen = {}
+    for row in sorted(table, key=lambda item: item["id"]):
+        picked = chosen.setdefault(row["speaker_id"], [])
+        if len(picked) < ENGLISH_PER_SPEAKER:
+            payload = row["audio"]["bytes"]
+            info = soundfile.info(io.BytesIO(payload))
+            if info.samplerate != RATE or info.channels != 1:
+                raise ValueError("Unexpected LibriSpeech audio format")
+            picked.append({"id": row["id"], "speaker": str(row["speaker_id"]), "text": row["text"],
+                           "audio_sha256": hashlib.sha256(payload).hexdigest(),
+                           "duration_seconds": round(info.frames / info.samplerate, 4)})
+    items = [item for speaker in sorted(chosen) for item in chosen[speaker]]
+    selection = {"schema_version": 1, "dataset": LIBRISPEECH,
+                 "rule": f"For each of the {len(chosen)} test-clean speakers, the first {ENGLISH_PER_SPEAKER} "
+                         "utterances in ID order. Fixed before any English inference; a smoke check, not a benchmark.",
+                 "source_seconds": round(sum(item["duration_seconds"] for item in items), 3), "utterances": items}
+    ENGLISH.write_text(json.dumps(selection, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    print(f"Frozen {ENGLISH.name}: {len(items)} utterances, {selection['source_seconds']} s, {len(chosen)} speakers")
+
+
+def english(args):
+    """Per-utterance English smoke inference; output stays in the local run directory."""
+    import io
+    import numpy as np
+    import onnxruntime as ort
+    import soundfile
+
+    selection = json.loads(ENGLISH.read_text(encoding="utf-8"))
+    wanted = {item["id"]: item for item in selection["utterances"]}
+    rows = {row["id"]: row for row in librispeech_table(args.cache, ["id", "audio"]).to_pylist() if row["id"] in wanted}
+    model_dir = args.cache / "reference-model" / REFERENCE["revision"]
+    verify_reference(model_dir)
+    tokens = load_tokens(model_dir / "multilingual_vocab.txt")
+    session = TimedSession(ReferenceSession(model_dir / VARIANTS[args.variant], args.threads, ort, np))
+    distance = distance_function()
+    totals = {"word_errors": 0, "words": 0, "char_errors": 0, "chars": 0}
+    records, audio_seconds, asr_seconds, empty = [], 0.0, 0.0, 0
+    for item in selection["utterances"]:
+        payload = rows[item["id"]]["audio"]["bytes"]
+        if hashlib.sha256(payload).hexdigest() != item["audio_sha256"]:
+            raise ValueError("English smoke payload failed verification")
+        samples, rate = soundfile.read(io.BytesIO(payload), dtype="float32")
+        pcm = np.clip(np.rint(samples * 32768.0), -32768, 32767).astype("<i2").astype(np.float32) / 32768.0
+        if args.condition == "telephone":
+            pcm = telephone_channel(pcm, np)
+        started = time.perf_counter()
+        words, _ = recognize(session, pcm, tokens, item["id"], np)
+        elapsed = time.perf_counter() - started
+        hypothesis = " ".join(word["text"] for word in words)
+        counts = text_counts(item["text"], hypothesis, distance)
+        add_counts(totals, counts)
+        empty += int(not hypothesis.strip())
+        audio_seconds += len(pcm) / RATE
+        asr_seconds += elapsed
+        records.append({"id": item["id"], "speaker": item["speaker"], **counts, "hypothesis": hypothesis})
+    summary = {"utterances": len(records), "audio_seconds": round(audio_seconds, 3), "condition": args.condition,
+               "variant": args.variant, "threads": args.threads, **totals,
+               "wer": round(totals["word_errors"] / totals["words"], 6), "cer": round(totals["char_errors"] / totals["chars"], 6),
+               "empty_hypotheses": empty, "rtf": round(asr_seconds / audio_seconds, 4)}
+    args.output.mkdir(parents=True, exist_ok=True)
+    write_json(args.output / "english-smoke.json", {"summary": summary, "utterances": records})
+    print(json.dumps(summary))
+
+
 class TimedSession:
     """Adds up model-side time (features plus encoder) around the session's ``run``."""
 
@@ -216,8 +335,9 @@ class TimedSession:
 def code_fingerprint(study):
     digest = hashlib.sha256(json.dumps(study, sort_keys=True).encode())
     for name in ("asr_study.py", "asr_metrics.py", "reference_asr.py", "evaluate_dialogs.py", "evaluate_speech.py",
-                 "generate_speaker_fixtures.py"):
+                 "generate_speaker_fixtures.py", "model_pack.py"):
         digest.update((TOOLS / name).read_bytes())
+    digest.update((TOOLS.parent / "tests" / "requirements-dialog-evaluation.txt").read_bytes())
     return digest.hexdigest()
 
 
@@ -256,7 +376,8 @@ def infer(args):
                 if existing.get("checkpoint_sha256") == checkpoint_digest(existing) and existing.get("code_fingerprint") == fingerprint \
                         and existing.get("threads") == args.threads and existing.get("condition") == args.condition \
                         and existing.get("preprocess") == args.preprocess \
-                        and existing.get("reference_model", {}).get("variant") == args.variant:
+                        and existing.get("reference_model", {}).get("variant") == args.variant \
+                        and existing.get("environment") == environment:
                     continue
             except (ValueError, KeyError):
                 pass
@@ -265,7 +386,9 @@ def infer(args):
         for reference in references:
             reference["energy_bounds"] = energy_bounds(clean[reference["start_ms"] * 16:reference["end_ms"] * 16], np)
         audio = clean
-        if args.condition != "clean":
+        if args.condition == "telephone":
+            audio = telephone_channel(clean, np)
+        elif args.condition != "clean":
             audio = next(item for name, item in variants(clean, block_id, np) if name == args.condition)
             audio = np.clip(np.rint(audio * 32768.0), -32768, 32767).astype("<i2").astype(np.float32) / 32768.0
         audio = preprocess(audio, np).astype(np.float32)
@@ -331,6 +454,12 @@ def compare(args):
     print(json.dumps(compare_runs(load_blocks(args.first), load_blocks(args.second), distance_function()), indent=1))
 
 
+def timing_candidate(args):
+    effect = start_shift_effect(load_blocks(args.checkpoints), args.start_shift_ms)
+    print(json.dumps({"start_shift_ms": args.start_shift_ms, "effect": effect,
+                      "accepted": start_shift_accepted(effect)}, indent=1))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -347,17 +476,31 @@ def main():
     cmd.add_argument("--output", type=Path, required=True)
     cmd.add_argument("--role", choices=["development", "validation"], required=True)
     cmd.add_argument("--threads", type=int, default=2, choices=[1, 2, 3, 4])
-    cmd.add_argument("--condition", default="clean", choices=["clean", "gain035", "noise20db", "channel"])
+    cmd.add_argument("--condition", default="clean", choices=["clean", "gain035", "noise20db", "channel", "telephone"])
     cmd.add_argument("--variant", default="float32", choices=sorted(VARIANTS))
     cmd.add_argument("--preprocess", default="none", choices=sorted(PREPROCESSORS))
     cmd.add_argument("--max-blocks", type=int, default=0)
     cmd.add_argument("--force", action="store_true")
     cmd.set_defaults(run=infer)
+    cmd = commands.add_parser("freeze-english", help="Write fixtures/english_smoke.json from pinned LibriSpeech test-clean.")
+    cmd.add_argument("--cache", type=Path, required=True)
+    cmd.set_defaults(run=freeze_english)
+    cmd = commands.add_parser("english", help="English smoke WER/CER/RTF on the frozen LibriSpeech selection.")
+    cmd.add_argument("--cache", type=Path, required=True)
+    cmd.add_argument("--output", type=Path, required=True)
+    cmd.add_argument("--threads", type=int, default=2, choices=[1, 2, 3, 4])
+    cmd.add_argument("--variant", default="float32", choices=sorted(VARIANTS))
+    cmd.add_argument("--condition", default="clean", choices=["clean", "telephone"])
+    cmd.set_defaults(run=english)
     cmd = commands.add_parser("score", help="WER/CER, timing and speed from checkpoints (aggregates only).")
     cmd.add_argument("checkpoints", type=Path)
     cmd.add_argument("--energy-threshold", default="30", choices=["25", "30", "35"])
     cmd.add_argument("--output", type=Path)
     cmd.set_defaults(run=score)
+    cmd = commands.add_parser("timing-candidate", help="Evaluate a constant phrase-start shift with the declared rule.")
+    cmd.add_argument("checkpoints", type=Path)
+    cmd.add_argument("--start-shift-ms", type=int, required=True)
+    cmd.set_defaults(run=timing_candidate)
     cmd = commands.add_parser("analyze", help="Error taxonomy from checkpoints (counts and rates only).")
     cmd.add_argument("checkpoints", type=Path)
     cmd.set_defaults(run=analyze)

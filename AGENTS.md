@@ -44,7 +44,12 @@ This split separates recordings, not all speakers: M appears in both subsets,
 D appears in development and validation, and S appears only in validation.
 Keep source selection, model weights and existing six-reader regression gates
 fixed; report development and validation results separately. Do not enroll the
-benchmark actors into application voice memory.
+benchmark actors into application voice memory. Those three reserved recordings
+were later inspected and are diagnostic data, as `docs/roles/PASHA.md` records;
+new Dialogs validation uses `masha_dima_part3` and `masha_sveta_part3`, frozen in
+`tools/fixtures/dialogs/study_selection.json` before inference on them. Model
+selection, quantization and the local text model are decided under the hackathon
+plan, each with its own provenance and fresh measurements.
 
 ## Hackathon verification build
 

@@ -65,8 +65,8 @@ baseline/candidate results separately for development and validation.
 Its original-order, constructed sequences of acted studio dialogue do not
 establish natural-conversation DER, overlap separation or phone performance.
 The inspected development baseline is 2.8715% WER, 0.8730% CER, 4.9892% cpWER
-and 97.6839% completed clip-time attribution (not DER). Candidate comparisons
-remain pending and validation results remain reserved; see the
+and 97.6839% completed clip-time attribution (not DER). The original reserved
+recordings have since been inspected and are diagnostic data; see the
 [selection, baseline and limitations](prototypes/phone-transcriber/tools/fixtures/dialogs/README.md).
 
 The original reserved recordings were later inspected, so the
