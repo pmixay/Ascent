@@ -118,6 +118,51 @@ class TextStageTest {
         } finally { Thread.interrupted() }
     }
 
+    @Test fun phrasesReachedAfterTheBudgetKeepTheirWordsAndTheModelIsNotAskedAgain() {
+        var now = 0L
+        // Each model call costs 10 s on the fake clock; the budget is 15 s.
+        val model = ScriptedModel { _, tokens, wanted -> now += 10_000_000_000L; endsWithPeriod(tokens, wanted) }
+        val input = listOf(segment("привет мир", "speaker_1", 100, 900), segment("как дела", "speaker_2", 1_000, 1_800),
+            segment("раз два", "speaker_1", 2_000, 2_800))
+        val outcome = TextStages.present(input, stage(model), budgetMs = 15_000, nowNanos = { now })
+        // The check runs before each phrase: 0 s and 10 s are inside the budget, 20 s is not.
+        assertEquals(2, model.calls)
+        assertEquals(listOf("привет мир.", "как дела.", "раз два"), outcome.segments.map { it.text })
+        assertNull(outcome.segments[2].rawText)
+        assertEquals(input.map { listOf(it.speakerId, it.startMs, it.endMs) },
+            outcome.segments.map { listOf(it.speakerId, it.startMs, it.endMs) })
+        assertEquals(TextStageReport(TextStageStatus.COMPLETED, phrases = 3, fallbacks = 1, elapsedMs = 20_000, timedOut = 1), outcome.report)
+        assertTrue(outcome.report.describe().contains("лимиту времени: 1"))
+    }
+
+    @Test fun aSpentBudgetOnTheFirstPhraseIsReportedAsFailedNotAsSuccess() {
+        val model = ScriptedModel { _, tokens, wanted -> endsWithPeriod(tokens, wanted) }
+        val input = listOf(segment("раз два"), segment("как дела"))
+        val outcome = TextStages.present(input, stage(model), budgetMs = 0, nowNanos = { 0L })
+        assertEquals(0, model.calls)
+        assertEquals(input, outcome.segments)
+        assertEquals(TextStageStatus.FAILED, outcome.report.status)
+        assertEquals(2, outcome.report.timedOut)
+        assertEquals(2, outcome.report.fallbacks)
+        assertTrue(outcome.report.describe().contains("лимит времени"))
+    }
+
+    @Test fun withoutABudgetNothingTimesOutEvenOnAHugeClock() {
+        var now = 0L
+        val model = ScriptedModel { _, tokens, wanted -> now += 3_600_000_000_000L; endsWithPeriod(tokens, wanted) }
+        val outcome = TextStages.present(listOf(segment("привет мир"), segment("как дела")), stage(model), nowNanos = { now })
+        assertEquals(2, model.calls)
+        assertEquals(0, outcome.report.timedOut)
+    }
+
+    @Test fun theBudgetGrowsWithTheRecordingButNeverDropsBelowTheFloor() {
+        assertEquals(TextStages.MIN_BUDGET_MS, TextStages.budgetMs(0))
+        assertEquals(TextStages.MIN_BUDGET_MS, TextStages.budgetMs(-5))
+        assertEquals(TextStages.MIN_BUDGET_MS, TextStages.budgetMs(10_000))
+        assertEquals(300_000L, TextStages.budgetMs(600_000))
+        assertTrue(TextStages.budgetMs(7_200_000) > TextStages.budgetMs(600_000))
+    }
+
     @Test fun reportsDescribeWhatHappenedWithoutAnyText() {
         assertTrue(TextStageReport(TextStageStatus.UNAVAILABLE).describe().contains("не установлена"))
         assertTrue(TextStageReport(TextStageStatus.FAILED).describe().contains("не сработала"))
