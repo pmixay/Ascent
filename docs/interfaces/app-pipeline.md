@@ -159,7 +159,7 @@ reported in `textStage` and appended to the finished status line:
 
 | Status | Meaning |
 | --- | --- |
-| `COMPLETED` | The model ran. `phrases`, `fallbacks` (phrases left unedited) and `elapsedMs` are exact counts; no text is logged |
+| `COMPLETED` | The model ran. `phrases`, `fallbacks` (phrases left unedited), `timedOut` (the part of `fallbacks` skipped because the time budget was spent) and `elapsedMs` are exact counts; no text is logged. Budget: `max(30 s, 50% of the media duration)` counted after the model has loaded, checked between phrases, so the stage can exceed it by one phrase. It is an unmeasured policy default; only presentation is affected, the JSON export keeps the recognized words |
 | `UNAVAILABLE` | Files missing or the wrong size: **the stage did not run.** Never counted as compliance |
 | `FAILED` | The model failed to load, or failed for every phrase. Recognized words are shown |
 | `SKIPPED` | No speech |

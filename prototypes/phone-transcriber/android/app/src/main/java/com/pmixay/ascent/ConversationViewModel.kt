@@ -357,7 +357,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                             stage = ProcessingState.Formatting
                             jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Formatting, jobProgress = null) } }
                             val presented = timings.measure(ProcessingMetricStage.TEXT) {
-                                TextStages.run(lease.textDirectory, recognized.segments, timings)
+                                TextStages.run(lease.textDirectory, recognized.segments, timings, mediaDurationMs)
                             }
                             ProcessedAudio(recognized, presented, mediaDurationMs, opened.name)
                         }
@@ -411,6 +411,10 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                             warning = cleanup()
                         } finally { pendingImports.complete(id) }
                     } }
+                } catch (_: CancellationException) {
+                    // The cleanup block above runs to completion under NonCancellable. withContext still reports
+                    // the parent job's cancellation when it resumes, so this is not a cleanup failure and must not
+                    // put a false "cleanup failed" warning on a cancelled job. Real failures reach the next catch.
                 } catch (_: Exception) {
                     warning = "Не удалось завершить очистку состояния. Проверьте историю после перезапуска."
                 } finally {
