@@ -3,7 +3,8 @@
 Speech lead's report for the hackathon verification build, 7 November 2026. It separates
 four kinds of evidence: an inspected GitHub CI run, host measurements on a development
 container, decisions without measurements, and Android device results. **No Android
-device or ARM measurement exists yet**; the last section is the table to fill.
+device measurement exists yet**; ARM is covered only by a software-emulation worst case.
+The last section is the table to fill.
 
 ## Pipeline
 
@@ -105,7 +106,8 @@ configuration on the IHM headset channel (call-like) and the single distant micr
 | GigaAM Multilingual Large 600M, public int8 | 56.66% (4,541) | 71.28% (5,713) | 0.27 * |
 | same, with `AsrGain` | 52.80% (4,232) | 65.39% (5,241) | 0.30 * |
 
-\* two runs shared the 4 cores; not a clean speed measurement.
+\* two runs shared the 4 cores; not a clean speed measurement. AMI RTF is higher than the
+Dialogs figure (0.069) because every short utterance is padded and run as its own window.
 
 Conversational English is much harder than the read LibriSpeech smoke (6.73%). AMI audio is
 quiet (median utterance RMS about -43 dBFS); without the level rule 277 of 1,367 IHM
@@ -175,6 +177,8 @@ therefore a risk, unobserved on real hardware.
   audio and background talk are not represented. Natural-conversation DER is not reported.
 - **Short replies and similar voices** are the known weak point of attribution; tuning is
   deferred after the deadline.
+- **`AsrGain` is host-evidence only.** The CI two-hour Dialogs scores above were produced
+  without it, and its effect on the device is unmeasured.
 - **Timestamps** are CTC-derived and approximate; no human-checked boundaries exist yet.
 - **Text model** improves presentation only. If the jury does not normalize text before
   WER, punctuation could add word errors; the integration contract recommends exporting the
