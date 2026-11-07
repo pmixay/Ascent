@@ -11,10 +11,11 @@ through both acoustic and text stages. Compact leases return null. Default GigaA
 behavior remains unchanged. Packaging/smoke and the merged AUTO/timing source
 passed both jobs at `42d4de9` / `42406537594`; this is not ARM acceptance.
 
-- [ ] Wire all three recognition modes (Auto, Russian, Other languages) using the leased multilingual directory;
-  keep GigaAM default and report missing files without automatic fallback. Coordinate
-  the now-merged constructor (`mode`, `multilingualDirectory`, optional named `timings`)
-  and expose `TranscriptionResult.recognitionMode` as the actual used mode.
+- [x] Wire all three recognition modes (Auto, Russian, Other languages) using the leased multilingual directory;
+  keep GigaAM as the compact Auto fallback and refuse a fixed multilingual choice without files.
+  Pasha's worker and Petya's remembered selector/actual-used label are integrated.
+  The UI passed compact CI at `16932d34` ([42411299817](https://github.com/pmixay/Ascent/actions/runs/42411299817));
+  actual Auto/Multilingual audio inference on ARM remains open.
 - [ ] Add/review a per-job elapsed-work cap for the text stage with truthful fallback/
   cancellation and native-resource cleanup; the current context cap is not a deadline.
 - [ ] Supply full ViewModel lifecycle evidence (cancel→new job, rotation, background,
