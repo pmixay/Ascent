@@ -10,11 +10,15 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.FixMethodOrder
+import org.junit.runners.MethodSorters
 import org.junit.runner.RunWith
+import org.json.JSONObject
 import java.io.File
 
 /** Offline-only extraction/recovery and one synthetic text-stage invocation; no ARM acceptance. */
 @RunWith(AndroidJUnit4::class)
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 class EmbeddedModelRuntimeTest {
     @Test fun coldBootstrapSelectsBothGroupsWithoutDownloadWork() = runBlocking {
         assertTrue(BuildConfig.EMBEDDED_MODELS)
@@ -31,6 +35,21 @@ class EmbeddedModelRuntimeTest {
         val work = WorkManager.getInstance(context)
         assertTrue(work.getWorkInfosForUniqueWork("ascent-model-download").get().isEmpty())
         assertTrue(work.getWorkInfosForUniqueWork("ascent-model-updates").get().isEmpty())
+        val storage = JSONObject(withTimeout(30_000) { ModelStorageDiagnostics.reports.first { it != null } }!!)
+        assertEquals("measured", storage.getString("installed_stats_status"))
+        assertEquals(BuildConfig.SOURCE_COMMIT, storage.getString("source_commit"))
+        assertEquals(BuildConfig.NATIVE_ABI, storage.getString("apk_abi"))
+        assertEquals(BuildConfig.EMBEDDED_BUNDLE_SHA256, storage.getString("bundle_sha256"))
+        assertTrue(storage.getLong("installed_apk_files_bytes") > 0)
+        assertTrue(storage.getLong("installed_app_bytes") > 0)
+        assertTrue(storage.getLong("expanded_payload_bytes") > 0)
+        assertEquals("extracted", storage.getString("preparation_kind"))
+        assertEquals(storage.getLong("expanded_payload_bytes"), storage.getLong("copied_asset_bytes"))
+        assertTrue(storage.getLong("extraction_and_validation_elapsed_ms") >= 0)
+        assertTrue(storage.getLong("model_directory_logical_bytes_after_install") >= storage.getLong("expanded_payload_bytes"))
+        assertTrue(storage.getInt("successful_samples") >= 2)
+        assertEquals(0, storage.getInt("failed_samples"))
+        println("Synthetic ${BuildConfig.NATIVE_ABI} bootstrap storage (not full-pipeline acceptance): $storage")
         ModelSelection.acquire(context).use { lease ->
             assertTrue(File(lease.directory, "asr.onnx").isFile)
             val text = requireNotNull(lease.textDirectory)
@@ -42,7 +61,15 @@ class EmbeddedModelRuntimeTest {
             // A bounded application integration check, not a quality/corpus benchmark.
             // Bundled bytes must be callable through the exact paired pipeline API.
             val input = listOf(TranscriptSegment("speaker_1", 100, 900, "привет мир", speakerInferred = true))
-            val presented = TextStages.run(text, input) { throw AssertionError("Bundled text runtime failed on synthetic input", it) }
+            val timings = ProcessingTimings()
+            val presented = timings.measure(ProcessingMetricStage.TEXT) {
+                TextStages.run(text, input, timings) { throw AssertionError("Bundled text runtime failed on synthetic input", it) }
+            }
+            val measured = timings.finish(ProcessingMeasurementOutcome.COMPLETED, null)
+            assertNull(measured.realTimeFactor) // Synthetic text has no processed audio denominator.
+            assertTrue(measured.stages.getValue(ProcessingMetricStage.TEXT_MODEL_LOAD).elapsedNs > 0)
+            assertTrue(measured.stages.getValue(ProcessingMetricStage.TEXT).elapsedNs > 0)
+            assertEquals(measured.totalNs, measured.stages.values.sumOf { it.elapsedNs })
             assertEquals(TextStageStatus.COMPLETED, presented.report.status)
             assertEquals(1, presented.report.phrases)
             assertEquals(0, presented.report.fallbacks)
@@ -58,6 +85,7 @@ class EmbeddedModelRuntimeTest {
         // must preserve BOTH old directories while a job still holds their lease.
         val old = ModelSelection.acquire(context)
         val oldText = requireNotNull(old.textDirectory)
+        val oldMultilingual = requireNotNull(old.multilingualDirectory)
         try {
             File(oldText, "NOTICE.txt").writeText("corrupted test notice")
             assertNull(ModelSelection.current(context))
@@ -69,8 +97,35 @@ class EmbeddedModelRuntimeTest {
             assertNotEquals(old.directory, ModelSelection.current(context))
             assertTrue(old.directory.isDirectory)
             assertTrue(oldText.isDirectory)
+            assertTrue(oldMultilingual.isDirectory)
         } finally { old.close() }
         assertFalse(old.directory.exists())
         assertFalse(oldText.exists())
+        assertFalse(oldMultilingual.exists())
+    }
+
+    /** Creation traverses JNI config fields by original name in the actual R8-optimized APK. */
+    @Test fun parakeetRecognizerLoadsPinnedFilesWithMinifiedJniConfiguration() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertTrue(BuildConfig.EMBEDDED_MODELS)
+        assertEquals(PackageManager.PERMISSION_DENIED, context.checkSelfPermission(Manifest.permission.INTERNET))
+        ModelDownloads.schedule(context)
+        val ready = withTimeout(300_000) {
+            EmbeddedModels.states.first { it.phase == ModelTransferPhase.READY || it.phase == ModelTransferPhase.ERROR }
+        }
+        assertEquals(ready.message, ModelTransferPhase.READY, ready.phase)
+        ModelSelection.acquire(context).use { lease ->
+            val directory = requireNotNull(lease.multilingualDirectory)
+            assertTrue(ParakeetFiles.installed(directory))
+            for (asset in ParakeetFiles.ALL) {
+                val file = File(directory, asset.name)
+                assertEquals(asset.bytes, file.length())
+                assertEquals(asset.sha256, file.inputStream().use(::sha256))
+            }
+            assertTrue(File(directory, "NOTICE.txt").readText().contains("CC-BY-4.0"))
+            // Existing Java ORT + isolated sherpa runtime coexist in this process.
+            // No corpus, benchmark audio, transcript, quality claim or ARM acceptance.
+            ParakeetRecognizer(directory).use { assertNotNull(it) }
+        }
     }
 }

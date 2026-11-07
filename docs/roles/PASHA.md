@@ -2,6 +2,18 @@
 
 ## Mission
 
+### New explicit packaging handoff — Parakeet
+
+Timofey is implementing the user's requested [schema-2 Parakeet bundle](TIMOFEY_PARAKEET_STATUS.md),
+not the mode chooser. After verified bootstrap, the same `ModelLease` exposes
+`multilingualDirectory` beside `directory` and `textDirectory`; it stays leased
+through both acoustic and text stages. Compact leases return null. Default GigaAM
+behavior remains unchanged; new packaging/smoke still needs its own CI.
+
+- [ ] Wire explicit recognition-mode selection using the leased multilingual directory;
+  keep GigaAM default and report missing files without automatic fallback. Coordinate
+  the now-merged constructor (`mode`, `multilingualDirectory`, optional named `timings`).
+
 Deliver the application path from a selected local audio file to a safely retained transcript and specification-compatible JSON. Own the job lifecycle and meaningful local text-LLM integration. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H00/H02/H03/H06/H07/H12.
 
 **Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Code handoff: 17:00; acceptance sign-off: 19:30; submission reserve: 19:30–20:00.** This replaces all working-day/effort estimates below. Builds, application tests and lint use existing GitHub CI; phones install its APKs. Missing mandatory work is a blocker, not automatically complete at the deadline.
@@ -10,7 +22,52 @@ Deliver the application path from a selected local audio file to a safely retain
 
 At fetched `origin/main` `4b16e3a`, the application already has local acoustic inference, encrypted conversation/voice storage, model leases/downloads and timeline UI. PR #2 adds the segmenter/tests, frozen speech/English manifests, host ASR/timestamp study and text-model shortlist/grammar contract. Do not rewrite those components or wait for another model-selection study. **Remaining:** reachable source-safe import, competition JSON, job safeguards and the actual Android text stage. Andrey is the ML owner; this role remains the application/acceptance owner after the pushed role swap.
 
-## Status at 16:30 MSK (whole CI workflow green; nothing run on a phone)
+## Integration follow-up on Petya's branch
+
+`codex/petya-open-work` integrates this branch through `00bb1ab` with Timofey's
+schema-2 packaging through `42d4de9`. The temporary null directory is replaced by
+the job's triple lease; the Russian mode picker and actual-used label are wired.
+The timing counters and cancellation/source ownership paths are preserved.
+[PR #5](https://github.com/pmixay/Ascent/pull/5) and
+[TEST_RESULTS.md](../TEST_RESULTS.md) carry combined CI/artifact evidence.
+The older sign-off below remains historical; phone/ARM acceptance is still open.
+
+## Application sign-off record at 19:58 MSK (CI green on the merged revision; nothing run on a phone or ARM)
+
+Written after fetching `origin/main` `f04aaa7` and re-reading the source. It supersedes the 16:30 table
+below where they differ (the 16:30 text says nothing installs the text model; the embedded bootstrap in
+`593f6bd` now does). No code was changed for this record: the 17:00 freeze has passed and no CI result
+could be inspected before the deadline for a new push. **No checkbox in this file is ticked.**
+
+**CI evidence, inspected.** Run [42392428158](https://github.com/pmixay/Ascent/actions/runs/42392428158)
+(`593f6bd`, branch `claude/improve-app-peter`) concluded success for both jobs: *Build and validate Android app*
+(tooling tests, lint, JVM tests, R8 assemble, ARM64 APK inspection, x86_64 emulator runtime checks) and
+*Build and validate embedded offline baseline* (ARM64 offline APK, x86_64 first-launch extraction with
+networks off, one synthetic text-stage call through the paired lease in `EmbeddedModelRuntimeTest`).
+These are job conclusions; per-test counts were not read. `f04aaa7` (main, merge of PR #4) differs from
+`593f6bd` in six documentation files only, no source, manifest, script or workflow file, so the result applies
+to its code, but its own runs (Android CI 42393688728, Model Export 42393688781) were still in progress and
+are not inspected.
+
+| Requirement | State | Evidence and what is missing |
+| --- | --- | --- |
+| Import without microphone permission, file left unchanged | **Pass in CI only** | `importAudio` → `AudioSources` / `CodecAudioWindowSource` read in place; JVM no-write guard and emulator read tests pass. Not run on a phone; real speech files and the target emulator's codecs are unmeasured |
+| Exact JSON, silence gives `{"transcript":[]}` | **Pass in CI only** | `CompetitionJsonExporter` contract tests pass. **Not run:** validation of a real device export by Petya's validator |
+| Job lifecycle: one job, cancel, stale callbacks, closed handles | **Not run** | `launchJob` implements them and the tracker is unit-tested, but nothing executes the ViewModel job path. Rotation, background, cancel then new job and kill/reopen have no record |
+| Process death and background ownership | **Open, declared limit** | No foreground service for processing (the manifest declares only the watch and model-download services). A killed process loses the job; reopening reports the interruption and the file must be selected again. Nothing recovers it automatically |
+| Local text model executes on Android | **Blocked on ARM evidence** | `TextStages.run(lease.textDirectory, …)` runs after the acoustic sessions close under the same lease, and reports count, fallbacks and time. The only execution record is one synthetic call on x86_64. **The local-LLM requirement is not shown to be met** until an ARM run is inspected |
+| Raw ASR text preserved, words unchanged | **Pass in CI only** | `rawText` keeps the recognized words; `preservesWords` gates every edit; `TextStageTest` passes with a fake model. Not checked with the real model on real speech |
+| Export text is raw or punctuated | **Decided in source** | The export writes `recognizedText` (raw), following the recommendation in [text-punctuation.md](../interfaces/text-punctuation.md); the interface and TXT export show the edited text. No written confirmation from Andrey or the jury is on file |
+| Text stage time cap | **Open** | Context is capped (64-word blocks), nothing is generated and nothing is retried, but there is no per-job time limit; a slow ARM run is bounded only by cancellation. Left unchanged after the freeze |
+| Storage and encrypted-history errors | **Pass in CI only** | Atomic non-cancellable save and a `Storage` error category exist; low-storage and corrupt-history behavior on a device is not run |
+| Three unfamiliar files in sequence, offline, on ARM | **Not run** | Petya's rehearsal; see [TEST_RESULTS.md](../TEST_RESULTS.md) |
+| Language mode (`AUTO` / Russian / other languages) in the job path | **CI green on the merged commit; nothing run on a device** | Added at 22:46 MSK, after the 20:00 deadline, and merged with Timofey's Parakeet packaging branch. [Run 42408030599](https://github.com/pmixay/Ascent/actions/runs/42408030599) (`5886020`, branch `claude/pasha-work-lh3bs1`) concluded success for both jobs, *Build and validate Android app* and *Build and validate embedded offline baseline*; job conclusions only, per-test counts and the new `RecognitionSettingsTest` result were not read. The change: `setRecognitionMode`, remembered choice, mode and `ModelLease.multilingualDirectory` passed to `TranscriptionEngine`, `recognizedMode` in state, refusal of a fixed multilingual choice without installed files (`RecognitionSettings`, `RecognitionSettingsTest`). **Open:** the three-way control and the used-mode label are Petya's UI; the compact build has no Parakeet; no `AUTO` or `MULTILINGUAL` job has run on Android or ARM and English has no device result. See [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md#handoff) |
+
+**Readiness.** The application lane is **incomplete**, not signed off as ready: the local-LLM requirement,
+the lifecycle matrix, a validated device JSON and the three-file ARM rehearsal are unmeasured, and the deadline
+does not turn them into passes. Source and CI cover only what is listed as "Pass in CI only".
+
+## Status at 16:30 MSK (superseded above where it differs; whole CI workflow green; nothing run on a phone)
 
 Contract and details: [app-pipeline.md](../interfaces/app-pipeline.md). No checkbox below is ticked.
 

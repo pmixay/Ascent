@@ -8,6 +8,14 @@
 -keep class com.k2fsa.sherpa.onnx.SpeakerEmbeddingExtractorConfig { *; }
 -keep class com.k2fsa.sherpa.onnx.OnlineStream { *; }
 
+# Parakeet OfflineRecognizer's JNI traverses every nested Offline* config by field name,
+# even optional model configs that the default transducer path does not enable.
+# Preserve that configuration graph and stream/result JNI boundary, not application code.
+-keep class com.k2fsa.sherpa.onnx.Offline* { *; }
+-keep class com.k2fsa.sherpa.onnx.FeatureConfig { *; }
+-keep class com.k2fsa.sherpa.onnx.HomophoneReplacerConfig { *; }
+-keep class com.k2fsa.sherpa.onnx.QnnConfig { *; }
+
 # AndroidViewModelFactory invokes this constructor reflectively.
 -keepclassmembers class com.pmixay.ascent.ConversationViewModel {
     public <init>(android.app.Application);

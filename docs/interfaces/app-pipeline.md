@@ -11,7 +11,7 @@ Source files are in `prototypes/phone-transcriber/android/app/src/main/java/com/
 picker (Petya) -> ConversationViewModel.importAudio(uri)
   -> job (one at a time, own ID) -> AudioSources.open: content:// descriptor, read in place
   -> PcmWindowSource (16 kHz mono windows)  -> TranscriptionEngine (Andrey), model lease
-  -> lease released -> TextStages.run (local text model) -> encrypted history save
+  -> acoustic sessions/source closed -> TextStages.run (same paired lease) -> encrypted history save
   -> exportTranscript(id, uri, json = true) -> CompetitionJsonExporter -> user-chosen file
 ```
 
@@ -25,6 +25,7 @@ All are on `ConversationViewModel`. None needs the microphone permission.
 | `cancelProcessing()` | Cancels the running job. A native recognition call finishes first, so cancellation can lag by one window. The busy flag stays set until cleanup ends; only then can another job start. |
 | `stopRecording()` | Unchanged for the user; it now runs through the same job path. |
 | `exportTranscript(id, uri: Uri?, json: Boolean)` | `null` changes nothing. `json = true` writes the competition format, also for a recording without speech. `json = false` writes the TXT. The document is built in memory first. |
+| `setRecognitionMode(mode: RecognitionMode)` | Chooses `AUTO` (default), `RUSSIAN_CIS` or `MULTILINGUAL` for the **next** job and remembers it (`RecognitionSettings`, preference `recognitionMode`; an unknown stored value reads as `AUTO`). A running job keeps the mode it started with. Labels and subtitles: [multilingual-recognizer.md](multilingual-recognizer.md#positioning-in-the-app) |
 
 ## State the interface can show
 
@@ -43,8 +44,19 @@ All are on `ConversationViewModel`. None needs the microphone permission.
   ModelsUnavailable, OutOfMemory, Storage, Interrupted, Internal`. `jobError.message` is the Russian
   sentence to show; it never contains transcript text.
 - `textStage`: counts and time of the text model for the last completed job (see below).
+- `measurements`: volatile last-finished phone job counters and outcome, total/media
+  duration and completed-only RTF. The T4 follow-up shows exclusive stage timings
+  without persistence/logging/export changes; [exact measurement boundaries and
+  pending verification](../roles/TIMOFEY_T4_STATUS.md). It is cleared for a new job.
+- `recognitionMode`: the selected mode. `recognizedMode`: the recognizer the last **saved** job actually used
+  (for `AUTO`, the probe's choice), `null` while a job runs and after a failed or cancelled one. Show it beside the result.
+  A fixed `MULTILINGUAL` choice without installed Parakeet files is refused before recording starts or a file is
+  opened (status `RecognitionSettings.MULTILINGUAL_MISSING`, and `ModelsUnavailable` if it surfaces in a job); it never
+  falls back to GigaAM silently. The embedded package provides the verified directory through the
+  job's triple lease; the compact package has no Parakeet files, so `AUTO` stays on GigaAM and
+  fixed `MULTILINGUAL` is refused. The pre-start readiness hint never replaces the worker's lease check.
 
-### Picker wiring (Petya; `MainActivity.kt` and `GlassUi.kt` are not edited by this change)
+### Picker and language wiring (Petya)
 
 ```kotlin
 val importAudio = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -52,6 +64,7 @@ val importAudio = rememberLauncherForActivityResult(ActivityResultContracts.Open
 }
 // button: importAudio.launch(arrayOf("audio/*"))   // disable while state.busy
 // cancel button while state.processingAudio: conversation.cancelProcessing()
+// language picker: conversation.setRecognitionMode(mode)
 ```
 
 Source construction, inference and descriptor closure share one worker scope, so cancellation
@@ -133,9 +146,10 @@ file empty.
 
 ## Local text model (Timofey: packaging; Andrey: behaviour)
 
-`TextStages.run` runs after the acoustic lease is released. It reads the files from
-`filesDir/models/text-model/` (`TextModelFiles.MODEL`, `TextModelFiles.TOKENIZER`), checks only their
-sizes, and expects the packaging step to have verified the hashes at extraction. Every outcome is
+`TextStages.run` runs after the acoustic sessions and source close, **while retaining
+the same paired lease**. It reads that lease's immutable `textDirectory`
+(`TextModelFiles.MODEL`, `TextModelFiles.TOKENIZER`), checks their sizes, and expects
+packaging/bootstrap to have verified hashes before readiness. Every outcome is
 reported in `textStage` and appended to the finished status line:
 
 | Status | Meaning |
@@ -145,8 +159,10 @@ reported in `textStage` and appended to the finished status line:
 | `FAILED` | The model failed to load, or failed for every phrase. Recognized words are shown |
 | `SKIPPED` | No speech |
 
-**Open on this integration (blocker for the local-LLM requirement):** nothing extracts the files yet, so on a CI-built APK the
-status will read `UNAVAILABLE` until packaging lands. The stage has not run on Android or ARM.
+Embedded extraction and sequential text integration are now merged; the required
+single synthetic text phrase passed x86_64 CI at `d9776cd` / `42400311459`.
+Compact acoustic-only builds still report `UNAVAILABLE`. Actual full-pipeline ARM
+text execution/performance and Andrey's model/runtime approval remain open.
 
 ## Lifecycle outcomes to test (Petya)
 

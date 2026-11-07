@@ -8,6 +8,21 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 
 ## Already pushed / inspected — subtract from implementation
 
+**Current main reconciliation:** [ordered review and first remaining T1 slice](TIMOFEY_PLAN_REVIEW.md).
+At `f04aaa7`, both Android jobs in run `42393688728` and Model Export/publication
+in run `42393688781` passed. Embedded packaging and real sequential text integration
+are already in source. The validation-input receipt changes in
+`timofey/plan-next-incomplete` are pushed as `2270a40`; both jobs in [CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
+passed, including cold export/receipt generation. Warm receipt reuse also passed
+at `d9776cd` in [run 42400311459](https://github.com/pmixay/Ascent/actions/runs/42400311459),
+with the real `62fbe3f` producer identity preserved and payloads reverified.
+[T3 measurement tooling](TIMOFEY_T3_STATUS.md) at `62fbe3f` also passed both jobs
+in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795),
+with separate measured emulator/ARM64-archive figures. ARM/release acceptance stays open.
+The next [T4 timing slice](TIMOFEY_T4_STATUS.md) adds per-job exclusive stage totals
+and completed-job RTF in volatile UI state; its own CI and actual ARM measurements
+remain required.
+
 - Existing push-only Android/model workflows, R8/JNI isolation, downloader verification/leases and acoustic pipeline are the base, not tasks to recreate.
 - At fetched `origin/main` `4b16e3a`, historical [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042) has a **successful build/validation job**. The overall run failed because the since-removed two-hour inference inputs were missing; that failure is not a current CI gate.
 - PR #2 already supplies study/scoring tools, frozen RU/English selections, host timing/int8 results, text-model hashes/licenses/contract and the segmenter/tests. Use these instead of a new performance harness or host-model search. Reference-export ASR outputs do not substitute for deployed-model speaker measurements.
@@ -15,6 +30,14 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 - **Pushed `6a078e3`:** the user removed its long `dialog-inference` and `speech-evaluation` jobs on 7 November 2026 because they made push CI too slow. Keep the development evaluation tooling and opt-in scorer, but do not restore long inference, cache bootstrapping or scoring to CI. Reference results are not deployed-pack measurements.
 
 ## Ownership
+
+Latest user assignment: [Parakeet packaging/R8/emulator smoke](TIMOFEY_PARAKEET_STATUS.md).
+Source adds the four pinned files and CC-BY-4.0 notice in schema 2, with a third
+leased directory. Both jobs passed at `dbbce95` in [42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446),
+including enlarged-APK emulator installation and required minified recognizer creation.
+Exact new APK/bundle hashes remain uncollected because follow-up network access failed;
+mode selection and actual ARM acceptance remain open.
+T4 `68487f1` passed both jobs in `42402862397`; no ARM results are inferred.
 
 - Root `.github/workflows/android.yml` and `model-pack.yml`.
 - Android build configuration, manifest/native packaging, prototype `scripts/` and `Model*.kt`.
@@ -25,8 +48,8 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 ## 11:00–12:00 — confirm access and the specific red paths
 
 - [x] Reuse inspected current run `42358746042`; check for any newer pushed result before integrating. See the [13:55 MSK diagnosis/access handoff](TIMOFEY_H01_STATUS.md): newer build success, cancelled first inference attempt and active second attempt; full H01 remains open.
-- [ ] Use the pushed diagnosis for export run `42257595048`; confirm secure checkpoint access and model publication availability rather than restarting a generic investigation.
-- [ ] Inspect the current push CI after the job removal: confirm bounded compact and embedded jobs cover Python tooling, app/wear lint, unit tests, ARM64 APK inspection and x86_64 emulator checks, and that superseded runs cancel. Do not recreate long inference or a cache bootstrap.
+- [x] Use the pushed diagnosis for export run `42257595048`; confirm secure checkpoint access and model publication availability rather than restarting a generic investigation. Current exact-main Model Export `42393688781` passed; live metadata/pins verified in the current review.
+- [x] Inspect the current push CI after the job removal: confirm bounded compact and embedded jobs cover Python tooling, app/wear lint, unit tests, ARM64 APK inspection and x86_64 emulator checks, and that superseded runs cancel. Both jobs passed at `f04aaa7` in `42393688728`; long corpus jobs remain absent.
 - [ ] Locate verified model artifacts and establish who has permissions for CI, model publication and signing.
 - [ ] Agree embedded-install readiness/lease contract with Pasha and expected status UI with Petya.
 - [ ] Identify available ARM phones with RAM/OS/ABI/storage information.
@@ -37,12 +60,12 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 
 ### T1. Repair specific failed checks; keep the working build path
 
-- [ ] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks.
-- [ ] Verify the pushed integrity-checked model/export regeneration path from pinned public sources; do not rely only on a warm cache.
-- [ ] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope.
-- [ ] Keep the two-hour public-corpus evaluation on a development machine; never turn absence into skip/success or restore it as a push-CI gate.
-- [ ] Keep the narrowly scoped fixture and model-export speech checks while the long dialogue study stays off CI.
-- [ ] Preserve existing push triggers/workflow names, R8, native integrity and emulator checks.
+- [x] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks. Existing recovery and current exact-main publication verified in `42393688781`; no new exporter repair is needed.
+- [x] Verify the pushed integrity-checked model/export regeneration path from pinned public sources; do not rely only on a warm cache. `2270a40` / `42395674575` actually executed export validation and receipt recording on an output-cache miss; historical cold checkpoint transport evidence remains in T1 status.
+- [x] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope. Independent receipt/cold output-cache paths passed at `2270a40` and `62fbe3f`; `d9776cd` / `42400311459` verified exact warm reuse, retained producer identity and required payload/Android checks on this branch. [Evidence](TIMOFEY_T4_STATUS.md#already-verified-before-this-slice).
+- [x] Keep the two-hour public-corpus evaluation on a development machine; never turn absence into skip/success or restore it as a push-CI gate. No long jobs in the inspected `2270a40` run; explicit CI scorer exclusion retained.
+- [x] Keep the narrowly scoped fixture and model-export speech checks while the long dialogue study stays off CI. Retained export checks actually ran at `2270a40`.
+- [x] Preserve existing push triggers/workflow names, R8, native integrity and emulator checks. Both original bounded jobs passed at `2270a40`.
 
 **Done:** applicable existing jobs pass on the intended revision, and the build path works without relying on a particular warm cache. If access prevents this, report the exact missing permission/artifact instead of asserting success.
 
@@ -64,24 +87,24 @@ repair; Timofey owns assets/bootstrap/CI, Pasha actual job/text integration and
 Andrey model/runtime approval. Cross-role blockers are assigned in their checklists,
 not claimed as completed work here.
 
-- [ ] Pin model manifest and build-time asset hashes; package current acoustic models first to unblock an internal baseline.
-- [ ] Replace the competition APK's weight-absence check with required-payload, integrity, ABI and provenance checks.
-- [ ] Include all necessary tokenizer/config/license files; add Andrey's selected text-model assets and runtime through a versioned contract. Confirmed by the 19:00 comparison: `model_int8.onnx` and `tokenizer.json` from `onnx-community/Qwen2.5-0.5B-Instruct` with the revision, sizes and hashes in [text-punctuation.md](../interfaces/text-punctuation.md) and `TextModelFiles`; it runs on the existing ONNX Runtime, so no new native library is needed.
+- [x] Pin model manifest and build-time asset hashes; package current acoustic models first to unblock an internal baseline. Required payloads/receipt checked in successful `62fbe3f` CI.
+- [x] Replace the competition APK's weight-absence check with required-payload, integrity, ABI and provenance checks. Embedded checks pass at `62fbe3f`; compact weight-absence gate remains unchanged.
+- [x] Include all necessary tokenizer/config/license files; add Andrey's selected text-model assets and runtime through a versioned contract. Confirmed by the 19:00 comparison: `model_int8.onnx` and `tokenizer.json` from `onnx-community/Qwen2.5-0.5B-Instruct` with the revision, sizes and hashes in [text-punctuation.md](../interfaces/text-punctuation.md) and `TextModelFiles`; it runs on the existing ONNX Runtime, so no new native library is needed. Packaging and synthetic x86_64 execution passed at `62fbe3f`; ARM approval remains open.
 - [ ] Coordinate exact file-set/schema changes across Kotlin, Python and server validators/tests.
-- [ ] Stream assets to a staging directory with disk-space checks; verify hashes before atomically selecting an immutable revision.
-- [ ] Preserve active inference leases and clean failed/interrupted staging safely; recover on the next launch.
-- [ ] Ensure first-launch readiness does not wait for DNS, catalog access, WorkManager or downloads.
-- [ ] Keep update behavior deterministic for evaluation; expose local readiness separately from optional transfer activity.
+- [x] Stream assets to a staging directory with disk-space checks; verify hashes before atomically selecting an immutable revision. Installer regressions and actual embedded extraction passed at `62fbe3f`.
+- [x] Preserve active inference leases and clean failed/interrupted staging safely; recover on the next launch. JVM interrupted-promotion regressions and required paired-lease corruption recovery passed at `62fbe3f`; physical process-kill acceptance remains in T3/Petya's checklist.
+- [x] Ensure first-launch readiness does not wait for DNS, catalog access, WorkManager or downloads. Required network-disabled bootstrap and absence of download work passed at `62fbe3f`.
+- [x] Keep update behavior deterministic for evaluation; expose local readiness separately from optional transfer activity. Offline network permissions/download service stay disabled; compact transfer gates retained in `62fbe3f` CI.
 
 **Done:** clean install with Wi-Fi/mobile data off before first launch reaches real inference. Then add all mandatory model stages and repeat. A basic acoustic-only checkpoint is not proof of full LLM compliance.
 
 ### T3. Verify native and installation behavior
 
-- [ ] Preserve isolation between Java ONNX Runtime and sherpa's C runtime; do not resolve collisions using arbitrary `pickFirst`.
+- [x] Preserve isolation between Java ONNX Runtime and sherpa's C runtime; do not resolve collisions using arbitrary `pickFirst`. Retained native checks and required emulator execution passed at `62fbe3f`; no ARM inference claim.
 - [ ] Verify added text-model runtime ABI/JNI/R8 behavior with CI and actual ARM inference.
-- [ ] Measure APK archive size, installed size, expanded model size and peak extraction disk requirement separately.
+- [ ] Measure APK archive size, installed size, expanded model size and peak extraction disk requirement separately. [T3 evidence](TIMOFEY_T3_STATUS.md#inspected-ci-measurements--62fbe3f) provides actual ARM64 APK sizes and distinct x86_64 own-package/model statistics. Actual ARM installation and physical-peak measurements remain required.
 - [ ] Test corrupted payload, insufficient space and process kill during extraction.
-- [ ] Ensure models are not activated merely because a saved success flag exists.
+- [x] Ensure models are not activated merely because a saved success flag exists. Required corruption/readiness recovery and hash-recheck regressions passed at `62fbe3f`.
 
 **Done:** interrupted/corrupted installs cannot create false readiness; the delivered artifact works on declared ARM targets. Removing extracted files must not be presented as reclaiming immutable APK asset bytes.
 
@@ -96,8 +119,8 @@ supplies the exact CI APK/pins and measurement contract, then reviews the table;
 this checklist is not permission to substitute CI x86_64 extraction for ARM work.
 
 - [ ] Record device/OS/ABI/RAM, APK/model hashes, threads, run order and thermal conditions.
-- [ ] Measure decode, model load, ASR, diarization, text LLM and save time, plus total wall time.
-- [ ] Report cold model preparation separately, cold/warm processing RTF and actual media duration.
+- [ ] Measure decode, model load, ASR, diarization, text LLM and save time, plus total wall time. [T4 instrumentation](TIMOFEY_T4_STATUS.md) adds exclusive monotonic counters and an on-screen report; device measurements are not yet recorded.
+- [ ] Report cold model preparation separately, cold/warm processing RTF and actual media duration. T3 keeps preparation separate; T4 computes completed-job RTF only with a known positive duration. Actual cold/warm ARM trials remain open.
 - [ ] Record available peak PSS/RSS, storage and repeated-job memory observations on today's tested inputs; label unmeasured maximum-duration behavior explicitly.
 - [ ] Keep acoustic weights/thresholds fixed. Host int8/thread studies are pushed; ARM optimization/quantization sweeps are backlog today.
 - [ ] Measure three evaluator-style files and shared cancellation checks; ten-job/long-duration stress tests stay open unless time remains after the mandatory floor.

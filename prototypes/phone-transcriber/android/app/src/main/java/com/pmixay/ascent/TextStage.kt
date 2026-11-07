@@ -57,14 +57,16 @@ internal object TextStages {
      */
     // Tests may rethrow failures on synthetic input to expose native/runtime integration errors.
     // Production keeps the fallback and never logs exception messages or recognized text.
-    fun run(directory: File?, segments: List<TranscriptSegment>, onFailure: (Throwable) -> Unit = {}): TextStageOutcome {
+    fun run(directory: File?, segments: List<TranscriptSegment>, timings: ProcessingTimings? = null, onFailure: (Throwable) -> Unit = {}): TextStageOutcome {
         if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
         if (segments.none { it.text.isNotBlank() }) return TextStageOutcome(segments, TextStageReport(TextStageStatus.SKIPPED))
         val files = locate(directory) ?: return TextStageOutcome(segments, TextStageReport(TextStageStatus.UNAVAILABLE))
         val started = System.nanoTime()
         return try {
-            val tokenizer = QwenTokenizer.load(files.tokenizer)
-            val outcome = OnnxTextModel(files.model, TextPunctuator.instructionPrefix(tokenizer)).use { model ->
+            val tokenizer = measureProcessing(timings, ProcessingMetricStage.TEXT_MODEL_LOAD) { QwenTokenizer.load(files.tokenizer) }
+            val outcome = measureProcessing(timings, ProcessingMetricStage.TEXT_MODEL_LOAD) {
+                OnnxTextModel(files.model, TextPunctuator.instructionPrefix(tokenizer))
+            }.use { model ->
                 present(segments, TextPunctuator(tokenizer, model), onFailure)
             }
             // Include tokenizer/session initialization and teardown in the stage's reported time.

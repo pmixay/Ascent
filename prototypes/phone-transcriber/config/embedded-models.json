@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "acoustic_model_id": "gigaam-multilingual-ctc-220m-2026-06",
   "acoustic_files": {
     "asr.onnx": {"bytes": 885826856, "sha256": "9e423f2690bfaf3e0fbb81185a080bfff27c4ec5aacef5e615676fffbe2545ff"},
@@ -7,6 +7,18 @@
     "tokens.json": {"bytes": 535, "sha256": "f3c52d56529a595c9de0c2b2f2fd95553ef8834861e6d2ee720a1626bcd01a8a"},
     "LICENSE-asr.txt": {"bytes": 1070, "sha256": "f00de6715714c7a63d08639cdbfaa40224eefc407302614bd19f1a8b98c875aa"},
     "LICENSE-speaker.txt": {"bytes": 11357, "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"}
+  },
+  "multilingual_model": {
+    "repository": "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+    "revision": "ed5d745623472f97cfc2e6c2916ee248798fc5a8",
+    "upstream": "nvidia/parakeet-tdt-0.6b-v3",
+    "license": "CC-BY-4.0",
+    "files": {
+      "encoder.int8.onnx": {"source": "encoder.int8.onnx", "bytes": 652282294, "sha256": "1afbe69c1ffdabee94755f42e4daf1d93549131a3da11356bda84fcef0f2c479"},
+      "decoder.int8.onnx": {"source": "decoder.int8.onnx", "bytes": 11845274, "sha256": "0222a86147299d4dee90edf95b6d13827edb42ad8b7c9cf0b2582f030937c0b5"},
+      "joiner.int8.onnx": {"source": "joiner.int8.onnx", "bytes": 6355277, "sha256": "cbd02f3696e9944970111fb439d9c3fd365a80374565f13f2b9c7007d253fc98"},
+      "tokens.txt": {"source": "tokens.txt", "bytes": 93939, "sha256": "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d"}
+    }
   },
   "text_model": {
     "repository": "onnx-community/Qwen2.5-0.5B-Instruct",

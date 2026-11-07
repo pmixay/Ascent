@@ -12,6 +12,17 @@ At fetched `origin/main` `4b16e3a`, participant timeline/result UI and model-sta
 
 Prepared on 7 November 2026: the [three-file offline judge script](../QA_JUDGE_SCRIPT.md), [test evidence register](../TEST_RESULTS.md), [holdout custody protocol](../HOLDOUT_CUSTODY.md), [input/output protocol](../PROTOCOL.md), independent [JSON validator](../../tools/qa/validate_transcript.py) and its CI-ready contract cases. Six AMI English meeting excerpts have supplied but unreviewed human annotations; six DataHive Russian call sources are hash-pinned but have no transcripts. Neither set has app inference or device evidence. [Installation](../INSTALLATION.md), [architecture](../ARCHITECTURE.md), [limitations](../LIMITATIONS.md), and [demo record/storyboard](../../artifacts/demo/README.md) are draft judge-facing material. They need exact final APK, model, CI, device and video evidence before H11/H12 can close.
 
+## Current follow-up on `codex/petya-open-work`
+
+Created from main `2133dfa`; integrates Timofey `42d4de9` and Pasha `00bb1ab`.
+The mode picker/actual-used label, protected Parakeet job directory and expandable
+T4 timing presentation are implemented. Judge/installation/diagnostic handoffs
+are updated in [PETYA_HANDOFF.md](PETYA_HANDOFF.md). Exact combined CI is recorded
+in [TEST_RESULTS.md](../TEST_RESULTS.md); phone trials remain user-deferred.
+Unchecked E1/E2 cases below are acceptance obligations, not a request to recreate
+the existing picker/timeline/export. Source implementation and phone evidence
+are distinct. AMI has one host evaluation now; see the custody update.
+
 ## Ownership
 
 ### Continued local work — 7 November 2026
@@ -181,11 +192,25 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
 
 ### Explicit T2 handoff from Timofey — user-assigned
 
+- [ ] After its own green CI, validate the new [schema-2 Parakeet APK](TIMOFEY_PARAKEET_STATUS.md)
+  on ARM: install/extraction/storage costs, readable NVIDIA/CC-BY-4.0 attribution,
+  old triple-lease recovery and actual selected-mode operation. The requested
+  emulator creation probe is not ARM acceptance; mode control remains Pasha's work.
+
 - [ ] Perform exact-build ARM cold-offline acoustic and text inference; record
   commit/APK/bundle hashes, OS/ABI/RAM/storage, cold/warm RTF and peak memory.
   The user will do phone trials later; x86_64 extraction is separate evidence.
 - [ ] Exercise corrupted/missing assets, low storage, kill during extraction and
   processing, reopen and three consecutive files. Original inputs stay unchanged.
+  Timofey's [T3 storage diagnostics](TIMOFEY_T3_STATUS.md) supplies a content-free
+  model-preparation record, verified in x86_64 CI at `62fbe3f`. Collect exact-build ARM values;
+  distinguish Android package stats, model logical bytes and sampled lower bounds
+  from the estimated extraction reserve. This is tooling, not completed evidence.
+  The next [T4 timing report](TIMOFEY_T4_STATUS.md) shows last-job exclusive stages,
+  total/media duration and completed RTF in volatile UI state. Review the small
+  status presentation seam; collect real fixed-input ARM values only after its own
+  CI. Nothing is added to logs, saved history or competition JSON; PSS/RSS and
+  thermal/run-order/device evidence remain your assigned trials.
 - [x] Repair authenticated model publication and verify live HTTPS payloads.
   See [server evidence](PETYA_SERVER_STATUS.md), including successful CI publication.
 - [ ] Validate Russian preparation/readiness/error UI on the exact offline APK.
