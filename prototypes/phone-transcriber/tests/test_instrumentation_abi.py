@@ -1,12 +1,14 @@
 """CI-only classfile-fixture checks; no compiler, model or application execution."""
 from pathlib import Path
+import io
 import struct
 import sys
 import tempfile
 import unittest
+import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from prepare_test_abi import prepare, references
+from prepare_test_abi import archive_references, prepare, references
 
 
 def fixture(*strings):
@@ -15,6 +17,15 @@ def fixture(*strings):
 
 
 class InstrumentationAbiTest(unittest.TestCase):
+    def test_reads_library_only_references_inside_an_aar(self):
+        jar = io.BytesIO()
+        with zipfile.ZipFile(jar, 'w') as archive:
+            archive.writestr('Helper.class', fixture('kotlinx/coroutines/CoroutineScopeKt'))
+        aar = io.BytesIO()
+        with zipfile.ZipFile(aar, 'w') as archive:
+            archive.writestr('classes.jar', jar.getvalue())
+        self.assertEqual({'kotlinx.coroutines.CoroutineScopeKt'}, archive_references(aar.getvalue()))
+
     def test_preserves_class_and_constructor_descriptor_only_types(self):
         result = references(fixture('androidx/work/WorkManager',
             '(Lcom/pmixay/ascent/TranscriptSegment;ILkotlin/jvm/internal/DefaultConstructorMarker;)V',

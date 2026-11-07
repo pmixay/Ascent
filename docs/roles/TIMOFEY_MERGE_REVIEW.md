@@ -113,6 +113,16 @@ separate testing library also calls internal APIs. CI fixture tests cover the
 generator; absent compiled classes fail closed. The same generated rules remain
 in force when the x86_64 test variant is built. No existing test is removed.
 
+Run [42390884321](https://github.com/pmixay/Ascent/actions/runs/42390884321)
+at `b7084b4` passed API generation and previous application constructor boundaries,
+but `work-testing` called a coroutine API absent from the app's optimized binary.
+The missing source of entry points was test-only dependency bytecode, not our
+compiled test classes. The next revision inventories test-only resolved JAR/AAR
+artifacts and includes their classfile references in the generated API rules.
+Synthetic AAR regression coverage exercises library-only references. The emulator
+driver now always checks XML and prints runner diagnostics even when Gradle itself
+fails, while requiring **both** Gradle and XML success; neither failure is ignored.
+
 ## Can it merge?
 
 **Pending exact merged-revision CI.** Static review and conflict resolution alone

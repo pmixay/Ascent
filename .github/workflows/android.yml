@@ -119,8 +119,8 @@ jobs:
       # Regression resources are JVM-test-only; the compact APK contains no weights or speech fixtures.
       - name: Establish compiled instrumentation API before application optimization
         run: |
-          gradle --stacktrace :app:compileDebugAndroidTestKotlin
-          python3 ../scripts/prepare_test_abi.py --classes app/build/intermediates/built_in_kotlinc/debugAndroidTest/compileDebugAndroidTestKotlin/classes --output app/build/generated/instrumentation-abi.pro
+          gradle --stacktrace :app:compileDebugAndroidTestKotlin :app:collectInstrumentationAbiDependencies
+          python3 ../scripts/prepare_test_abi.py --classes app/build/intermediates/built_in_kotlinc/debugAndroidTest/compileDebugAndroidTestKotlin/classes --dependencies app/build/generated/instrumentation-abi-dependencies --output app/build/generated/instrumentation-abi.pro
 
       - name: Run checks and build APK
         run: >-
@@ -201,8 +201,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-save -noaudio -no-boot-anim -camera-back none
           script: |
-            gradle --stacktrace --info -PascentAbi=x86_64 :app:connectedDebugAndroidTest
-            python3 ../scripts/verify_android_tests.py app/build/outputs/androidTest-results --diagnose-device --require 'com.pmixay.ascent.NativeRuntimeTest#bothInferenceLibrariesLoadInOneAndroidProcess' --require 'com.pmixay.ascent.NativeRuntimeTest#optimizedSpeakerBindingReachesNativeConfigurationValidation' --require 'com.pmixay.ascent.NativeRuntimeTest#optimizedActivityAndViewModelStart' --require 'com.pmixay.ascent.NativeRuntimeTest#automaticModelWorkIsUniqueAndWaitsForNetwork' --require 'com.pmixay.ascent.ConversationStorageRuntimeTest#androidKeystoreHistorySurvivesStoreRecreation' --require 'com.pmixay.ascent.ModelStatusRuntimeTest#equivalentSelectedPathsDoNotDeleteTheActiveOrLeasedRevision' --require 'com.pmixay.ascent.ModelDownloadServiceRuntimeTest#transferContinuesAfterActivityClosesAndRepeatedStartsStaySingle'
+            python3 ../scripts/run_android_instrumentation.py --require 'com.pmixay.ascent.NativeRuntimeTest#bothInferenceLibrariesLoadInOneAndroidProcess' --require 'com.pmixay.ascent.NativeRuntimeTest#optimizedSpeakerBindingReachesNativeConfigurationValidation' --require 'com.pmixay.ascent.NativeRuntimeTest#optimizedActivityAndViewModelStart' --require 'com.pmixay.ascent.NativeRuntimeTest#automaticModelWorkIsUniqueAndWaitsForNetwork' --require 'com.pmixay.ascent.ConversationStorageRuntimeTest#androidKeystoreHistorySurvivesStoreRecreation' --require 'com.pmixay.ascent.ModelStatusRuntimeTest#equivalentSelectedPathsDoNotDeleteTheActiveOrLeasedRevision' --require 'com.pmixay.ascent.ModelDownloadServiceRuntimeTest#transferContinuesAfterActivityClosesAndRepeatedStartsStaySingle'
 
       - name: Upload checked debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -347,8 +346,8 @@ jobs:
         working-directory: prototypes/phone-transcriber/android
         run: |
           sdkmanager "platforms;android-37.2" "build-tools;37.0.0" "emulator"
-          gradle --stacktrace -PascentEmbedded=true :app:compileDebugAndroidTestKotlin
-          python3 ../scripts/prepare_test_abi.py --classes app/build/intermediates/built_in_kotlinc/debugAndroidTest/compileDebugAndroidTestKotlin/classes --output app/build/generated/instrumentation-abi.pro
+          gradle --stacktrace -PascentEmbedded=true :app:compileDebugAndroidTestKotlin :app:collectInstrumentationAbiDependencies
+          python3 ../scripts/prepare_test_abi.py --classes app/build/intermediates/built_in_kotlinc/debugAndroidTest/compileDebugAndroidTestKotlin/classes --dependencies app/build/generated/instrumentation-abi-dependencies --output app/build/generated/instrumentation-abi.pro
           gradle --stacktrace -PascentEmbedded=true :app:lintDebug :app:testDebugUnitTest --tests 'com.pmixay.ascent.EmbeddedModelInstallerTest' :app:assembleDebug
           python3 ../scripts/check_apk.py --apk app/build/outputs/apk/debug/app-debug.apk --mapping app/build/outputs/mapping/debug/mapping.txt --embedded-assets app/build/generated/offline-assets/models
           mkdir -p build/offline-distribution
@@ -372,8 +371,7 @@ jobs:
           script: |
             adb shell svc wifi disable
             adb shell svc data disable
-            gradle --stacktrace --info -PascentEmbedded=true -PascentAbi=x86_64 -Pandroid.testInstrumentationRunnerArguments.class=com.pmixay.ascent.EmbeddedModelRuntimeTest :app:connectedDebugAndroidTest
-            python3 ../scripts/verify_android_tests.py app/build/outputs/androidTest-results --diagnose-device --require 'com.pmixay.ascent.EmbeddedModelRuntimeTest#coldBootstrapSelectsBothGroupsWithoutDownloadWork'
+            python3 ../scripts/run_android_instrumentation.py --embedded --require 'com.pmixay.ascent.EmbeddedModelRuntimeTest#coldBootstrapSelectsBothGroupsWithoutDownloadWork'
       - name: Upload checked offline asset baseline
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -489,8 +487,8 @@ jobs:
       - name: Compile evaluation harness
         run: |
           sdkmanager "platforms;android-37.2" "build-tools;37.0.0"
-          gradle --stacktrace :app:compileDebugAndroidTestKotlin
-          python3 ../scripts/prepare_test_abi.py --classes app/build/intermediates/built_in_kotlinc/debugAndroidTest/compileDebugAndroidTestKotlin/classes --output app/build/generated/instrumentation-abi.pro
+          gradle --stacktrace :app:compileDebugAndroidTestKotlin :app:collectInstrumentationAbiDependencies
+          python3 ../scripts/prepare_test_abi.py --classes app/build/intermediates/built_in_kotlinc/debugAndroidTest/compileDebugAndroidTestKotlin/classes --dependencies app/build/generated/instrumentation-abi-dependencies --output app/build/generated/instrumentation-abi.pro
           gradle --stacktrace :app:compileDebugUnitTestKotlin
 
       - name: Score Android attribution and joint transcription errors

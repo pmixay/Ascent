@@ -101,6 +101,25 @@ dependencies {
     androidTestImplementation(libs.work.testing)
 }
 
+// CI reads bytecode of test-only libraries too: WorkManager's testing helpers
+// reference runtime APIs not present in our own test class constant pools.
+tasks.register("collectInstrumentationAbiDependencies") {
+    doLast {
+        val appArtifacts = configurations.getByName("debugRuntimeClasspath")
+            .resolvedConfiguration.resolvedArtifacts.map { it.moduleVersion.id }.toSet()
+        val output = layout.buildDirectory.dir("generated/instrumentation-abi-dependencies").get().asFile
+        output.mkdirs()
+        output.listFiles()?.forEach { it.delete() }
+        configurations.getByName("debugAndroidTestRuntimeClasspath")
+            .resolvedConfiguration.resolvedArtifacts
+            .filter { it.moduleVersion.id !in appArtifacts }
+            .sortedBy { it.file.name }
+            .forEachIndexed { index, artifact ->
+                artifact.file.copyTo(output.resolve("$index-${artifact.file.name}"), overwrite = true)
+            }
+    }
+}
+
 // The long evaluation reads verified resources outside the regular JVM source set.
 // Always score them in its dedicated job; compile/dependency caches remain enabled.
 if (providers.environmentVariable("ASCENT_DIALOG_EVALUATION").isPresent) {
