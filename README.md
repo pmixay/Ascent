@@ -63,7 +63,11 @@ both completed successfully. Timofey's [ordered plan review](docs/roles/TIMOFEY_
 separates already implemented packaging/integration from missing access, device,
 measurement and release work. Its first follow-up adds cached-export validation
 receipts bound to source/dependency/fixture hashes and the producer CI run;
-those new branch checks have not run and are not certified by main's result.
+those branch changes are pushed as `2270a40`, with [CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
+completed successfully for both jobs, including cold export/receipt generation.
+Warm receipt reuse is still pending. The next [T3 tooling slice](docs/roles/TIMOFEY_T3_STATUS.md)
+adds separate installed-package/model storage measurements; it is not ARM or
+physical peak-storage acceptance.
 
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present

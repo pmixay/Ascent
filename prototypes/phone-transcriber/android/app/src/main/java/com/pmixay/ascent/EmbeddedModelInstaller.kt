@@ -10,6 +10,7 @@ import java.security.MessageDigest
 import java.util.UUID
 
 internal data class EmbeddedInstallation(val acoustic: File, val text: File)
+internal const val EMBEDDED_MODEL_DISK_RESERVE_BYTES = 32L * 1024 * 1024
 
 /** Separate envelope: the existing acoustic wire format and server validators do not change. */
 internal class EmbeddedBundle(val digest: String, val files: List<ModelFileRecord>) {
@@ -101,7 +102,7 @@ internal class EmbeddedModelInstaller(
                 if (Files.isSymbolicLink(text.toPath())) text.delete() else text.deleteRecursively()
             }
         }
-        require(availableBytes() >= bundle.totalBytes + RESERVE) { "Недостаточно места для встроенных моделей" }
+        require(availableBytes() >= bundle.totalBytes + EMBEDDED_MODEL_DISK_RESERVE_BYTES) { "Недостаточно места для встроенных моделей" }
         val id = "embedded-${bundle.digest}-${UUID.randomUUID()}"
         val staging = File(root, ".embedded-stage-$id")
         val result = EmbeddedInstallation(File(root, "gigaam-$id"), File(root, "text-$id"))
@@ -112,7 +113,7 @@ internal class EmbeddedModelInstaller(
             var completed = 0L
             for (entry in bundle.files) {
                 interrupted()
-                require(availableBytes() >= entry.bytes + RESERVE) { "Недостаточно места для встроенных моделей" }
+                require(availableBytes() >= entry.bytes + EMBEDDED_MODEL_DISK_RESERVE_BYTES) { "Недостаточно места для встроенных моделей" }
                 val target = file(staged, entry.name)
                 val digest = MessageDigest.getInstance("SHA-256")
                 var length = 0L
@@ -157,5 +158,4 @@ internal class EmbeddedModelInstaller(
         if (name.startsWith("acoustic/")) File(installation.acoustic, name.removePrefix("acoustic/"))
         else File(installation.text, name.removePrefix("text-model/"))
 
-    companion object { private const val RESERVE = 32L * 1024 * 1024 }
 }

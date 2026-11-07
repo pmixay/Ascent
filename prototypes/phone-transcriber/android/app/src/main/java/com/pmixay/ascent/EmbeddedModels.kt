@@ -77,6 +77,7 @@ internal object EmbeddedModels {
         }.toMap()
 
     suspend fun extract(context: Context, progress: (Long, Long) -> Unit): EmbeddedInstallation = runInterruptible {
+        val startedNs = System.nanoTime()
         val bytes = context.assets.open("models/bundle.json").use { it.readBytes() }
         val bundle = EmbeddedBundle.parse(bytes, BuildConfig.EMBEDDED_BUNDLE_SHA256)
         val root = ModelSelection.root(context)
@@ -84,7 +85,18 @@ internal object EmbeddedModels {
         val saved = preferences.getString("modelPath", null)?.let { acoustic ->
             preferences.getString("modelTextPath", null)?.let { EmbeddedInstallation(File(acoustic), File(it)) }
         }
+        val probe = ModelStorageProbe({ ModelStorageSample(root.usableSpace, modelDirectoryLogicalBytes(root)) })
+        var copiedBytes = 0L
         EmbeddedModelInstaller(root, bundle, { context.assets.open("models/$it") }, isLeased = ModelSelection::isLeased)
-            .install(saved, progress)
+            .install(saved) { completed, total ->
+                copiedBytes = completed
+                probe.progress()
+                progress(completed, total)
+            }.also {
+                val observation = probe.finish()
+                val elapsedMs = (System.nanoTime() - startedNs) / 1_000_000
+                // StorageStatsManager may take seconds. It must not gate selection/readiness or inference.
+                scope.launch { ModelStorageDiagnostics.report(context.applicationContext, bundle.totalBytes, observation, copiedBytes, elapsedMs) }
+            }
     }
 }

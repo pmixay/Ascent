@@ -52,7 +52,10 @@ and [Model Export 42393688781](https://github.com/pmixay/Ascent/actions/runs/423
 passed; phone acceptance is deferred at the user's request. The
 [ordered Timofey review](docs/roles/TIMOFEY_PLAN_REVIEW.md) records the remaining
 access, ARM, measurement and release gaps. Its new cached-export validation receipt
-checks are source changes only, awaiting branch CI. Historical teammate runs are in
+checks are pushed as `2270a40`, with [branch CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
+successful for both jobs and actual cold export/receipt generation; warm receipt
+reuse is pending. [T3 storage tooling](docs/roles/TIMOFEY_T3_STATUS.md) is the next slice,
+not completed ARM/physical-peak evidence. Historical teammate runs are in
 [T2 status](docs/roles/TIMOFEY_T2_STATUS.md).
 
 Model publication is repaired and independently verified; see

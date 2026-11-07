@@ -40,6 +40,7 @@
 -keep class com.pmixay.ascent.TextStageStatus { public *; protected *; }
 -keep class com.pmixay.ascent.EmbeddedModels { public *; protected *; }
 -keep class com.pmixay.ascent.EmbeddedInstallation { public *; protected *; }
+-keep class com.pmixay.ascent.ModelStorageDiagnostics { public *; protected *; }
 
 # work-testing calls the WorkManager library across the APK boundary, including
 # public implementation APIs. Preserve its binary API without keeping AndroidX

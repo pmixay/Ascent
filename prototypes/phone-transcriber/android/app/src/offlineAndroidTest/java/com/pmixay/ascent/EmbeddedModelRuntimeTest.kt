@@ -11,6 +11,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.json.JSONObject
 import java.io.File
 
 /** Offline-only extraction/recovery and one synthetic text-stage invocation; no ARM acceptance. */
@@ -31,6 +32,21 @@ class EmbeddedModelRuntimeTest {
         val work = WorkManager.getInstance(context)
         assertTrue(work.getWorkInfosForUniqueWork("ascent-model-download").get().isEmpty())
         assertTrue(work.getWorkInfosForUniqueWork("ascent-model-updates").get().isEmpty())
+        val storage = JSONObject(withTimeout(30_000) { ModelStorageDiagnostics.reports.first { it != null } }!!)
+        assertEquals("measured", storage.getString("installed_stats_status"))
+        assertEquals(BuildConfig.SOURCE_COMMIT, storage.getString("source_commit"))
+        assertEquals(BuildConfig.NATIVE_ABI, storage.getString("apk_abi"))
+        assertEquals(BuildConfig.EMBEDDED_BUNDLE_SHA256, storage.getString("bundle_sha256"))
+        assertTrue(storage.getLong("installed_apk_files_bytes") > 0)
+        assertTrue(storage.getLong("installed_app_bytes") > 0)
+        assertTrue(storage.getLong("expanded_payload_bytes") > 0)
+        assertEquals("extracted", storage.getString("preparation_kind"))
+        assertEquals(storage.getLong("expanded_payload_bytes"), storage.getLong("copied_asset_bytes"))
+        assertTrue(storage.getLong("extraction_and_validation_elapsed_ms") >= 0)
+        assertTrue(storage.getLong("model_directory_logical_bytes_after_install") >= storage.getLong("expanded_payload_bytes"))
+        assertTrue(storage.getInt("successful_samples") >= 2)
+        assertEquals(0, storage.getInt("failed_samples"))
+        println("Synthetic ${BuildConfig.NATIVE_ABI} bootstrap storage (not full-pipeline acceptance): $storage")
         ModelSelection.acquire(context).use { lease ->
             assertTrue(File(lease.directory, "asr.onnx").isFile)
             val text = requireNotNull(lease.textDirectory)

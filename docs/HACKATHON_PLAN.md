@@ -81,7 +81,10 @@ and [Model Export 42393688781](https://github.com/pmixay/Ascent/actions/runs/423
 completed successfully, including publication and required instrumentation gates.
 See [Timofey's ordered review](roles/TIMOFEY_PLAN_REVIEW.md) before reassigning
 already implemented bootstrap/text integration. The first follow-up adds independent
-cached-export input/producer receipts; that branch still needs its own CI. Signing
+cached-export input/producer receipts; pushed `2270a40` has [CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
+successful for both jobs and actual cold export/receipt generation; warm reuse
+remains pending. [T3 storage instrumentation](roles/TIMOFEY_T3_STATUS.md) follows without
+substituting sampled logical bytes for physical-device evidence. Signing
 access, ARM/device measurements and final release acceptance remain open. This
 status reconciliation does not change the schedule or relax any gate.
 

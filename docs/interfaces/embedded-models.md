@@ -79,6 +79,12 @@ Android's install copies, extracted models, old leased revisions and the 32 MiB
 extraction reserve separate in measurements. Removing extracted files cannot
 remove immutable APK asset bytes. Petya measures actual devices/storage failures.
 
+The T3 follow-up adds best-effort model-only storage samples and an asynchronous
+own-package storage-stat query. It logs only aggregate sizes/build identities under
+`AscentModelStorage`; the query does not gate readiness and records unavailable
+values explicitly. It neither scans retained content nor changes installation
+budgets. [Field definitions and measurement limits](../roles/TIMOFEY_T3_STATUS.md).
+
 ## Open acceptance dependencies
 
 The merged ViewModel connects the sequential text stage and job/export flow.

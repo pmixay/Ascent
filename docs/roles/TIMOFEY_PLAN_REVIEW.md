@@ -82,9 +82,27 @@ release criteria must not be reimplemented as placeholders or reported complete.
 ## Verification / next handoff
 
 Local verification is limited to Python AST, JSON/YAML syntax, source/diff review
-and read-only network evidence. New tests are **not run** and the new branch is
-**not pushed**. Its receipt-aware cold/warm CI results and new APK identities are
-pending. Do not reuse main's passing run as evidence for these changes.
+and read-only network evidence. The user requested a push and continued work:
+receipt implementation `2270a40` is now pushed; its
+[Android CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
+completed **success**: compact job `128472411722` and embedded job `128472411416`.
+The embedded job actually executed dependency setup, export validation and receipt
+recording (not skipped), establishing the cold output-cache path. Both artifact
+uploads followed successful required checks. Warm receipt reuse is still pending.
+No local application tests ran.
+
+Artifacts for this T1 revision (Actions-reported ZIP sizes/digests, **not APK hashes**):
+
+| Artifact | ZIP bytes | ZIP SHA-256 |
+| --- | ---: | --- |
+| [debug-2270a400](https://github.com/pmixay/Ascent/actions/runs/42395674575/artifacts/13583695505) | 25,228,679 | `1928f66d6dc5537b6842fbd776e770ef0c5bda757c38b92b4ecb30b9fae58e05` |
+| [offline-baseline-2270a400](https://github.com/pmixay/Ascent/actions/runs/42395674575/artifacts/13583587938) | 1,496,576,433 | `a5c92dc50293cb7ec01ba768a197cbf90a41c77246a5548cc2cd8d22e9ffccd4` |
+
+These are internal 14-day handoff artifacts, not durable submission releases.
+
+Next source slice: [T3 storage measurements](TIMOFEY_T3_STATUS.md), separating
+installed APK/code/data/cache, payload, sampled model-directory peaks and the
+fresh extraction budget. Actual ARM and full physical-peak evidence remain open.
 
 Next: run the existing push CI on the reviewed branch, inspect both jobs and a
 subsequent exact-input warm reuse, then obtain the missing access/device inventory.

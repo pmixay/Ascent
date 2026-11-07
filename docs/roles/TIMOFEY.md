@@ -11,8 +11,10 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 **Current main reconciliation:** [ordered review and first remaining T1 slice](TIMOFEY_PLAN_REVIEW.md).
 At `f04aaa7`, both Android jobs in run `42393688728` and Model Export/publication
 in run `42393688781` passed. Embedded packaging and real sequential text integration
-are already in source. The new validation-input receipt changes in
-`timofey/plan-next-incomplete` still need their own CI; ARM/release acceptance stays open.
+are already in source. The validation-input receipt changes in
+`timofey/plan-next-incomplete` are pushed as `2270a40`; both jobs in [CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
+passed, including cold export/receipt generation. Warm receipt reuse is pending.
+[T3 measurement tooling](TIMOFEY_T3_STATUS.md) follows; ARM/release acceptance stays open.
 
 - Existing push-only Android/model workflows, R8/JNI isolation, downloader verification/leases and acoustic pipeline are the base, not tasks to recreate.
 - At fetched `origin/main` `4b16e3a`, historical [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042) has a **successful build/validation job**. The overall run failed because the since-removed two-hour inference inputs were missing; that failure is not a current CI gate.
@@ -44,11 +46,11 @@ are already in source. The new validation-input receipt changes in
 ### T1. Repair specific failed checks; keep the working build path
 
 - [x] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks. Existing recovery and current exact-main publication verified in `42393688781`; no new exporter repair is needed.
-- [ ] Verify the pushed integrity-checked model/export regeneration path from pinned public sources; do not rely only on a warm cache.
+- [x] Verify the pushed integrity-checked model/export regeneration path from pinned public sources; do not rely only on a warm cache. `2270a40` / `42395674575` actually executed export validation and receipt recording on an output-cache miss; historical cold checkpoint transport evidence remains in T1 status.
 - [ ] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope. Independent cached-export receipt added in the current T1 slice; new cold/warm branch CI is pending. See the current review above.
-- [ ] Keep the two-hour public-corpus evaluation on a development machine; never turn absence into skip/success or restore it as a push-CI gate.
-- [ ] Keep the narrowly scoped fixture and model-export speech checks while the long dialogue study stays off CI.
-- [ ] Preserve existing push triggers/workflow names, R8, native integrity and emulator checks.
+- [x] Keep the two-hour public-corpus evaluation on a development machine; never turn absence into skip/success or restore it as a push-CI gate. No long jobs in the inspected `2270a40` run; explicit CI scorer exclusion retained.
+- [x] Keep the narrowly scoped fixture and model-export speech checks while the long dialogue study stays off CI. Retained export checks actually ran at `2270a40`.
+- [x] Preserve existing push triggers/workflow names, R8, native integrity and emulator checks. Both original bounded jobs passed at `2270a40`.
 
 **Done:** applicable existing jobs pass on the intended revision, and the build path works without relying on a particular warm cache. If access prevents this, report the exact missing permission/artifact instead of asserting success.
 
@@ -85,7 +87,7 @@ not claimed as completed work here.
 
 - [ ] Preserve isolation between Java ONNX Runtime and sherpa's C runtime; do not resolve collisions using arbitrary `pickFirst`.
 - [ ] Verify added text-model runtime ABI/JNI/R8 behavior with CI and actual ARM inference.
-- [ ] Measure APK archive size, installed size, expanded model size and peak extraction disk requirement separately.
+- [ ] Measure APK archive size, installed size, expanded model size and peak extraction disk requirement separately. [T3 tooling](TIMOFEY_T3_STATUS.md) adds distinct own-package statistics and model-only sampled observations; new CI and actual ARM/physical-peak measurements remain required.
 - [ ] Test corrupted payload, insufficient space and process kill during extraction.
 - [ ] Ensure models are not activated merely because a saved success flag exists.
 

@@ -9,6 +9,8 @@ plugins {
 val ascentAbi = providers.gradleProperty("ascentAbi").orElse("arm64-v8a").get()
 require(ascentAbi in setOf("arm64-v8a", "x86_64")) { "Unsupported Ascent ABI: $ascentAbi" }
 val embeddedModels = providers.gradleProperty("ascentEmbedded").orElse("false").get().toBooleanStrict()
+val sourceCommit = providers.environmentVariable("GITHUB_SHA").orElse("unknown").get()
+require(sourceCommit == "unknown" || sourceCommit.matches(Regex("[0-9a-f]{40}"))) { "Invalid CI source revision" }
 val embeddedAssets = layout.buildDirectory.dir("generated/offline-assets").get().asFile
 val embeddedManifest = embeddedAssets.resolve("models/bundle.json")
 val embeddedDigest = if (embeddedModels) {
@@ -42,6 +44,8 @@ android {
         }
         buildConfigField("boolean", "EMBEDDED_MODELS", embeddedModels.toString())
         buildConfigField("String", "EMBEDDED_BUNDLE_SHA256", "\"$embeddedDigest\"")
+        buildConfigField("String", "SOURCE_COMMIT", "\"$sourceCommit\"")
+        buildConfigField("String", "NATIVE_ABI", "\"$ascentAbi\"")
         ndk { abiFilters += ascentAbi }
     }
     compileOptions {
