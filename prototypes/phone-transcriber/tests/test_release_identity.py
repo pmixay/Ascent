@@ -106,7 +106,7 @@ class IdentityTests(unittest.TestCase):
         suffix = ".offline" if kind == "offline" else ""
         version_suffix = "-offline-baseline" if kind == "offline" else ""
         badging = f"package: name='com.pmixay.ascent{suffix}' versionCode='140' versionName='0.1.140-aaaaaaaa{version_suffix}'\nnative-code: 'arm64-v8a'\n"
-        signing = "Signer #1 certificate SHA-256 digest: " + "e" * 64 + "\n"
+        signing = "Verifies\nNumber of signers: 1\nSigner #1 certificate SHA-256 digest: " + "e" * 64 + "\n"
         return apk, env, badging, signing
 
     def test_exact_versions_certificate_raw_apk_and_bundle_are_independent(self):
@@ -143,6 +143,30 @@ class IdentityTests(unittest.TestCase):
             with self.assertRaises(ValueError): apk_identity.identity(apk, "compact", badging, signing, env)
             env["ASCENT_EXPECTED_CERT_SHA256"] = "e" * 64
             self.assertEqual("protected-key", apk_identity.identity(apk, "compact", badging, signing, env)["signing_mode"])
+
+    def test_sdk_range_signer_output_preserves_one_identity_and_the_protected_pin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk, env, badging, _ = self.fixture(Path(directory))
+            signing = ("Verifies\nVerified using v3.1 scheme (APK Signature Scheme v3.1): true\n"
+                       "Number of signers: 1\n"
+                       "Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: " + "e" * 64 + "\n"
+                       "Signer (minSdkVersion=31, maxSdkVersion=32) certificate SHA-256 digest: " + "e" * 64 + "\n"
+                       "Source Stamp Signer certificate SHA-256 digest: " + "f" * 64 + "\n")
+            env.update(ASCENT_SIGNING_MODE="protected-key", ASCENT_EXPECTED_CERT_SHA256="e" * 64)
+            result = apk_identity.identity(apk, "compact", badging, signing, env)
+            self.assertEqual("e" * 64, result["certificate_sha256"])
+            for invalid in (
+                    signing.replace("Number of signers: 1", "Number of signers: 2"),
+                    signing.replace("Number of signers: 1\n", ""),
+                    signing.replace("maxSdkVersion=32) certificate SHA-256 digest: " + "e" * 64,
+                                    "maxSdkVersion=32) certificate SHA-256 digest: " + "f" * 64),
+                    signing.replace("Signer (minSdkVersion=31, maxSdkVersion=32)", "Signer unknown"),
+                    signing.replace("Signer (minSdkVersion=31, maxSdkVersion=32)", "Signer #1")):
+                with self.subTest(signing=invalid), self.assertRaises(ValueError):
+                    apk_identity.identity(apk, "compact", badging, invalid, env)
+            env["ASCENT_EXPECTED_CERT_SHA256"] = "a" * 64
+            with self.assertRaises(ValueError):
+                apk_identity.identity(apk, "compact", badging, signing, env)
 
     def test_sdk_verification_failure_prints_no_identity_or_stderr(self):
         with tempfile.TemporaryDirectory() as directory:

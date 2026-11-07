@@ -24,6 +24,27 @@ class IdentityError(ValueError):
     """A content-free verification reason safe to expose in CI."""
 
 
+def signer_certificate(signing: str) -> str:
+    # apksigner prints SDK ranges instead of #1 for v3.1, including two ranges
+    # with the same certificate. Key rotation to another identity stays refused.
+    # See AOSP ApkSignerTool.verify(): isVerifiedUsingV31Scheme().
+    label = r"(?:#[1-9][0-9]*|\(minSdkVersion=[1-9][0-9]*(?: \(dev release=true\))?, maxSdkVersion=[1-9][0-9]*\))"
+    lines = [line for line in signing.splitlines()
+             if line.startswith("Signer ") and " certificate SHA-256 digest:" in line]
+    records = [re.fullmatch(r"Signer (" + label + r") certificate SHA-256 digest: ([0-9a-fA-F:]+)", line)
+               for line in lines]
+    if (re.findall(r"^Number of signers: ([0-9]+)$", signing, re.M) != ["1"]
+            or not records or any(record is None for record in records)):
+        raise IdentityError("APK must have one verified signer")
+    labels = [record[1] for record in records]
+    if any(value.startswith("#") for value in labels) and labels != ["#1"]:
+        raise IdentityError("APK must have one verified signer")
+    certificates = {certificate_digest(record[2]) for record in records}
+    if len(certificates) != 1:
+        raise IdentityError("APK signer must stay the same across verified SDK ranges")
+    return certificates.pop()
+
+
 def identity(apk: Path, kind: str, badging: str, signing: str, environment: dict[str, str]) -> dict:
     if environment.get("GITHUB_ACTIONS") != "true":
         raise IdentityError("APK identity recording is CI-only")
@@ -48,10 +69,7 @@ def identity(apk: Path, kind: str, badging: str, signing: str, environment: dict
     native = re.search(r"^native-code: (.+)$", badging, re.M)
     if not native or native[1].strip() != "'arm64-v8a'":
         raise IdentityError("Downloadable APK must be ARM64-only")
-    certificates = re.findall(r"^Signer #[0-9]+ certificate SHA-256 digest: ([0-9a-fA-F:]+)$", signing, re.M)
-    if len(certificates) != 1:
-        raise IdentityError("APK must have one verified signer")
-    certificate = certificate_digest(certificates[0])
+    certificate = signer_certificate(signing)
     mode = environment.get("ASCENT_SIGNING_MODE")
     if mode == "protected-key":
         if certificate != certificate_digest(environment.get("ASCENT_EXPECTED_CERT_SHA256", "")):
