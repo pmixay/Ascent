@@ -105,6 +105,10 @@ corpus inference, model search or acoustic runtime benchmark is added to CI.
 
 New code has static review only until its own push CI finishes. This does not
 exercise a full phone import/inference/save job or establish physical ARM behavior.
+T4 source is pushed as `68487f1`; [CI 42402862397](https://github.com/pmixay/Ascent/actions/runs/42402862397)
+is running. A read-only [T5 incoming-main review](TIMOFEY_T5_STATUS.md) records the
+separate, not-yet-integrated Parakeet packaging/size/API handoff. It is not silently
+included in the current default-model candidate.
 Petya/user must install the exact new CI APK, retain the corresponding raw APK,
 bundle, model and source hashes, then record the on-screen total, media duration,
 RTF and stages for the fixed three-file cold/warm sequence. Record run order,
