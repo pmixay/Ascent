@@ -87,10 +87,36 @@ same public reference export. RTF excludes file decoding and model loading. Sour
 The energy proxy is a labelled stand-in, not human annotation. English output is lowercase
 with numbers spelled out; read audiobook speech is easier than conversation.
 
+## Worst case: software ARM emulation on an x86 host
+
+A lower bound on speed if the jury's ARM emulator runs on an x86 host with pure
+instruction translation. This is not a device or Android-emulator measurement. The same
+model files ran with aarch64 CPython 3.12 and ONNX Runtime 1.31.0 (aarch64 wheel) under
+`qemu-aarch64-static` user-mode emulation of a Neoverse-N1 core, 2 threads, on the same
+4-core x86 container, against the same files natively. Inputs are synthetic features of the
+production window sizes (ASR: 22.5 s window with a 20 s core; speaker: 1.5 s window), except
+the text stage, which ran on development clips. RTF excludes model loading.
+
+| Model | Native x86 | Emulated ARM | Slowdown |
+| --- | --- | --- | --- |
+| ASR (GigaAM CTC), one window | 1.62 s, RTF 0.081 | 440.8 s, RTF 22.0 | ≈ 270× |
+| Speaker (ERes2NetV2), one window | 0.089 s, RTF ≈ 0.085 | ≈ 25 s, RTF ≈ 24 | ≈ 280× |
+| Text stage (Qwen2.5 0.5B int8) | RTF 0.091, load 15 s | RTF 6.3, load 56 s | ≈ 70× (rough) |
+| Sum of the stages above | RTF ≈ 0.26 | RTF ≈ 52 | |
+
+The emulated text row covers only 2 clips (3.8 s of audio), against 10 natively, so it is
+approximate. An emulator on an ARM host (Apple Silicon, ARM servers) runs this code at close
+to native speed, so this table bounds the x86-host case only; other translators may be
+faster and were not measured. Under QEMU's default `max` CPU model, which advertises SVE,
+no ONNX Runtime run finished in 40 minutes; disabling SME alone did not help, disabling
+SVE and SME did. Behaviour of an emulator that advertises SVE without hardware support is
+therefore a risk, unobserved on real hardware.
+
 ## Limitations
 
-- **No device evidence.** Speed, memory and behaviour on ARM and on the jury's ARM emulator
-  are unmeasured. The host CPU is likely several times faster than the emulator.
+- **No device evidence.** Speed, memory and behaviour on ARM devices and on the jury's ARM
+  emulator are unmeasured. Software emulation on an x86 host is about 270× slower than the
+  host (see the worst case above); an ARM-host emulator should be close to native.
 - **Not the deployed pack.** CI and host numbers come from the public reference export,
   which is not byte-identical to the deployed pack.
 - **Acted, constructed dialogue.** Two speakers per session, clean studio audio and
