@@ -409,12 +409,16 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             } finally {
                 var warning: String? = null
                 try {
-                    timings.enter(ProcessingMetricStage.CLEANUP).use { withContext(NonCancellable + Dispatchers.IO) {
-                        try {
-                            if (!saved && !imported) voices.discard(conversationId)
-                            warning = cleanup()
-                        } finally { pendingImports.complete(id) }
-                    } }
+                    // Return from IO into a protected caller context. Returning directly into the
+                    // cancelled job would turn successful cleanup into a CancellationException.
+                    withContext(NonCancellable) {
+                        timings.enter(ProcessingMetricStage.CLEANUP).use { withContext(Dispatchers.IO) {
+                            try {
+                                if (!saved && !imported) voices.discard(conversationId)
+                                warning = cleanup()
+                            } finally { pendingImports.complete(id) }
+                        } }
+                    }
                 } catch (_: Exception) {
                     warning = "Не удалось завершить очистку состояния. Проверьте историю после перезапуска."
                 } finally {

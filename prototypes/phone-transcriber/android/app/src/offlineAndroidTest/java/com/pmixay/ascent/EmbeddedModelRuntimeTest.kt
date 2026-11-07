@@ -256,6 +256,7 @@ class EmbeddedModelRuntimeTest {
             assertEquals(firstJob, cancelled.jobId)
             assertNull(cancelled.jobError)
             assertEquals("Обработка отменена", cancelled.status)
+            assertFalse("A cancelled job must clear its interruption marker", File(context.filesDir, "pending-import").exists())
             assertTrue("A cancelled job must not save a conversation", cancelled.conversations.none { it.id == importId(longUri) })
             assertEquals("The picked file must stay untouched", longBefore, longClip.length())
 
