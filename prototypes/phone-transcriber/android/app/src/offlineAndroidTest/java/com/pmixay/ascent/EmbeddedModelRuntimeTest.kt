@@ -199,6 +199,7 @@ class EmbeddedModelRuntimeTest {
             assertNull(done.jobError)
             assertFalse(done.busy)
             assertTrue(done.status, done.status.startsWith("Речь не обнаружена"))
+            assertFalse("A finished job must not report a cleanup failure: ${done.status}", done.status.contains("очистку состояния"))
             assertEquals(TextStageStatus.SKIPPED, done.textStage?.status)
             // AUTO with Parakeet installed stays on GigaAM when no Latin letters were ever seen.
             assertEquals(RecognitionMode.RUSSIAN_CIS, done.recognizedMode)
@@ -266,6 +267,7 @@ class EmbeddedModelRuntimeTest {
             assertEquals(second.status, ProcessingState.Completed, second.processingState)
             assertNotEquals(firstJob, second.jobId)
             assertNull(second.jobError)
+            assertFalse("A finished job must not report a cleanup failure: ${second.status}", second.status.contains("очистку состояния"))
             assertTrue(second.conversations.any { it.id == importId(shortUri) })
         } finally { folder.deleteRecursively() }
     }
