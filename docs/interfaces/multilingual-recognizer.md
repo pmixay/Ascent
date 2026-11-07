@@ -11,7 +11,7 @@ run on Android or ARM.
 | Mode | Model | Languages | Why |
 | --- | --- | --- | --- |
 | Russian and CIS languages (default) | GigaAM Multilingual CTC 220M, already shipped | ru, kk, ky, uz (+ weak en) | Best measured Russian: validation WER 4.30% vs 6.73% for Parakeet v3 |
-| Multilingual | NVIDIA Parakeet TDT 0.6B v3, int8 | 25 European languages incl. en, ru, uk | Best measured English among phone-sized models: AMI headsets 18.57% vs 54.65% for GigaAM, distant microphone 44.74% vs 74.96% |
+| Multilingual | NVIDIA Parakeet TDT 0.6B v3, int8 | 25 European languages incl. en, ru, uk | Best measured English among phone-sized models: continuous AMI meetings 28.62% vs 32.32% WER and 96% vs 63% word starts within 250 ms; isolated utterances 18.57% vs 54.65% (headsets), 44.74% vs 74.96% (distant microphone) |
 
 Russian is the brief's first priority. Besides the two fixed modes there is an automatic one,
 described below; a fixed mode never falls back silently to the other model.
@@ -34,6 +34,7 @@ Host check, rule fixed before running (`tools/language_probe_study.py`, GigaAM w
 | English AMI EN2002a distant microphone | 52 / 53 multilingual | 19.7 s / 39.8 s |
 | English AMI ES2011a headsets | 17 / 17 multilingual | 19.6 s / 20.0 s |
 | 30 s of silence | Russian | 30 s |
+| Petya's AMI holdout, six continuous 10-minute meetings | 6 / 6 multilingual | 28.6 s / 60.0 s |
 
 Not measured: Russian with many English terms, mixed-language conversations, a recording that
 changes language after the first minute (it keeps the first decision), other European
