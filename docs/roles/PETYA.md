@@ -32,6 +32,9 @@ gates in run 42378802074 and is not a release candidate. Pasha's
 UI integration must preserve the existing source-safe import, watch coordination
 and retention behavior. That API is now integrated with the picker/progress/cancel
 UI, retaining watch locks, bounded compressed decoding and repeat-import expiry.
+Offline-oriented status copy now uses the installed Internet permission: a
+network-disabled build shows local readiness and disabled updates without an
+online catalog-check age. The existing compact network behavior is retained.
 The user confirmed they will install and test the phone APK later; no ARM result
 is claimed here. See [the prioritized handoff](PETYA_HANDOFF.md).
 

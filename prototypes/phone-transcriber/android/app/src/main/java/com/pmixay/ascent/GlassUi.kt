@@ -349,6 +349,7 @@ private fun ModelsStatus(state: ConversationState) {
         }
     }
     val availability = when {
+        ready && !state.modelOnlineUpdates -> "Локальные модели готовы"
         ready -> modelVersionLabel(state.modelVersionStatus)
         !state.modelsChecked -> "Проверяю готовность"
         state.modelPhase == ModelTransferPhase.ERROR -> "Подготовка приостановлена"
@@ -375,10 +376,14 @@ private fun ModelsStatus(state: ConversationState) {
                     fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, color = Ink)
             }
         }
-        if (ready) {
+        if (!state.modelOnlineUpdates) {
+            Text("Локальный режим. Автоматические обновления отключены.",
+                modifier = Modifier.testTag("model-local-only"), fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
+        }
+        if (ready && state.modelOnlineUpdates) {
             Text(modelCheckAgeLabel(state.modelLastCheckedAtMs, nowMs),
                 modifier = Modifier.testTag("model-check-age"), fontSize = 14.sp, lineHeight = 21.sp, color = Ink)
-        } else {
+        } else if (!ready) {
             Text(state.modelStatus, fontSize = 14.sp, lineHeight = 21.sp, color = Ink)
         }
         if (retainedProgress || active) {

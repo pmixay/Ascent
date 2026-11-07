@@ -1,6 +1,8 @@
 package com.pmixay.ascent
 
 import android.app.Application
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
@@ -56,6 +58,7 @@ data class ConversationState(
     val modelDownloadTotal: Long = 0,
     val modelVersionStatus: ModelVersionStatus = ModelVersionStatus.UNCHECKED,
     val modelLastCheckedAtMs: Long = 0,
+    val modelOnlineUpdates: Boolean = true,
     val conversations: List<SavedConversation> = emptyList(),
     val expandedConversationIds: Set<String> = emptySet(),
     /** The latest or running job. [jobId] changes with every job; [jobError] is set only for a failed one. */
@@ -74,7 +77,8 @@ internal class OpenedAudio(val source: PcmWindowSource, val name: String?)
 /** A stopped listening session or imported file is processed once; only encrypted text remains afterwards. */
 class ConversationViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application
-    private val mutableState = MutableStateFlow(ConversationState(busy = true, status = "Открываю разговоры…"))
+    private val mutableState = MutableStateFlow(ConversationState(busy = true, status = "Открываю разговоры…",
+        modelOnlineUpdates = app.checkSelfPermission(Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED))
     val state = mutableState.asStateFlow()
     private val history = ConversationStore(app.filesDir)
     private val voices = VoiceProfileStore(app.filesDir)

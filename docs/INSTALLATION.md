@@ -1,12 +1,38 @@
 # Android verification build: installation and use
 
-The jury-ready offline verification APK is **not yet available** in this repository. The current compact `ascent.apk` is a prototype whose model pack is downloaded after installation. Use the steps below only after a final CI run, model manifest, APK hash and durable release link have been recorded in [TEST_RESULTS.md](TEST_RESULTS.md). An Actions artifact alone expires after 14 days and is not a durable submission link.
+The jury-ready offline verification APK is **not yet available** in this repository. The current compact `ascent.apk` is a prototype whose acoustic model pack is downloaded after installation. Its download server has been [repaired and verified](roles/PETYA_SERVER_STATUS.md). An Actions artifact expires after 14 days and is not a durable submission link.
+
+## Current compact prototype: phone trial
+
+The user will perform these phone trials later. Use the identified CI candidate
+from [TEST_RESULTS.md](TEST_RESULTS.md), not an APK from Pasha's earlier branch.
+
+1. Download the `debug-<commit>` artifact from its successful Android CI run,
+   extract `ascent.apk` and check its SHA-256 against the candidate record.
+2. Install on an Android 12+ ARM64 phone. Keep networking enabled for the first
+   acoustic-model download and wait until the separate model panel says ready.
+   Record the APK hash, model manifest digest, device/Android/ABI and free storage.
+3. Disable networking. Select `Импорт аудио` and import three unrelated files
+   consecutively. Microphone permission is unnecessary for import. Inspect the
+   filename, source-relative times and participant turns; export each result as
+   JSON and run the independent validator with the original media duration.
+4. Include silence, a cancelled picker, bad input, cancellation followed by a new
+   job and force-stop/reopen. The interrupted-job notice must appear once; saved
+   history and the original source must remain intact. Follow the complete
+   [judge script](QA_JUDGE_SCRIPT.md) and record outcomes without filling unrun cases.
+
+The compact artifact has no installed text-model assets: its text-stage status
+must report unavailable and preserve recognized words. This trial verifies the
+prototype after download; it does not satisfy fresh offline/local-LLM acceptance.
 
 ## Target device and package
 
 The Android module currently declares Android 12+ (`minSdk 31`) and builds ARM64 (`arm64-v8a`) for download. Its x86_64 variant is for CI instrumentation. Current source accepts seekable WAV PCM 8/16/24/32, float32, A-law/μ-law, one to eight channels and 4–192 kHz input rates, plus other audio tracks decodable by the device's Android media stack. The latter format support is device dependent and unverified; unsupported sources must show an error. The WAV adapter declares a two-hour limit; the compressed decoder declares 30 minutes. These are source limits, not measured phone capacity. The final verification build must include all runtime weights, tokenizer and local text-model assets needed for the default pipeline; the actual APK size, installed storage requirement, model version/hash, signing identity and ARM performance remain to be measured. Leave enough free storage for model extraction and results after measuring the exact final package. Do not infer an installed size from the compressed ZIP.
 
 ## Install the exact inspected build
+
+These are the **future embedded-release** steps. Use them only after a final
+offline APK, successful CI, model/APK hashes and durable release link are recorded.
 
 1. Open the durable release link listed in the final [TEST_RESULTS.md](TEST_RESULTS.md). Confirm the linked commit, all required CI jobs and SHA-256 match the release record. Download `ascent.apk` from that release.
 2. On the test device, remove the earlier Ascent installation and app data. Turn off Wi-Fi and mobile data and enable airplane mode **before** first launch. For a fresh offline test, do not preinstall or predownload models.
