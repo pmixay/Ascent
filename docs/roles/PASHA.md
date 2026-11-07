@@ -11,10 +11,11 @@ through both acoustic and text stages. Compact leases return null. Default GigaA
 behavior remains unchanged. Packaging/smoke and the merged AUTO/timing source
 passed both jobs at `42d4de9` / `42406537594`; this is not ARM acceptance.
 
-- [ ] Wire all three recognition modes (Auto, Russian, Other languages) using the leased multilingual directory;
-  keep GigaAM default and report missing files without automatic fallback. Coordinate
-  the now-merged constructor (`mode`, `multilingualDirectory`, optional named `timings`)
-  and expose `TranscriptionResult.recognitionMode` as the actual used mode.
+- [ ] Validate all three recognition modes on the final exact build. Source wiring
+  is now included through main `18c3599`: app selection defaults to AUTO, uses the
+  leased multilingual directory and exposes the actual used mode. Low-level engine
+  omitted-mode behavior remains GigaAM. Fresh combined CI and ARM operation remain
+  required; missing fixed-mode files must never silently fall back.
 - [ ] Add/review a per-job elapsed-work cap for the text stage with truthful fallback/
   cancellation and native-resource cleanup; the current context cap is not a deadline.
 - [ ] Supply full ViewModel lifecycle evidence (cancel→new job, rotation, background,
@@ -29,6 +30,16 @@ Deliver the application path from a selected local audio file to a safely retain
 ## Already pushed — reuse, do not implement again
 
 At fetched `origin/main` `4b16e3a`, the application already has local acoustic inference, encrypted conversation/voice storage, model leases/downloads and timeline UI. PR #2 adds the segmenter/tests, frozen speech/English manifests, host ASR/timestamp study and text-model shortlist/grammar contract. Do not rewrite those components or wait for another model-selection study. **Remaining:** reachable source-safe import, competition JSON, job safeguards and the actual Android text stage. Andrey is the ML owner; this role remains the application/acceptance owner after the pushed role swap.
+
+## Integration follow-up on Petya's branch
+
+`codex/petya-open-work` integrates this branch through `00bb1ab` with Timofey's
+schema-2 packaging through `42d4de9`. The temporary null directory is replaced by
+the job's triple lease; the Russian mode picker and actual-used label are wired.
+The timing counters and cancellation/source ownership paths are preserved.
+[PR #5](https://github.com/pmixay/Ascent/pull/5) and
+[TEST_RESULTS.md](../TEST_RESULTS.md) carry combined CI/artifact evidence.
+The older sign-off below remains historical; phone/ARM acceptance is still open.
 
 ## Application sign-off record at 19:58 MSK (CI green on the merged revision; nothing run on a phone or ARM)
 
@@ -59,6 +70,7 @@ are not inspected.
 | Text stage time cap | **Open** | Context is capped (64-word blocks), nothing is generated and nothing is retried, but there is no per-job time limit; a slow ARM run is bounded only by cancellation. Left unchanged after the freeze |
 | Storage and encrypted-history errors | **Pass in CI only** | Atomic non-cancellable save and a `Storage` error category exist; low-storage and corrupt-history behavior on a device is not run |
 | Three unfamiliar files in sequence, offline, on ARM | **Not run** | Petya's rehearsal; see [TEST_RESULTS.md](../TEST_RESULTS.md) |
+| Language mode (`AUTO` / Russian / other languages) in the job path | **CI green on the merged commit; nothing run on a device** | Added at 22:46 MSK, after the 20:00 deadline, and merged with Timofey's Parakeet packaging branch. [Run 42408030599](https://github.com/pmixay/Ascent/actions/runs/42408030599) (`5886020`, branch `claude/pasha-work-lh3bs1`) concluded success for both jobs, *Build and validate Android app* and *Build and validate embedded offline baseline*; job conclusions only, per-test counts and the new `RecognitionSettingsTest` result were not read. The change: `setRecognitionMode`, remembered choice, mode and `ModelLease.multilingualDirectory` passed to `TranscriptionEngine`, `recognizedMode` in state, refusal of a fixed multilingual choice without installed files (`RecognitionSettings`, `RecognitionSettingsTest`). **Open:** the three-way control and the used-mode label are Petya's UI; the compact build has no Parakeet; no `AUTO` or `MULTILINGUAL` job has run on Android or ARM and English has no device result. See [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md#handoff) |
 
 **Readiness.** The application lane is **incomplete**, not signed off as ready: the local-LLM requirement,
 the lifecycle matrix, a validated device JSON and the three-file ARM rehearsal are unmeasured, and the deadline

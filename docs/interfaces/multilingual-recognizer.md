@@ -3,17 +3,20 @@
 Status: model choice of the team, 7 November 2026, from host measurements in
 [model-report.md](../hackathon/model-report.md#second-recognizer-english-and-multilingual-candidates-host).
 The embedded Parakeet payload and optimized emulator creation probe passed at
-`dbbce95` / `42404340446`; actual ARM inference and mode selection UI remain open.
+`dbbce95` / `42404340446`; actual ARM inference remains open.
 Andrey's later `50a5d90` AUTO path is integrated with the task branch's timers;
 merged `42d4de9` passed both jobs in `42406537594`. This verifies bounded CI,
 not actual AUTO/Parakeet ARM inference or quality.
+Main `18c3599` now integrates Pasha/Petya's three-way language control, lease wiring
+and actual-mode result presentation. Its combination with Timofey's latest CI
+identity work requires a fresh merged-revision run, not earlier branch evidence.
 
 Timofey's explicit packaging follow-up merges this engine path and adds a
 schema-2 embedded `multilingual-asr/` group with unchanged four file pins,
 CC-BY-4.0 attribution, uncompressed APK entries, triple-revision leases and a
 required minified-emulator recognizer-creation test. [Implementation and evidence
-status](../roles/TIMOFEY_REMAINING_STATUS.md). Normal app mode selection and actual
-ARM acceptance remain Pasha/Petya handoffs; later signing/version changes need new CI.
+status](../roles/TIMOFEY_REMAINING_STATUS.md). Petya's `codex/petya-open-work` integrates Pasha's mode API, the triple lease and
+UI control; its own combined CI is recorded in [TEST_RESULTS.md](../TEST_RESULTS.md).
 
 ## Decision
 
@@ -137,6 +140,15 @@ TranscriptionEngine(
   (`AUTO` recommended as default), passed with the installed Parakeet directory to
   `TranscriptionEngine`; show the mode actually used from `TranscriptionResult.recognitionMode`;
   in a fixed multilingual mode show the "not installed" error instead of switching silently.
+  *Integrated (Petya's branch, PR #5):* remembered selection, a job-frozen mode and the actual-used
+  label reach the Russian UI. Inference uses the job's leased Parakeet directory. The compact
+  APK still has no Parakeet files: Auto uses GigaAM and fixed multilingual is refused before
+  capture/input opening. Selection is disabled during capture/processing/watch reception.
+  CI: [run 42408030599](https://github.com/pmixay/Ascent/actions/runs/42408030599) (`5886020`, ViewModel wiring) and
+  [run 42411299817](https://github.com/pmixay/Ascent/actions/runs/42411299817) (`16932d3`, picker and its emulator check)
+  concluded success for both jobs. No `AUTO` or `MULTILINGUAL` job has run on Android or ARM; the packaging
+  evidence is recognizer creation on x86_64, not inference.
+  [Current handoff](../roles/PETYA_HANDOFF.md); phone evidence remains open.
 - **QA and submission (Petya):** in the judge instructions, name the default mode and how to
   pick "Другие языки" for English; include an English and a mixed recording in device checks.
 - **Speech lead:** measure both modes on the device with `tools/score_competition_json.py`

@@ -4,6 +4,10 @@ These are source-inspected prototype limits and unmeasured competition risks. De
 
 ## Source-inspected prototype behavior
 
+- The schema-2 offline baseline includes acoustic/text/Parakeet groups; model payload alone is 2,147,011,731 bytes plus metadata. APK install copies, extraction reserve, physical allocation and RAM are separate. No exact phone storage or ARM performance claim is available.
+- Phone import/capture defaults to remembered `Авто`; its early probe may choose the wrong recognizer, especially for mixed or changing languages. Use `Русский` / `Другие языки` for explicit comparison. Compact has no Parakeet assets and refuses fixed multilingual; its Auto stays on GigaAM. The actual-used mode and timings apply only to the last job in memory, not every saved conversation.
+- Timing total includes queue, model initialization, text, save and cleanup, excludes extraction/capture, and reports RTF only for completed positive-duration jobs. RTF does not prove successful local text processing, quality, memory use or thermal stability.
+
 - The compact APK contains no model weights. It downloads verified chunks from a fixed HTTPS catalog, so a fresh offline first launch is not the required verification release.
 - The new picker path accepts seekable WAV PCM 8/16/24/32, float32, A-law/μ-law, 1–8 channels and input rates from 4 to 192 kHz. It uses Android's media decoder for other audio tracks, but MP3/AAC/M4A and other container support depends on the device/provider and is still unverified. WAV above two hours, compressed input above 30 minutes or a missing declared decoder duration is rejected; unsupported/nonseekable providers may fail. The old, disk-copying `AudioImporter` has been removed from this worktree; source inspection alone does not establish device/provider behavior.
 - The new competition JSON serializer writes the `transcript` contract and handles an empty conversation in source. Its Android export and real device files still need independent validation.

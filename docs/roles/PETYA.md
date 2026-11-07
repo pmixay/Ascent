@@ -12,6 +12,17 @@ At fetched `origin/main` `4b16e3a`, participant timeline/result UI and model-sta
 
 Prepared on 7 November 2026: the [three-file offline judge script](../QA_JUDGE_SCRIPT.md), [test evidence register](../TEST_RESULTS.md), [holdout custody protocol](../HOLDOUT_CUSTODY.md), [input/output protocol](../PROTOCOL.md), independent [JSON validator](../../tools/qa/validate_transcript.py) and its CI-ready contract cases. Six AMI English meeting excerpts have supplied but unreviewed human annotations; six DataHive Russian call sources are hash-pinned but have no transcripts. Neither set has app inference or device evidence. [Installation](../INSTALLATION.md), [architecture](../ARCHITECTURE.md), [limitations](../LIMITATIONS.md), and [demo record/storyboard](../../artifacts/demo/README.md) are draft judge-facing material. They need exact final APK, model, CI, device and video evidence before H11/H12 can close.
 
+## Current follow-up on `codex/petya-open-work`
+
+Created from main `2133dfa`; integrates Timofey `42d4de9` and Pasha `00bb1ab`.
+The mode picker/actual-used label, protected Parakeet job directory and expandable
+T4 timing presentation are implemented. Judge/installation/diagnostic handoffs
+are updated in [PETYA_HANDOFF.md](PETYA_HANDOFF.md). Exact combined CI is recorded
+in [TEST_RESULTS.md](../TEST_RESULTS.md); phone trials remain user-deferred.
+Unchecked E1/E2 cases below are acceptance obligations, not a request to recreate
+the existing picker/timeline/export. Source implementation and phone evidence
+are distinct. AMI has one host evaluation now; see the custody update.
+
 ## Ownership
 
 ### Continued local work — 7 November 2026

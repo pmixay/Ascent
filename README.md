@@ -1,5 +1,13 @@
 # Ascent
 
+
+Petya follow-up: `codex/petya-open-work` starts from main `2133dfa` and integrates
+Timofey `42d4de9` / Pasha `00bb1ab`. Language selection and the actual-used label
+now connect to triple-leased Parakeet assets; the last-job timing panel has a
+summary and expandable exclusive stages. [Current handoff](docs/roles/PETYA_HANDOFF.md)
+and [exact candidate results](docs/TEST_RESULTS.md) supersede older pending-CI
+references below. ARM trials, durable release and video remain open.
+
 ## Current competition delivery plan — 7 November 2026
 
 **Latest Timofey review:** [remaining work and cross-role dependencies](docs/roles/TIMOFEY_REMAINING_STATUS.md).

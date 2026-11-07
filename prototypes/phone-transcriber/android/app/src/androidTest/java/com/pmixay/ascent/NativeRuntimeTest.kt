@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.Configuration
@@ -71,7 +72,10 @@ class NativeRuntimeTest {
         }
         val component = ComponentName(context, ModelDownloadService::class.java)
         val previous = context.packageManager.getComponentEnabledSetting(component)
-        // This smoke test exercises UI startup only. Service lifecycle tests supply
+        val preferences = context.getSharedPreferences("ascent", android.content.Context.MODE_PRIVATE)
+        val previousMode = preferences.getString("recognitionMode", null)
+        preferences.edit().putString("recognitionMode", "AUTO").commit()
+        // This smoke test exercises UI startup and language selection only. Service lifecycle tests supply
         // an isolated fake transfer; no instrumentation test downloads real weights.
         context.packageManager.setComponentEnabledSetting(component,
             PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
@@ -86,11 +90,102 @@ class NativeRuntimeTest {
                 assertFalse(started.isFinishing)
                 assertNotNull(started.window.decorView.findViewById<android.view.View>(android.R.id.content))
             }
+            // Exercise the real optimized UI and ViewModel, without loading models or audio.
+            // Accessibility actions also verify that whole labelled rows expose their click action.
+            waitForUiIdle()
+            for ((label, stored) in listOf("Русский" to "RUSSIAN_CIS", "Другие языки" to "MULTILINGUAL")) {
+                clickText(if (stored == "RUSSIAN_CIS") "Язык: Авто" else "Язык: Русский")
+                assertTrue("Language dialog is visible", awaitUiText("Язык распознавания"))
+                clickText(label)
+                assertEquals(stored, preferences.getString("recognitionMode", null))
+                assertTrue("Language row shows $label", awaitUiText("Язык: $label"))
+            }
+            assertTrue("Missing multilingual models are reported", awaitUiText("Модели для других языков не установлены. Выберите «Авто» или «Русский»."))
+            instrumentation.runOnMainSync { activity?.finish() }
+            instrumentation.waitForIdleSync()
+            activity = instrumentation.startActivitySync(
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            waitForUiIdle()
+            assertTrue("The selected language survives ViewModel/activity recreation", awaitUiText("Язык: Другие языки"))
+            clickText("Язык: Другие языки")
+            assertTrue("Language dialog is visible after recreation", awaitUiText("Язык распознавания"))
+            clickText("Авто")
+            assertEquals("AUTO", preferences.getString("recognitionMode", null))
         } finally {
             instrumentation.runOnMainSync { activity?.finish() }
             instrumentation.waitForIdleSync()
             context.packageManager.setComponentEnabledSetting(component, previous, PackageManager.DONT_KILL_APP)
+            preferences.edit().apply {
+                if (previousMode == null) remove("recognitionMode") else putString("recognitionMode", previousMode)
+            }.commit()
         }
+    }
+
+    private fun waitForUiIdle() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.waitForIdleSync()
+        instrumentation.uiAutomation.waitForIdle(250, 10_000)
+    }
+
+    private fun uiHasText(text: String): Boolean = findUiLabel(text) != null
+
+    /**
+     * Polls for a label for up to [timeoutMs]. One lookup right after a click races Compose's next frame and the
+     * dialog's appearance on a loaded CI emulator, so assertions that a label appears wait for it. A label that
+     * never appears still fails, after the bound.
+     */
+    private fun awaitUiText(text: String, timeoutMs: Long = 10_000): Boolean {
+        val deadline = System.nanoTime() + timeoutMs * 1_000_000
+        var found = uiHasText(text)
+        while (!found && System.nanoTime() - deadline < 0) {
+            waitForUiIdle()
+            found = uiHasText(text)
+        }
+        return found
+    }
+
+    private fun findUiLabel(text: String): AccessibilityNodeInfo? = findUiNode { hasExactLabel(it, text) }
+
+    private fun findUiNode(matches: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        val root = InstrumentationRegistry.getInstrumentation().uiAutomation.rootInActiveWindow ?: return null
+        // Compose exposes virtual children but does not implement the provider's text-search API.
+        // Walk that real accessibility tree, as an accessibility service does.
+        val pending = java.util.ArrayDeque<AccessibilityNodeInfo>()
+        pending.add(root)
+        while (pending.isNotEmpty()) {
+            val node = pending.removeFirst()
+            if (matches(node)) return node
+            for (index in 0 until node.childCount) node.getChild(index)?.let { pending.add(it) }
+        }
+        return null
+    }
+
+    private fun hasExactLabel(node: AccessibilityNodeInfo, text: String): Boolean =
+        node.text?.toString()?.lineSequence()?.any { it == text } == true
+
+    private fun clickText(text: String) {
+        // Match whole labels: "Русский" must not match a sentence in Auto's subtitle.
+        var node = findUiLabel(text)
+        var scrolls = 0
+        while (node == null && scrolls++ < 4) {
+            // The third choice can be below the dialog viewport on the CI phone.
+            // Move the real scroll container; off-screen virtual nodes are intentionally pruned.
+            val scrollable = findUiNode { it.isScrollable } ?: break
+            if (!scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) break
+            waitForUiIdle()
+            node = findUiLabel(text)
+        }
+        if (node == null) {
+            // Only fixed test labels, never arbitrary screen/transcript text.
+            println("Visible language labels: " + listOf("Язык распознавания", "Авто", "Русский", "Другие языки")
+                .filter(::uiHasText))
+        }
+        while (node != null && !node.isClickable) node = node.parent
+        assertNotNull("Missing accessible control: $text", node)
+        assertTrue("Disabled control: $text", node!!.isEnabled)
+        assertTrue("Failed accessibility action: $text", node.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+        waitForUiIdle()
     }
 
     @Test fun automaticModelWorkIsUniqueAndWaitsForNetwork() {

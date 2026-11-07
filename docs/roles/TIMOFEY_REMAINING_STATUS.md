@@ -1,5 +1,21 @@
 # Timofey — remaining-work reconciliation
 
+## PR integration with current main
+
+Fetched main `18c3599` (PR #6) and merged it into Timofey's branch for review.
+Pasha/Petya's language-mode API/UI, triple-lease wiring, actual-used-mode result
+and timing presentation are now included in source. Their code merged without
+conflicts. Four documentation files required manual reconciliation; both sides'
+evidence and new instructions were retained. No model pins, required CI gates,
+signing policy or application defaults were overridden: app selection defaults to
+AUTO, while the low-level engine's omitted mode still defaults to GigaAM.
+
+The mode-wiring row below describes the earlier `91e2598` evidence and is no
+longer missing implementation on the merged branch. Mode operation/ARM/lifecycle
+acceptance and the text elapsed-work cap remain unverified. The new combined
+revision needs its own CI; `91e2598` hashes/results remain historical and do not
+certify this merge. A review PR is not permission to promote or merge a release.
+
 ## Latest verified candidate — 91e2598
 
 The CI identity failure is fixed. Source
