@@ -48,8 +48,11 @@ milestones is complete merely because this source or an APK exists.
 
 - A start/stop listening control with a 30-minute limit. Stopping, reaching the
   limit or leaving the foreground stops capture and starts local processing.
-  Listening requires installed models. There are no audio-import, manual
-  transcribe, playback or audio-delete controls.
+  Listening requires installed models. There are no manual transcribe,
+  playback or audio-delete controls. The source also has an audio-import layer
+  (`ConversationViewModel.importAudio`, WAV and platform-decoded MP3/AAC/M4A, read in
+  place without copying) that has no button in the interface yet and no CI or device
+  result; see [the pipeline contract](../../docs/interfaces/app-pipeline.md).
 - Local GigaAM Multilingual 220M CTC inference, the June 2026 GigaAM line. Bounded
   chunks prefer a sustained quiet seam near 20 seconds and include 1.25 seconds
   of context at each edge to reduce word cuts. All samples remain covered.
@@ -61,11 +64,15 @@ milestones is complete merely because this source or an APK exists.
   predictions never teach their own templates. See [speaker research](docs/speaker-diarization.md).
 - Participant labels for every completed phrase, including best-effort assignments
   when strict evidence is insufficient. Inferred provenance remains in stored
-  segments and JSON exports; these guesses cannot train voice templates. Older
+  segments; the JSON export follows the competition brief and carries no
+  provenance key. These guesses cannot train voice templates. Older
   unidentified phrases receive a stable participant label without changing their
   text or timestamps or reconstructing audio.
 - Multiple encrypted text conversations, collapsible connected timelines,
-  participant renaming and explicit per-conversation TXT/JSON export.
+  participant renaming and explicit per-conversation TXT/JSON export. The JSON file
+  is the competition format `{"transcript":[{"speaker_id","start_ms","end_ms","text"}]}`
+  with the recognizer's words; this is source only until a CI run and a device export
+  are inspected.
 - Automatic compressed model downloads from the fixed Ascent HTTPS catalog,
   continued by a foreground service after ordinary app closure, with an ongoing
   progress notification and prompt reconnect retries. WorkManager provides

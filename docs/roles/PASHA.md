@@ -10,11 +10,25 @@ Deliver the application path from a selected local audio file to a safely retain
 
 At fetched `origin/main` `4b16e3a`, the application already has local acoustic inference, encrypted conversation/voice storage, model leases/downloads and timeline UI. PR #2 adds the segmenter/tests, frozen speech/English manifests, host ASR/timestamp study and text-model shortlist/grammar contract. Do not rewrite those components or wait for another model-selection study. **Remaining:** reachable source-safe import, competition JSON, job safeguards and the actual Android text stage. Andrey is the ML owner; this role remains the application/acceptance owner after the pushed role swap.
 
+## Status at 15:45 MSK (source pushed, nothing verified)
+
+Contract and details: [app-pipeline.md](../interfaces/app-pipeline.md). No checkbox below is ticked: the
+code was written without a local build, no CI run of it has been inspected and nothing ran on a device.
+
+| Item | In source | Still open |
+| --- | --- | --- |
+| A1 serializer | `CompetitionJsonExporter`, wired to the JSON export, silence gives `{"transcript":[]}`, contract tests | CI run; Petya's independent validation of a real device export |
+| A2 import | `AudioSources` (descriptor read in place), WAV any rate/channels/sample format, `Pcm16Stream`, `CompressedAudio` (MP3/AAC/M4A, in memory, 30 min); the copying `AudioImporter` is deleted | No picker button (Petya); CI; device and ARM trials; which compressed formats the target emulator decodes |
+| A3 job safety | `launchJob` shared by import and recording: one job, job IDs, cancel, stale-callback guard, handles closed on every path, interrupted-job notice, atomic non-cancellable save | No foreground service (process death needs reselecting the file); device lifecycle runs |
+| A4 text stage | `TextStages` calls the pushed `TextPunctuator` after the acoustic lease is released, keeps raw text, reports counts | **Nothing installs the model files yet (Timofey); the stage reports `UNAVAILABLE`, so the local-LLM requirement is not met.** Never run on Android or ARM |
+
+Not done by this change: UI wiring, text-model packaging, English and call/meeting evidence, RTF.
+
 ## Ownership
 
 Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
 
-- Own `ConversationViewModel.kt`, `AudioImporter.kt`, `PcmWave.kt`, `ConversationStore.kt` and new source/coordinator/export/text-model adapter files.
+- Own `ConversationViewModel.kt`, `AudioSource.kt`, `WavAudio.kt`, `PcmStream.kt`, `CompressedAudio.kt`, `ProcessingJob.kt`, `PcmWave.kt`, `ConversationStore.kt` and the export/text-model adapter files (`CompetitionJsonExporter.kt`, `TextStage.kt`). `AudioImporter.kt` was removed because it copied audio into app storage.
 - Own shared domain contract changes; agree signatures before others implement adapters.
 - Petya owns `MainActivity.kt`/`GlassUi.kt`; provide callable APIs and state definitions.
 - Andrey owns `TranscriptionEngine.kt`/speaker algorithms; coordinate its input adapter rather than editing it concurrently.

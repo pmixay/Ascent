@@ -32,6 +32,7 @@ import java.util.UUID
 
 internal const val UNKNOWN_SPEAKER = "speaker_unknown"
 internal const val PROCESSING_AUDIO_STATUS = "Обработка аудио…"
+internal const val INTERRUPTED_JOB_STATUS = "Предыдущая обработка была прервана. Выберите файл ещё раз."
 
 data class ConversationState(
     val busy: Boolean = false,
@@ -53,9 +54,20 @@ data class ConversationState(
     val modelLastCheckedAtMs: Long = 0,
     val conversations: List<SavedConversation> = emptyList(),
     val expandedConversationIds: Set<String> = emptySet(),
+    /** The latest or running job. [jobId] changes with every job; [jobError] is set only for a failed one. */
+    val jobId: String? = null,
+    val jobSource: String? = null,
+    val processingState: ProcessingState = ProcessingState.Idle,
+    /** Completed share of the current stage's media, or null while the amount of work is unknown. */
+    val jobProgress: Float? = null,
+    val jobError: JobError? = null,
+    val textStage: TextStageReport? = null,
 )
 
-/** A stopped listening session is processed once; only encrypted text remains afterwards. */
+/** The data a job processes. The job closes [source] on every path. */
+internal class OpenedAudio(val source: PcmWindowSource, val name: String?)
+
+/** A stopped listening session or imported file is processed once; only encrypted text remains afterwards. */
 class ConversationViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application
     private val mutableState = MutableStateFlow(ConversationState(busy = true, status = "Открываю разговоры…"))
@@ -63,6 +75,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     private val history = ConversationStore(app.filesDir)
     private val voices = VoiceProfileStore(app.filesDir)
     private val historyMutex = Mutex()
+    private val jobs = JobTracker()
+    @Volatile private var activeJob: Job? = null
     private var recorder: AudioRecorder? = null
     private var pendingAudio: File? = null
     private var captureStartedAtMs = 0L
@@ -83,9 +97,11 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         }
         viewModelScope.launch {
             try {
+                var interrupted = false
                 val conversations = withContext(Dispatchers.IO) {
                     // A process death cannot run a finally block. Remove abandoned audio on the next launch.
                     clearAbandonedAudio()
+                    interrupted = JobMarker.takeInterrupted(app)
                     historyMutex.withLock {
                         history.load().also { voices.prune(it.map { conversation -> conversation.id }.toSet()) }
                     }
@@ -93,7 +109,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 historyReady = true
                 mutableState.update { it.copy(busy = false, historyReady = true, conversations = conversations,
                     expandedConversationIds = conversations.firstOrNull()?.let { setOf(it.id) }.orEmpty(),
-                    status = "Готово к разговору") }
+                    status = if (interrupted) INTERRUPTED_JOB_STATUS else "Готово к разговору",
+                    jobError = if (interrupted) JobError(JobErrorCategory.Interrupted, INTERRUPTED_JOB_STATUS) else null) }
             } catch (_: OutOfMemoryError) { reportMemoryError() }
             catch (error: Exception) {
                 if (error is CancellationException) throw error
@@ -134,7 +151,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             captureStartedAtMs = System.currentTimeMillis()
             val started = SystemClock.elapsedRealtime()
             mutableState.update { it.copy(recording = true, elapsedMs = 0, level = 0f,
-                waveform = List(52) { 0f }, status = "Слушаю разговор") }
+                waveform = List(52) { 0f }, status = "Слушаю разговор", jobError = null) }
             meterJob = viewModelScope.launch {
                 while (isActive) {
                     mutableState.update { it.copy(elapsedMs = SystemClock.elapsedRealtime() - started,
@@ -150,63 +167,176 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         val active = recorder ?: return
         val audio = pendingAudio ?: return
         val startedAtMs = captureStartedAtMs
-        val id = UUID.randomUUID().toString()
         recorder = null
         pendingAudio = null
         active.requestStop()
         meterJob?.cancel()
-        mutableState.update { it.copy(recording = false, busy = true, processingAudio = true,
-            level = 0f, status = PROCESSING_AUDIO_STATUS) }
-        // Enter the try/finally immediately so clearing the ViewModel cannot skip recorder cleanup.
-        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
-            var saved = false
-            try {
+        launchJob(
+            id = UUID.randomUUID().toString(),
+            capturedAtMs = startedAtMs,
+            prepare = {
                 val file = withContext(NonCancellable + Dispatchers.IO) { active.stop() }
                 currentCoroutineContext().ensureActive()
-                val result = runInterruptible(Dispatchers.Default) {
-                    ModelSelection.acquire(app).use { lease ->
-                        TranscriptionEngine(lease.directory).transcribeWithSpeakers(file) { }
+                OpenedAudio(runInterruptible(Dispatchers.IO) { PcmWave(file) }, null)
+            },
+            cleanup = { if (audio.exists() && !audio.delete()) "Не удалось удалить временное аудио" else null },
+        )
+    }
+
+    /**
+     * Imports a recording the user picked. The file is read in place through its content URI and never
+     * copied; the original is neither modified nor deleted. [uri] is null when the picker was cancelled,
+     * which changes nothing. Ignored while a job runs, so repeated taps cannot start two jobs.
+     */
+    fun importAudio(uri: Uri?) {
+        if (uri == null) return
+        val current = mutableState.value
+        if (current.modelDirectory == null) {
+            mutableState.update { it.copy(status = "Модели ещё загружаются. Повторите импорт, когда они будут готовы.") }
+            return
+        }
+        if (!historyReady || current.busy || current.recording || recorder != null) return
+        launchJob(
+            id = UUID.randomUUID().toString(),
+            // The import time starts retention: the original recording date is unknown and is not invented.
+            capturedAtMs = System.currentTimeMillis(),
+            prepare = {
+                val name = runInterruptible(Dispatchers.IO) { AudioSources.displayName(app, uri) }
+                OpenedAudio(runInterruptible(Dispatchers.IO) { AudioSources.open(app, uri) }, name)
+            },
+        )
+    }
+
+    /** Requests cancellation of the running job. A native recognition call finishes before it takes effect. */
+    fun cancelProcessing() {
+        val job = activeJob ?: return
+        if (!job.isActive) return
+        mutableState.update { it.copy(status = "Отменяю обработку…") }
+        job.cancel()
+    }
+
+    /**
+     * Runs one job to completion: open the source, recognize and attribute speakers, release the acoustic
+     * models, apply the text stage, save the encrypted text. Handles are closed and the temporary state is
+     * cleaned on success, failure and cancellation; a finished transcript is never lost to a later stage.
+     */
+    private fun launchJob(
+        id: String,
+        capturedAtMs: Long,
+        prepare: suspend () -> OpenedAudio,
+        cleanup: () -> String? = { null },
+    ) {
+        check(jobs.begin(id)) { "Обработка уже идёт" }
+        mutableState.update { it.copy(busy = true, processingAudio = true, recording = false, level = 0f,
+            status = PROCESSING_AUDIO_STATUS, jobId = id, jobSource = null, processingState = ProcessingState.ReadingInput,
+            jobProgress = null, jobError = null, textStage = null) }
+        // Enter the try/finally immediately so clearing the ViewModel cannot skip cleanup.
+        activeJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            var saved = false
+            var stage = ProcessingState.ReadingInput
+            var finalState = ProcessingState.Failed
+            var failure: JobError? = null
+            var report: TextStageReport? = null
+            var spoke = false
+            try {
+                withContext(NonCancellable + Dispatchers.IO) { JobMarker.begin(app, id) }
+                val opened = prepare()
+                val acoustic: Pair<TranscriptionResult, Long> = try {
+                    currentCoroutineContext().ensureActive()
+                    val mediaDurationMs = opened.source.durationMs
+                    jobs.whileCurrent(id) { mutableState.update { it.copy(jobSource = opened.name) } }
+                    val recognized = runInterruptible(Dispatchers.Default) {
+                        ModelSelection.acquire(app).use { lease ->
+                            TranscriptionEngine(lease.directory).transcribeWithSpeakers(opened.source) { message ->
+                                reportProgress(id, message)
+                            }
+                        }
                     }
+                    Pair(recognized, mediaDurationMs)
+                } finally {
+                    // The audio is not needed after the acoustic passes; release the file at once.
+                    runCatching { opened.source.close() }
                 }
-                val durationMs = (file.length() - 44).coerceAtLeast(0) * 1000 / (AudioRecorder.SAMPLE_RATE * 2)
-                val names = result.segments.map { it.speakerId }.distinct().filter { it != UNKNOWN_SPEAKER }
-                    .mapIndexed { index, speakerId -> speakerId to "Участник ${index + 1}" }.toMap()
-                withContext(Dispatchers.IO) {
+                val result = acoustic.first
+                val durationMs = acoustic.second
+                currentCoroutineContext().ensureActive()
+                stage = ProcessingState.Formatting
+                jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Formatting, jobProgress = null) } }
+                val presented = runInterruptible(Dispatchers.Default) { TextStages.run(app, result.segments) }
+                report = presented.report
+                spoke = presented.segments.isNotEmpty()
+                currentCoroutineContext().ensureActive()
+                stage = ProcessingState.Saving
+                jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Saving, jobProgress = null) } }
+                // Once saving starts it finishes: the atomic file replacement is never cut in half.
+                withContext(NonCancellable + Dispatchers.IO) {
+                    val names = presented.segments.map { it.speakerId }.distinct().filter { it != UNKNOWN_SPEAKER }
+                        .mapIndexed { index, speakerId -> speakerId to "Участник ${index + 1}" }.toMap()
                     historyMutex.withLock {
                         val existing = mutableState.value.conversations
-                        val remembered = voices.match(id, startedAtMs, result.signatures,
-                            existing.map { it.id }.toSet())
-                        val conversation = SavedConversation(id, startedAtMs, durationMs, result.segments, names + remembered)
+                        val remembered = voices.match(id, capturedAtMs, result.signatures, existing.map { it.id }.toSet())
+                        val conversation = SavedConversation(id, capturedAtMs, durationMs, presented.segments,
+                            names + remembered, opened.name)
                         history.save(existing + conversation).also { retained ->
                             saved = true
-                            mutableState.update { it.copy(conversations = retained, expandedConversationIds = setOf(id),
-                                status = if (result.segments.isEmpty()) "Речь не обнаружена" else "Разговор готов", elapsedMs = 0) }
+                            mutableState.update { it.copy(conversations = retained, expandedConversationIds = setOf(id), elapsedMs = 0) }
                             voices.prune(retained.map { it.id }.toSet())
                         }
                     }
                 }
-            } catch (_: OutOfMemoryError) { reportMemoryError() }
-            catch (error: Exception) {
+                finalState = ProcessingState.Completed
+            } catch (_: OutOfMemoryError) {
+                failure = JobError(JobErrorCategory.OutOfMemory, MEMORY_MESSAGE)
+            } catch (error: Throwable) {
+                // A native-library Error fails this job with a message instead of ending the app. Anything
+                // raised after cancellation (for example a read cut off by the interrupt) is a cancel.
                 if (error is CancellationException) {
-                    mutableState.update { it.copy(status = "Обработка отменена") }
+                    finalState = ProcessingState.Cancelled
                     throw error
                 }
-                reportError(error)
+                if (!currentCoroutineContext().isActive) finalState = ProcessingState.Cancelled
+                else failure = describe(error, stage)
             } finally {
+                var warning: String? = null
                 try {
                     withContext(NonCancellable + Dispatchers.IO) {
                         if (!saved) voices.discard(id)
-                        if (audio.exists() && !audio.delete()) {
-                            mutableState.update { it.copy(status = "Не удалось удалить временное аудио") }
-                        }
+                        warning = cleanup()
+                        JobMarker.end(app, id)
                     }
                 } finally {
                     // Resuming from the IO dispatcher can deliver cancellation after cleanup.
-                    mutableState.update { it.copy(busy = false, processingAudio = false, recording = false, level = 0f,
-                        waveform = List(52) { 0f }) }
+                    val message = when (finalState) {
+                        ProcessingState.Completed ->
+                            (if (spoke) "Разговор готов" else "Речь не обнаружена") + (report?.let { ". ${it.describe()}" } ?: "")
+                        ProcessingState.Cancelled -> "Обработка отменена"
+                        else -> failure?.message ?: "Ошибка: операция не завершена"
+                    }
+                    jobs.finish(id) {
+                        mutableState.update { it.copy(busy = false, processingAudio = false, recording = false, level = 0f,
+                            waveform = List(52) { 0f }, processingState = finalState, jobProgress = null,
+                            jobError = failure, textStage = report, status = warning?.let { w -> "$message. $w" } ?: message) }
+                    }
                 }
             }
         }
+    }
+
+    private fun reportProgress(id: String, message: String) {
+        val parsed = EngineProgress.parse(message) ?: return
+        jobs.whileCurrent(id) {
+            mutableState.update { it.copy(processingState = parsed.first, jobProgress = parsed.second) }
+        }
+    }
+
+    private fun describe(error: Throwable, stage: ProcessingState): JobError = when {
+        error is AudioImportException -> JobError(importFailureCategory(error.failure), error.message ?: "Не удалось прочитать файл")
+        stage == ProcessingState.Saving ->
+            JobError(JobErrorCategory.Storage, "Не удалось сохранить расшифровку. Освободите место на телефоне и повторите. " +
+                "Сохранённые разговоры не изменены.")
+        error is IllegalStateException && error.message?.startsWith("Модели") == true ->
+            JobError(JobErrorCategory.ModelsUnavailable, error.message ?: "Модели ещё загружаются")
+        else -> JobError(JobErrorCategory.Internal, "Ошибка: ${error.message ?: "операция не завершена"}")
     }
 
     fun toggleConversation(id: String) {
@@ -237,17 +367,25 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    fun exportTranscript(conversationId: String, uri: Uri, json: Boolean) {
+    /**
+     * Writes a user-chosen file. [json] selects the competition format (`transcript` with `speaker_id`,
+     * `start_ms`, `end_ms`, `text`), which is also valid for a recording without speech. [uri] is null
+     * when the picker was cancelled, which changes nothing. The whole document is built in memory first,
+     * so a failure leaves the stored transcript untouched and the export can simply be repeated.
+     */
+    fun exportTranscript(conversationId: String, uri: Uri?, json: Boolean) {
+        if (uri == null) return
         val conversation = mutableState.value.conversations.firstOrNull { it.id == conversationId } ?: return
-        if (conversation.segments.isEmpty() || conversation.startedAtMs <= System.currentTimeMillis() - HISTORY_RETENTION_MS) return
+        if (conversation.startedAtMs <= System.currentTimeMillis() - HISTORY_RETENTION_MS) return
+        if (!json && conversation.segments.isEmpty()) return
         work("Сохраняю расшифровку…") {
             runInterruptible(Dispatchers.IO) {
-                val text = if (json) ConversationStore.conversationJson(conversation).put("schemaVersion", 1).toString(2)
+                val text = if (json) CompetitionJsonExporter.toJson(conversation)
                 else conversation.segments.joinToString("\n\n") {
                     "[${formatTime(it.startMs)} — ${formatTime(it.endMs)}] ${conversation.speakerName(it.speakerId)}\n${it.text}"
                 }
-                app.contentResolver.openOutputStream(uri, "wt")?.bufferedWriter(Charsets.UTF_8)?.use { it.write(text) }
-                    ?: error("Не удалось создать файл")
+                val output = app.contentResolver.openOutputStream(uri, "wt") ?: error("Не удалось создать файл")
+                output.use { it.write(text.toByteArray(Charsets.UTF_8)); it.flush() }
             }
             mutableState.update { it.copy(status = "Расшифровка экспортирована") }
         }
