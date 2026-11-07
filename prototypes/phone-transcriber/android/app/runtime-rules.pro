@@ -4,7 +4,13 @@
 # Do not disable application shrinking/resource optimization or keep all AndroidX.
 -keep class androidx.tracing.Trace { *; }
 
-# AndroidX Test's TestDirCalculator contains a subclass of Lambda in the test
-# APK. R8 cannot see that subclass while optimizing the app, and otherwise
-# rewrites/removes Lambda(int), causing a runner startup NoSuchMethodError.
--keep class kotlin.jvm.internal.Lambda { *; }
+# Kotlin stdlib is shared with the separately compiled instrumentation APK.
+# Its consumers include AndroidX Test and our Kotlin test code; retaining just
+# Lambda moved the startup failure to LazyKt. Keep the public/protected stdlib
+# binary API (including file facades and constructors) consistently for both
+# APKs. Application/Compose/WorkManager/coroutine implementation code still uses
+# R8 optimization. This is not a package-wide keep for application code.
+-keep class kotlin.** {
+    public *;
+    protected *;
+}

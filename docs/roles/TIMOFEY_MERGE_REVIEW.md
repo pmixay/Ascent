@@ -89,6 +89,16 @@ in `TestDirCalculator$outputDir$2` on the shared Kotlin lambda superclass's
 across the APK boundary as well. It does not retain all Kotlin or application
 classes. The evidence gate continues to reject the pre-test crash.
 
+Run [42380906531](https://github.com/pmixay/Ascent/actions/runs/42380906531)
+at `a989b2e` progressed past the lambda constructor and failed on `kotlin.LazyKt`
+in the same runner setup. This establishes that preserving individual entry
+points is insufficient for the shared stdlib. The next revision replaces the
+single-lambda rule with stable public/protected Kotlin stdlib ABI rules in both
+APK configurations. It retains stdlib classes and that API, not all application
+classes or all AndroidX. R8 and resource optimization stay enabled; the APK
+inspection and every test gate remain mandatory. Size/DEX changes will be visible
+in the existing packaging output. No successful emulator execution is claimed yet.
+
 ## Can it merge?
 
 **Pending exact merged-revision CI.** Static review and conflict resolution alone
