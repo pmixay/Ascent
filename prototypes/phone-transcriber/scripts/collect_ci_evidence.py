@@ -19,7 +19,7 @@ import urllib.request
 from record_apk_identity import PREFIX
 
 JOBS = {"Build and validate Android app": ("compact", 25),
-        "Build and validate embedded offline baseline": ("offline", 2)}
+        "Build and validate embedded offline baseline": ("offline", 4)}
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):

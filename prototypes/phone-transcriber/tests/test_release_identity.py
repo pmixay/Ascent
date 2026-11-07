@@ -20,6 +20,7 @@ import ci_signing
 import collect_ci_evidence as collect
 import record_apk_identity as apk_identity
 
+
 SYNTHETIC_CERTIFICATE = b"synthetic DER supplied by a mocked SDK, never a real key"
 SYNTHETIC_CERTIFICATE_SHA256 = hashlib.sha256(SYNTHETIC_CERTIFICATE).hexdigest()
 
@@ -202,6 +203,49 @@ class IdentityTests(unittest.TestCase):
             self.assertEqual(SYNTHETIC_CERTIFICATE_SHA256, result["certificate_sha256"])
 
 
+    def test_sdk_range_signer_output_preserves_one_identity_and_the_protected_pin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk, env, badging, _ = self.fixture(Path(directory))
+            signing = ("Number of signers: 1\n"
+                       "Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: ignored\n" + certificate_pem() +
+                       "Signer (minSdkVersion=31, maxSdkVersion=32) certificate SHA-256 digest: ignored\n" + certificate_pem())
+            env.update(ASCENT_SIGNING_MODE="protected-key", ASCENT_EXPECTED_CERT_SHA256=SYNTHETIC_CERTIFICATE_SHA256)
+            self.assertEqual(SYNTHETIC_CERTIFICATE_SHA256, apk_identity.identity(apk, "compact", badging, signing, env)["certificate_sha256"])
+            for invalid in (signing.replace("Number of signers: 1", "Number of signers: 2"),
+                            signing.replace("Number of signers: 1\n", ""),
+                            signing.replace(certificate_pem(), certificate_pem(b"rotated certificate"), 1),
+                            signing + "Source Stamp Signer:\n" + certificate_pem()):
+                with self.subTest(output=invalid), self.assertRaises(ValueError):
+                    apk_identity.identity(apk, "compact", badging, invalid, env)
+            env["ASCENT_EXPECTED_CERT_SHA256"] = "a" * 64
+            with self.assertRaises(ValueError):
+                apk_identity.identity(apk, "compact", badging, signing, env)
+
+    def test_build_tools_37_scheme_labels_and_legacy_labels_keep_the_same_checked_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk, env, badging, _ = self.fixture(Path(directory))
+            env.update(ASCENT_SIGNING_MODE="protected-key", ASCENT_EXPECTED_CERT_SHA256=SYNTHETIC_CERTIFICATE_SHA256)
+            for label in ("Signer #1", "V1 Signer:", "V2 Signer:", "V3.0 Signer:",
+                          "V3.1 Signer: (minSdkVersion=33 (dev release=true), maxSdkVersion=2147483647)"):
+                with self.subTest(label=label):
+                    signing = "Number of signers: 1\n" + label + " certificate SHA-256 digest: ignored\n" + certificate_pem()
+                    self.assertEqual(SYNTHETIC_CERTIFICATE_SHA256, apk_identity.identity(apk, "compact", badging, signing, env)["certificate_sha256"])
+                    with self.assertRaises(ValueError):
+                        apk_identity.identity(apk, "compact", badging, signing + certificate_pem(b"different signer"), env)
+
+    def test_signer_format_diagnostic_excludes_certificate_subjects(self):
+        signing = ("Number of signers: 1\n"
+                   "Signer unknown certificate DN: CN=private-subject, OU=private-team\n"
+                   "Signer unknown certificate SHA-256 digest: ignored\n")
+        with self.assertRaises(apk_identity.IdentityCheckError) as failure:
+            apk_identity.signer_certificate(signing)
+        message = str(failure.exception)
+        self.assertNotIn("private-subject", message)
+        self.assertNotIn("private-team", message)
+        self.assertNotIn(apk_identity.PREFIX, message)
+        self.assertNotIn("BEGIN CERTIFICATE", message)
+
+
 class CollectorTests(unittest.TestCase):
     def fixture(self):
         sha = "a" * 40
@@ -241,7 +285,8 @@ class CollectorTests(unittest.TestCase):
 
     def test_missing_failed_stale_skipped_duplicate_or_expired_evidence_fails_closed(self):
         for mutation in ("failed-run", "wrong-sha", "missing-job", "skipped-job", "missing-identity",
-                         "duplicate-identity", "wrong-identity", "missing-execution", "expired", "wrong-artifact", "wrong-storage"):
+                         "duplicate-identity", "wrong-identity", "missing-execution", "old-offline-count",
+                         "expired", "wrong-artifact", "wrong-storage"):
             with self.subTest(mutation=mutation):
                 client, sha, run, jobs, artifacts, logs = self.fixture()
                 if mutation == "failed-run": run["conclusion"] = "failure"
@@ -252,6 +297,8 @@ class CollectorTests(unittest.TestCase):
                 if mutation == "duplicate-identity": logs[1] += logs[1]
                 if mutation == "wrong-identity": logs[1] = logs[1].replace(sha, "f" * 40)
                 if mutation == "missing-execution": logs[1] = logs[1].replace("without skips", "skipped")
+                if mutation == "old-offline-count":
+                    logs[2] = logs[2].replace("4 distinct executed cases; 4 required cases", "2 distinct executed cases; 2 required cases")
                 if mutation == "expired": artifacts[0]["expired"] = True
                 if mutation == "wrong-artifact": artifacts[0]["workflow_run"]["head_sha"] = "f" * 40
                 if mutation == "wrong-storage": logs[2] = logs[2].replace('"apk_abi": "x86_64"', '"apk_abi": "arm64-v8a"')

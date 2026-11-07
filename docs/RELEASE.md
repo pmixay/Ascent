@@ -1,14 +1,16 @@
 # CI identity and release handoff
 
 The checked APKs are **internal candidates**, not an accepted competition release.
-Current exact-run evidence and cross-role blockers live in
-[Timofey's remaining-work register](roles/TIMOFEY_REMAINING_STATUS.md).
+Current integration and exact-run evidence are tracked in
+[PR #5](https://github.com/pmixay/Ascent/pull/5); historical identities and cross-role
+blockers live in [Timofey's remaining-work register](roles/TIMOFEY_REMAINING_STATUS.md).
 No local Android build, SDK preparation or test command is needed for this process.
 
 ## Identify each CI-produced APK
 
 The existing push-only **Ascent Android CI** keeps both required jobs, optimization,
-payload/native checks, the 25 compact runtime cases and two offline runtime cases.
+payload/native checks, the 25 compact runtime cases and four offline runtime cases (bootstrap, Parakeet
+creation and two synthetic ViewModel lifecycle/import/export checks).
 Only `ascent.apk` and `ascent-offline.apk` remain downloadable artifacts. Tests,
 corpus, standalone models, signing material and diagnostic reports are not uploaded.
 
@@ -28,7 +30,10 @@ different rotated keys and source-stamp certificate output fail closed.
 It prints one `ASCENT_APK_IDENTITY` JSON line plus a short step
 summary: raw APK size/hash, certificate fingerprint, signing mode, commit/run/
 attempt and (offline only) bundle/file hashes and export-validation producer.
-Signature verification is independent of ZIP hashing. No signer distinguished
+The parser accepts numbered, SDK-range and Build Tools 37 scheme-prefixed signer
+labels ([AOSP format change](https://android.googlesource.com/platform/tools/apksig/+/d177d78e4649d08499d90e6cbf9ca47d77c9b865)).
+It requires one verified signer and the same certificate across SDK ranges; a
+rotated/different certificate does not qualify. Signature verification is independent of ZIP hashing. No signer distinguished
 name, credential, audio, source URI or transcript is emitted.
 
 After the exact run finishes, from `prototypes/phone-transcriber`:

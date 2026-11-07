@@ -1,12 +1,12 @@
 # Android verification build: installation and use
 
-The jury-ready offline verification APK is **not yet accepted**. A checked embedded
-internal candidate is available from [the exact-build handoff](roles/TIMOFEY_REMAINING_STATUS.md);
-ARM and final release evidence remain open. The compact `ascent.apk` downloads
-its acoustic models from the [repaired server](roles/PETYA_SERVER_STATUS.md).
-Actions expiry must be read from actual metadata, not the requested retention:
-the `91e2598` candidate expires on 14 November 2026 at 21:46:07 UTC. It is not a
-durable submission link. See [release/signing/publication constraints](RELEASE.md).
+The jury-ready offline verification APK is **not yet accepted**. Checked internal
+candidates are tracked in [PR #5](https://github.com/pmixay/Ascent/pull/5), with
+[historical exact-build evidence](roles/TIMOFEY_REMAINING_STATUS.md). ARM and final
+release evidence remain open. The compact `ascent.apk` downloads its acoustic
+models from the [repaired server](roles/PETYA_SERVER_STATUS.md). Read Actions expiry
+from the exact artifact metadata; these are not durable submission links. See
+[release/signing/publication constraints](RELEASE.md).
 
 ## Current compact prototype: phone trial
 
@@ -42,10 +42,12 @@ its APK/bundle identities in the candidate record before installing.
 
 1. Use a fresh offline-package install/data state. Disable Wi-Fi/mobile data before
    first launch; no model predownload is needed. Record available storage, including
-   space for the >2.16 GB APK, Android's install copies and **2,147,012,171 bytes** of expanded
-   model payloads. This is a payload lower bound, not a measured peak storage need.
-2. Wait for local verification/extraction of all three groups (acoustic, text and
-   multilingual). This package does not download missing models. The offline app
+   space for the >2.16 GB APK, Android's install copies and **2,147,012,171 bytes**
+   of expanded model payloads in the inspected `91e2598` baseline. This is a payload
+   lower bound, not a measured peak storage need; use the current candidate's identity
+   for exact bytes.
+2. Wait for local verification/extraction of all three model groups (acoustic, text
+   and multilingual). This package does not download missing models. The offline app
    has no Internet permission and shows disabled automatic updates.
 3. Set `Язык` before import or phone capture. `Авто` is the remembered default;
    choose `Русский` for Russian and `Другие языки` for English comparison trials.

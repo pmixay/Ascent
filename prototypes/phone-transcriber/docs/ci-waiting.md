@@ -64,7 +64,9 @@ Phone/ARM and corpus-quality acceptance still need separate evidence.
 
 The offline job also requires the bounded real Parakeet recognizer-creation case;
 it performs no corpus/quality inference. The current required counts are 25 compact
-and two embedded cases. After successful packaging, CI verifies the actual signed
+and four embedded cases, including two real ViewModel job checks on synthetic
+silence. The long cancellation fixture is stopped during recognition; it is not a
+corpus or recording-length benchmark. After successful packaging, CI verifies the actual signed
 APK with the existing SDK tools and prints structured identity plus a step summary.
 Phone versions identify the workflow run number and source commit. Optional stable
 signing uses only owner-provided protected-ref credentials; absent credentials are

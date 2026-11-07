@@ -11,15 +11,20 @@ through both acoustic and text stages. Compact leases return null. Default GigaA
 behavior remains unchanged. Packaging/smoke and the merged AUTO/timing source
 passed both jobs at `42d4de9` / `42406537594`; this is not ARM acceptance.
 
-- [ ] Validate all three recognition modes on the final exact build. Source wiring
-  is now included through main `18c3599`: app selection defaults to AUTO, uses the
-  leased multilingual directory and exposes the actual used mode. Low-level engine
-  omitted-mode behavior remains GigaAM. Fresh combined CI and ARM operation remain
-  required; missing fixed-mode files must never silently fall back.
-- [ ] Add/review a per-job elapsed-work cap for the text stage with truthful fallback/
-  cancellation and native-resource cleanup; the current context cap is not a deadline.
-- [ ] Supply full ViewModel lifecycle evidence (cancel→new job, rotation, background,
-  kill/reopen) and final application/source/export freeze. [Exact-build handoff and
+- [x] Wire all three recognition modes (Auto, Russian, Other languages) using the leased multilingual directory;
+  keep GigaAM as the compact Auto fallback and refuse a fixed multilingual choice without files.
+  Pasha's worker and Petya's remembered selector/actual-used label are integrated.
+  The UI passed compact CI at `16932d34` ([42411299817](https://github.com/pmixay/Ascent/actions/runs/42411299817));
+  actual Auto/Multilingual audio inference on ARM remains open.
+- [ ] Validate all three modes on the final exact ARM build, including missing-file
+  refusal. App selection defaults to Auto; the engine's omitted mode stays GigaAM.
+- [ ] Qualify the new per-job text budget on ARM. `dba08d9` adds a soft budget after
+  model loading: `max(30 s, 50% of media duration)`, checked between phrases, with
+  unchanged words and reported timeout fallbacks. It is source-level policy, not
+  a strict native-call deadline or measured ARM acceptance.
+- [ ] Supply full ViewModel lifecycle evidence and final application/source/export
+  freeze. `570e9c7` adds required synthetic import/export and cancel→new job/double-tap/
+  background checks in the embedded CI job. Rotation, kill/reopen and ARM remain open. [Exact-build handoff and
   cross-role blockers](TIMOFEY_REMAINING_STATUS.md). Timofey imported the documentation-only
   sign-off commit `f3e4386` without replacing these newer assignments; no app code was missing.
 
@@ -70,7 +75,7 @@ are not inspected.
 | Text stage time cap | **Source and JVM tests written after this record; not yet CI-verified** | `TextStages` stops asking the model once `max(30 s, 50% of the media duration)` has elapsed after the model loaded; remaining phrases keep their recognized words and are reported as `timedOut` (`TextStageTest`, fake clock). Checked between phrases, so it can overrun by one phrase. The numbers are an unmeasured policy default; the export is unaffected because it carries the recognized words. Context stays capped at 64-word blocks, nothing is generated and nothing is retried. No ARM timing exists to tune it |
 | Storage and encrypted-history errors | **Pass in CI only** | Atomic non-cancellable save and a `Storage` error category exist; low-storage and corrupt-history behavior on a device is not run |
 | Three unfamiliar files in sequence, offline, on ARM | **Not run** | Petya's rehearsal; see [TEST_RESULTS.md](../TEST_RESULTS.md) |
-| Language mode (`AUTO` / Russian / other languages) in the job path | **CI green on the merged commit; nothing run on a device** | Added at 22:46 MSK, after the 20:00 deadline, and merged with Timofey's Parakeet packaging branch. [Run 42408030599](https://github.com/pmixay/Ascent/actions/runs/42408030599) (`5886020`, branch `claude/pasha-work-lh3bs1`) concluded success for both jobs, *Build and validate Android app* and *Build and validate embedded offline baseline*; job conclusions only, per-test counts and the new `RecognitionSettingsTest` result were not read. The change: `setRecognitionMode`, remembered choice, mode and `ModelLease.multilingualDirectory` passed to `TranscriptionEngine`, `recognizedMode` in state, refusal of a fixed multilingual choice without installed files (`RecognitionSettings`, `RecognitionSettingsTest`). **Open:** the three-way control and the used-mode label are Petya's UI; the compact build has no Parakeet; no `AUTO` or `MULTILINGUAL` job has run on Android or ARM and English has no device result. See [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md#handoff) |
+| Language mode (`AUTO` / Russian / other languages) in the job path | **CI green on the merged commit; nothing run on a device** | Added at 22:46 MSK, after the 20:00 deadline, and merged with Timofey's Parakeet packaging branch. [Run 42408030599](https://github.com/pmixay/Ascent/actions/runs/42408030599) (`5886020`, branch `claude/pasha-work-lh3bs1`) concluded success for both jobs, *Build and validate Android app* and *Build and validate embedded offline baseline*; job conclusions only, per-test counts and the new `RecognitionSettingsTest` result were not read. The change: `setRecognitionMode`, remembered choice, mode and `ModelLease.multilingualDirectory` passed to `TranscriptionEngine`, `recognizedMode` in state, refusal of a fixed multilingual choice without installed files (`RecognitionSettings`, `RecognitionSettingsTest`). **Integrated on Petya's branch:** the three-way control, remembered selection and the used-mode label; [current UI and QA handoff](PETYA_HANDOFF.md). **Open:** physical-device mode/inference evidence; the compact build has no Parakeet; the current embedded gate adds a synthetic silent Auto import, while spoken Auto/Multilingual inference, ARM and English quality have no device result. See [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md#handoff) |
 
 **Readiness.** The application lane is **incomplete**, not signed off as ready: the local-LLM requirement,
 the lifecycle matrix, a validated device JSON and the three-file ARM rehearsal are unmeasured, and the deadline

@@ -1,5 +1,12 @@
 # Timofey — remaining-work reconciliation
 
+The combined `codex/petya-open-work` branch now includes main `77dd372`, Pasha
+through `3429c4c` and Timofey through `481dc8d`. It retains protected cancellation
+cleanup, actual certificate-byte identity checks and all **25 compact / four
+embedded** required cases. [PR #5](https://github.com/pmixay/Ascent/pull/5) tracks
+its exact-head CI and APK identities. The `91e2598` evidence below is historical
+and cannot substitute for this combined head or user-deferred ARM acceptance.
+
 ## PR integration with current main
 
 PR [#8](https://github.com/pmixay/Ascent/pull/8) was opened against main. During
@@ -8,7 +15,7 @@ without conflicts: it adds a per-job text-stage budget, real ViewModel job-path
 instrumentation and cancellation-cleanup correction. These are no longer missing
 source tasks in this PR; prior open-work tables below are historical snapshots.
 The offline workflow retains the two existing required cases and additionally
-requires the new application-path case. New merged-head CI/device acceptance is
+requires both new application-path cases (four embedded cases in total). New merged-head CI/device acceptance is
 still required; neither teammate source presence nor older green runs prove it.
 
 Fetched main `18c3599` (PR #6) and merged it into Timofey's branch for review.
@@ -25,7 +32,7 @@ acceptance and the text elapsed-work cap remain unverified. The new combined
 revision needs its own CI; `91e2598` hashes/results remain historical and do not
 certify this merge. A review PR is not permission to promote or merge a release.
 
-## Latest verified candidate — 91e2598
+## Historical verified candidate — 91e2598
 
 The CI identity failure is fixed. Source
 `91e2598eb93ca445358c3d6633db70cba6e01576` passed both jobs in
@@ -95,7 +102,11 @@ provenance, installer/recovery/leases, source/job/text/export/encrypted-storage
 boundaries, measurement hooks, focused tests and QA/submission material. This is a
 source/CI review, not a full security audit or physical-device validation.
 
-## Exact merged candidate already inspected
+Current Petya integration and its exact-run evidence are tracked in
+[PR #5](https://github.com/pmixay/Ascent/pull/5). The candidate below is historical;
+its hashes do not identify subsequent merge, UI or signing changes.
+
+## Historical merged candidate already inspected
 
 Source: `42d4de9a62dda31920cb82ea477e88876e545301`, containing main `2133dfa`,
 Andrey's AUTO probe/restart/actual-mode metadata and Timofey's timers/Parakeet
@@ -197,29 +208,27 @@ marks, end-to-end first-launch time, PSS/RSS, ASR quality or processing RTF.
   Diagnostic `198a8d1` / [42415925712](https://github.com/pmixay/Ascent/actions/runs/42415925712)
   failed after successful SDK signature verification and package/version checks:
   the numbered-signer regex parsed zero certificate lines. Upstream Android
-  `ApkSignerTool` also emits SDK-range signer labels for v3.1, not only `Signer #1`.
-  Follow-up explicitly parses both formats, requires the verbose single-signer
-  count and one unique certificate across all ranges, and still rejects different
-  rotated keys, multiple signers, source-stamp-only output and incorrect cert pins.
-  New synthetic regressions cover these formats; actual corrected CI remains required.
-  That SDK-label attempt `5c34010` / [42416839672](https://github.com/pmixay/Ascent/actions/runs/42416839672)
-  also failed: verbose SDK verification reported one signer/one certificate digest
-  line, but the human-readable text parser still matched no certificate. It did
-  not establish which text-format difference caused that mismatch. The next
-  change removes that formatting dependency: request `--print-certs-pem` and
-  calculate SHA-256 from the verified certificate's DER bytes. One signer/unique
-  certificate, size/base64 bounds and independent pinned-cert comparison remain;
-  a different rotated key, missing/truncated PEM or source-stamp-only output fails.
-  Actual new CI and real evidence collection still need inspection; no failed
-  iteration's APK is an accepted candidate or uploaded download.
+  `ApkSignerTool` emits numbered, SDK-range and Build Tools 37 scheme-prefixed
+  labels. The integrated text-format parser covered those variants, but Timofey's
+  SDK-range-only attempt `5c34010` /
+  [42416839672](https://github.com/pmixay/Ascent/actions/runs/42416839672) still
+  matched no certificate. His newest `91e2598` removes that format dependency:
+  request `--print-certs-pem` and calculate SHA-256 from the verified certificate's
+  DER bytes. One signer/unique certificate, size/base64 bounds and independent
+  pinned-cert comparison remain; a different rotated key, missing/truncated PEM
+  or source-stamp output fails. Both branches' regressions now exercise actual
+  certificate bytes, including SDK-range/Build Tools 37 labels, protected pins,
+  content-free diagnostics and the four-case offline evidence gate.
+  [PR #5](https://github.com/pmixay/Ascent/pull/5) tracks exact combined CI; no
+  failed iteration's APK is promoted as an accepted candidate.
 
 ## Tasks that require another person
 
 | Remaining gate | Required owner/action | Timofey output ready / why blocked |
 | --- | --- | --- |
 | Stable protected signing and release ref | Team key custodian/repository administrator supplies four `android-signing` environment secrets, deployment-branch protection rules, independent cert pin, protected ref and required-signing variable as in `docs/RELEASE.md`. | Fail-closed CI support and certificate verification prepared. No team-owned key or admin permission is available; generating/replacing one silently would not establish custody. |
-| Application mode wiring | Pasha connects Auto/Russian/Other languages to the engine and leased `multilingualDirectory`, and displays actual used mode; Petya reviews UX. | Models, triple lease, AUTO engine and JNI creation gate exist. Normal ViewModel still uses default GigaAM, so packaging is not selectable-mode acceptance. |
-| Full lifecycle and bounded LLM work | Pasha completes/reviews per-job text-stage time cap and actual ViewModel cancel→new job/rotation/background/kill/reopen coverage. | Stage timers and existing job/source protections are present. Current cancellation/context cap is not a total text-stage elapsed-work limit. |
+| Application mode acceptance | Mode/lease wiring and Petya's Russian UI are integrated; Petya and Andrey still verify actual Auto/Russian/Other languages inference on ARM. | The remembered selector and result label passed compact UI CI at `16932d34` ([42411299817](https://github.com/pmixay/Ascent/actions/runs/42411299817)); worker inference uses `ModelLease.multilingualDirectory`. x86_64 creation/UI checks do not establish selectable-mode audio acceptance. |
+| Full lifecycle and bounded LLM work | Pasha qualifies the new between-phrase text budget and completes rotation/kill/reopen/ARM lifecycle evidence. | `dba08d9` adds a soft post-load text budget and truthful timeout fallbacks; `570e9c7` adds required real-ViewModel synthetic cancellation/restart/background and silent-import/JSON cases. PR #5 tracks their combined CI. Native calls can overrun the soft budget; no measured ARM deadline is claimed. |
 | ARM inventory and runtime qualification | Petya supplies actual device/OS/ABI/RAM/storage and executes clean offline first launch, GigaAM/Parakeet/text, JSON and three-file trials; Andrey approves real ARM model/runtime evidence. | Exact candidate, hashes, setup and measurement procedure ready. x86_64 creation/text checks cannot establish ARM inference or local-LLM acceptance. |
 | Device timing/memory/storage and negatives | Petya records cold/warm stages and total RTF including LLM/save/cleanup, available PSS/RSS, thermal/run conditions, extraction low-space/corruption/process-kill and repeated-job outcomes. Andrey reviews quality/config. | Volatile stage timers and content-free storage probe are implemented. No phone is attached/identified here and no measurements are invented. |
 | Freeze and final exact-build QA | Pasha accepts application/lifecycle/export; Andrey signs model/runtime/config; Petya validates the identified final APK and films it. | Reviewed main is integrated and prior exact merged CI passed. Final freeze cannot precede unresolved mandatory app/ARM work; changes require new CI/retests. |

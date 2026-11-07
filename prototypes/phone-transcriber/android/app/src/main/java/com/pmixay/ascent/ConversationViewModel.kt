@@ -190,7 +190,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         if (mutableState.value.modelDirectory == null) return
         if (!foreground || !historyReady || mutableState.value.busy || recorder != null || WatchCompanion.state.value.enabled) return
         // Refuse before listening starts, so a recording is never lost to a mode that cannot run.
-        if (RecognitionSettings.blocked(mutableState.value.recognitionMode, multilingualDirectory())) {
+        if (RecognitionSettings.blocked(mutableState.value.recognitionMode, multilingualDirectory(mutableState.value.modelDirectory))) {
             mutableState.update { it.copy(status = RecognitionSettings.MULTILINGUAL_MISSING) }
             return
         }
@@ -255,7 +255,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             return
         }
         if (!historyReady || current.busy || current.recording || recorder != null || WatchCompanion.state.value.enabled) return
-        if (RecognitionSettings.blocked(current.recognitionMode, multilingualDirectory())) {
+        if (RecognitionSettings.blocked(current.recognitionMode, multilingualDirectory(current.modelDirectory))) {
             mutableState.update { it.copy(status = RecognitionSettings.MULTILINGUAL_MISSING) }
             return
         }
@@ -283,10 +283,13 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         mutableState.update { it.copy(recognitionMode = mode) }
     }
 
-    /** Readiness hint only. Inference always uses the directory protected by its own triple lease. */
-    private fun multilingualDirectory(): File? = if (BuildConfig.EMBEDDED_MODELS) {
-        mutableState.value.modelDirectory?.let(EmbeddedModels::multilingualDirectory)
-    } else null
+    /**
+     * The installed Parakeet directory for the selected acoustic revision, or null. Only the offline build
+     * installs it (the compact network build has none), and the job itself reads it from the model lease
+     * instead, which protects the files from cleanup. This lookup only lets a start-time check refuse early.
+     */
+    private fun multilingualDirectory(acoustic: File?): File? =
+        if (BuildConfig.EMBEDDED_MODELS && acoustic != null) EmbeddedModels.multilingualDirectory(acoustic) else null
 
     /** Requests cancellation of the running job. A native recognition call finishes before it takes effect. */
     fun cancelProcessing() {
@@ -338,6 +341,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                         // Pin all three model groups across both stages, including cancellation.
                         timings.measure(ProcessingMetricStage.MODEL_VALIDATION) { ModelSelection.acquire(app) }.use { lease ->
                             val multilingual = lease.multilingualDirectory
+                            // Refuse before opening the source, using files protected for the whole job.
                             check(!RecognitionSettings.blocked(mode, multilingual)) { RecognitionSettings.MULTILINGUAL_MISSING }
                             val opened = timings.measure(ProcessingMetricStage.SOURCE_OPEN) { prepare() }
                             val (recognized, mediaDurationMs) = MeasuredPcmWindowSource(opened.source, timings).use { source ->
@@ -405,16 +409,16 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             } finally {
                 var warning: String? = null
                 try {
-                    timings.enter(ProcessingMetricStage.CLEANUP).use { withContext(NonCancellable + Dispatchers.IO) {
-                        try {
-                            if (!saved && !imported) voices.discard(conversationId)
-                            warning = cleanup()
-                        } finally { pendingImports.complete(id) }
-                    } }
-                } catch (_: CancellationException) {
-                    // The cleanup block above runs to completion under NonCancellable. withContext still reports
-                    // the parent job's cancellation when it resumes, so this is not a cleanup failure and must not
-                    // put a false "cleanup failed" warning on a cancelled job. Real failures reach the next catch.
+                    // Return from IO into a protected caller context. Returning directly into the
+                    // cancelled job would turn successful cleanup into a CancellationException.
+                    withContext(NonCancellable) {
+                        timings.enter(ProcessingMetricStage.CLEANUP).use { withContext(Dispatchers.IO) {
+                            try {
+                                if (!saved && !imported) voices.discard(conversationId)
+                                warning = cleanup()
+                            } finally { pendingImports.complete(id) }
+                        } }
+                    }
                 } catch (_: Exception) {
                     warning = "Не удалось завершить очистку состояния. Проверьте историю после перезапуска."
                 } finally {
