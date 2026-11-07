@@ -64,6 +64,13 @@ and test-APK-only R8 rules preserving reflective JUnit/AndroidX Test entry point
 Application R8 optimization remains enabled and unchanged. The follow-up needs
 its own full CI before promotion.
 
+Run [42377968384](https://github.com/pmixay/Ascent/actions/runs/42377968384)
+at `d17395a` also failed both emulator gates. It produced a report XML but no
+discovered testcase identities, so test-only R8 keep rules did **not** resolve
+the missing evidence. The next diagnostic revision records XML structure/counters,
+test-descriptor presence in the test APK and synthetic-test runner diagnostics
+in the console only. No gate, application optimization or inference key is relaxed.
+
 ## Can it merge?
 
 **Pending exact merged-revision CI.** Static review and conflict resolution alone
