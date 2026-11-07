@@ -16,17 +16,19 @@ class TranscriptionEngine(private val modelDirectory: File) {
     fun transcribe(audio: File, onProgress: (String) -> Unit): List<TranscriptSegment> =
         transcribeWithSpeakers(audio, onProgress).segments
 
-    fun transcribeWithSpeakers(audio: File, onProgress: (String) -> Unit): TranscriptionResult {
+    fun transcribeWithSpeakers(audio: File, onProgress: (String) -> Unit): TranscriptionResult =
+        PcmWave(audio).use { wave -> transcribeWithSpeakers(wave, onProgress) }
+
+    /** The caller owns [source] and closes it; the engine only reads bounded windows from it. */
+    fun transcribeWithSpeakers(source: PcmWindowSource, onProgress: (String) -> Unit): TranscriptionResult {
         checkCancelled()
         val model = ModelSpec.load(modelDirectory)
-        return PcmWave(audio).use { wave ->
-            val words = recognize(model, wave, onProgress)
-            checkCancelled()
-            if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList()) else attribute(model, wave, words, onProgress)
-        }
+        val words = recognize(model, source, onProgress)
+        checkCancelled()
+        return if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList()) else attribute(model, source, words, onProgress)
     }
 
-    private fun recognize(model: ModelSpec, wave: PcmWave, progress: (String) -> Unit): List<TimedWord> {
+    private fun recognize(model: ModelSpec, wave: PcmWindowSource, progress: (String) -> Unit): List<TimedWord> {
         progress("Загружаю GigaAM…")
         val environment = OrtEnvironment.getEnvironment()
         environment.setTelemetry(false)
@@ -86,7 +88,7 @@ class TranscriptionEngine(private val modelDirectory: File) {
         return stitcher.finish()
     }
 
-    private fun attribute(model: ModelSpec, wave: PcmWave, words: List<TimedWord>, progress: (String) -> Unit): TranscriptionResult {
+    private fun attribute(model: ModelSpec, wave: PcmWindowSource, words: List<TimedWord>, progress: (String) -> Unit): TranscriptionResult {
         progress("Определяю говорящих…")
         val extractor = SpeakerEmbeddingExtractor(config = SpeakerEmbeddingExtractorConfig(
             model = model.speakerFile.absolutePath, numThreads = 2, debug = false, provider = "cpu",
