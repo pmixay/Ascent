@@ -6,3 +6,5 @@
 -keep class org.junit.** { *; }
 -keep class junit.** { *; }
 -keep class androidx.test.** { *; }
+# This dependency can live in either APK after AGP runtime dependency de-duplication.
+-keep class androidx.tracing.Trace { *; }

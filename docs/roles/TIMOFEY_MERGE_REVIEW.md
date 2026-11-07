@@ -71,6 +71,17 @@ the missing evidence. The next diagnostic revision records XML structure/counter
 test-descriptor presence in the test APK and synthetic-test runner diagnostics
 in the console only. No gate, application optimization or inference key is relaxed.
 
+Diagnostic run [42378802074](https://github.com/pmixay/Ascent/actions/runs/42378802074)
+at `082113c` established the compact runner failure: the test classes are present
+in DEX, but `AndroidJUnitRunner.onCreate` crashes with
+`NoClassDefFoundError: androidx.tracing.Trace` before executing any case. The XML
+is an empty `testsuites` element. The runner also fails to report its own crash
+through the same missing class, explaining the misleading successful Gradle exit.
+The correction preserves only the small tracing bridge in both the application
+and test R8 configurations, since shared runtime dependencies can be de-duplicated
+between the separately optimized APKs. This does not disable app optimization,
+drop a test or accept an empty report. Its exact-head CI remains mandatory.
+
 ## Can it merge?
 
 **Pending exact merged-revision CI.** Static review and conflict resolution alone
