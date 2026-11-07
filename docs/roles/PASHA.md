@@ -82,7 +82,7 @@ These are one shared two-hour time box, not three additive estimates. Use platfo
 
 ### A4. Android integration of the already studied text model
 
-- [ ] Use the pushed Qwen2.5 1.5B Q4_K_M candidate or the already measured 0.5B fallback after ARM budget checks. Integrate its grammar/validator contract; obtain exact assets/native bindings from Timofey. Do not repeat the host shortlist or feasibility sweep.
+- [ ] Use the pushed Qwen2.5 1.5B Q4_K_M candidate or the already measured 0.5B fallback after ARM budget checks. Integrate its grammar/validator contract; obtain exact assets/native bindings from Timofey. Do not repeat the host shortlist or feasibility sweep. **Superseded at 14:30:** the provisional stage is Qwen2.5 0.5B int8 ONNX (final model after the team's comparison) on the existing ONNX Runtime; `TextPunctuator`, `OnnxTextModel` and `QwenTokenizer` are pushed. Call them as described in [text-punctuation.md](../interfaces/text-punctuation.md), including the raw-text fallback and JSON export rule. No GBNF grammar or native binding is needed.
 - [ ] Perform bounded punctuation/case edits locally after acoustic sessions are released.
 - [ ] Validate unchanged lexical tokens, numbers, negation, order, speaker IDs and times. Preserve raw ASR text.
 - [ ] Cap context/output/time/retries; reject malformed or meaning-changing output and show/use the raw fallback.
