@@ -143,8 +143,9 @@ TranscriptionEngine(
   capture/input opening. Selection is disabled during capture/processing/watch reception.
   CI: [run 42408030599](https://github.com/pmixay/Ascent/actions/runs/42408030599) (`5886020`, ViewModel wiring) and
   [run 42411299817](https://github.com/pmixay/Ascent/actions/runs/42411299817) (`16932d3`, picker and its emulator check)
-  concluded success for both jobs. No `AUTO` or `MULTILINGUAL` job has run on Android or ARM; the packaging
-  evidence is recognizer creation on x86_64, not inference.
+  concluded success for both jobs. The current embedded gate also includes a synthetic silent Auto import through the real ViewModel.
+  Spoken Auto/Multilingual inference and ARM quality remain unverified; the packaging
+  probe establishes recognizer creation only. Current combined execution is tracked in PR #5.
   [Current handoff](../roles/PETYA_HANDOFF.md); phone evidence remains open.
 - **QA and submission (Petya):** in the judge instructions, name the default mode and how to
   pick "Другие языки" for English; include an English and a mixed recording in device checks.

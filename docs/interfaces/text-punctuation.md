@@ -4,9 +4,12 @@ Status: choice of the speech lead, 7 November 2026, confirmed at 19:00 MSK by a 
 with Qwen2.5 1.5B, Qwen3 0.6B and Qwen3.5 0.8B on the same stage (see the measurement table).
 Another Qwen2.5-family ONNX export needs only new `TextModelFiles` values and assets; a
 different model family also needs its own tokenizer and chat template behind
-`TextModelScores`. The Kotlin code is pushed and its JVM unit tests pass in CI (run 42379171322). **Nothing here has run on
-Android or ARM.** The brief's local-LLM requirement is not met until a CI-built APK runs this
-stage on a device or the ARM emulator and the result is inspected.
+`TextModelScores`. The Kotlin code and JVM tests are integrated. The packaged stage
+also executed one required synthetic phrase in the optimized x86_64 Android APK,
+including merged `42d4de9` / `42406537594`. **Actual ARM text inference and full
+pipeline feasibility remain unverified.** The brief's local-LLM requirement is not
+closed by bundling or that synthetic emulator result; device/ARM-emulator execution
+and evidence-based model/runtime approval remain required.
 
 ## Choice
 

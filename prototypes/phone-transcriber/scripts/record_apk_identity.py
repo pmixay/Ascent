@@ -20,7 +20,7 @@ from ci_signing import certificate_digest
 PREFIX = "ASCENT_APK_IDENTITY "
 
 
-class IdentityError(ValueError):
+class IdentityCheckError(ValueError):
     """A content-free verification reason safe to expose in CI."""
 
 
@@ -39,19 +39,19 @@ def signer_certificate(signing: str) -> str:
     diagnostic = json.dumps({"signer_counts": counts, "certificate_records": len(lines),
                              "recognized_records": sum(record is not None for record in records)}, separators=(",", ":"))
     if counts != ["1"] or not records or any(record is None for record in records):
-        raise IdentityError("APK must have one verified signer; SDK format " + diagnostic)
+        raise IdentityCheckError("APK must have one verified signer; SDK format " + diagnostic)
     labels = [record[1] for record in records]
     if any(value.startswith("Signer #") for value in labels) and labels != ["Signer #1"]:
-        raise IdentityError("APK must have one verified signer; SDK format " + diagnostic)
+        raise IdentityCheckError("APK must have one verified signer; SDK format " + diagnostic)
     certificates = {certificate_digest(record[2]) for record in records}
     if len(certificates) != 1:
-        raise IdentityError("APK signer must stay the same across verified SDK ranges")
+        raise IdentityCheckError("APK signer must stay the same across verified SDK ranges")
     return certificates.pop()
 
 
 def identity(apk: Path, kind: str, badging: str, signing: str, environment: dict[str, str]) -> dict:
     if environment.get("GITHUB_ACTIONS") != "true":
-        raise IdentityError("APK identity recording is CI-only")
+        raise IdentityCheckError("APK identity recording is CI-only")
     sha = environment.get("GITHUB_SHA", "")
     run = environment.get("GITHUB_RUN_ID", "")
     attempt = environment.get("GITHUB_RUN_ATTEMPT", "")
@@ -60,28 +60,31 @@ def identity(apk: Path, kind: str, badging: str, signing: str, environment: dict
     if (not re.fullmatch(r"[0-9a-f]{40}", sha) or
             not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) or
             any(not re.fullmatch(r"[1-9][0-9]*", value) for value in (run, attempt, number))):
-        raise IdentityError("Missing CI revision/run identity")
+        raise IdentityCheckError("Missing CI revision/run identity")
     if kind not in ("compact", "offline"):
-        raise IdentityError("Unsupported artifact kind")
+        raise IdentityCheckError("Unsupported artifact kind")
     package = re.search(r"^package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", badging, re.M)
     expected_package = "com.pmixay.ascent" + (".offline" if kind == "offline" else "")
     expected_version = f"0.1.{number}-{sha[:8]}" + ("-offline-baseline" if kind == "offline" else "")
-    if not package or package.groups() != (expected_package, number, expected_version):
-        raise IdentityError("APK package/version does not match the exact CI source/run")
+    if not package:
+        raise IdentityCheckError("APK package/version metadata missing from aapt2 badging")
+    if package.groups() != (expected_package, number, expected_version):
+        actual = "/".join(re.sub(r"[^A-Za-z0-9._-]", "?", value)[:120] for value in package.groups())
+        raise IdentityCheckError(f"APK package/version mismatch: expected {expected_package}/{number}/{expected_version}; found {actual}")
     if re.search(r"^application-debuggable", badging, re.M):
-        raise IdentityError("Downloadable APK must remain non-debuggable")
+        raise IdentityCheckError("Downloadable APK must remain non-debuggable")
     native = re.search(r"^native-code: (.+)$", badging, re.M)
     if not native or native[1].strip() != "'arm64-v8a'":
-        raise IdentityError("Downloadable APK must be ARM64-only")
+        raise IdentityCheckError("Downloadable APK must be ARM64-only")
     certificate = signer_certificate(signing)
     mode = environment.get("ASCENT_SIGNING_MODE")
     if mode == "protected-key":
         if certificate != certificate_digest(environment.get("ASCENT_EXPECTED_CERT_SHA256", "")):
-            raise IdentityError("APK signer differs from the independently pinned certificate")
+            raise IdentityCheckError("APK signer differs from the independently pinned certificate")
     elif mode != "unprotected-debug" or environment.get("ASCENT_EXPECTED_CERT_SHA256"):
-        raise IdentityError("Missing or inconsistent signing mode")
+        raise IdentityCheckError("Missing or inconsistent signing mode")
     if environment.get("ASCENT_REQUIRE_STABLE_SIGNING", "").lower() == "true" and mode != "protected-key":
-        raise IdentityError("Stable signing required; debug identity cannot be promoted")
+        raise IdentityCheckError("Stable signing required; debug identity cannot be promoted")
     with apk.open("rb") as stream:
         digest = hashlib.file_digest(stream, "sha256").hexdigest()
     result = {"schema_version": 1, "kind": kind, "source_commit": sha, "repository": repository,
@@ -93,7 +96,7 @@ def identity(apk: Path, kind: str, badging: str, signing: str, environment: dict
         if kind == "offline":
             item = archive.getinfo("assets/models/bundle.json")
             if not 0 < item.file_size <= 128 * 1024:
-                raise IdentityError("Invalid embedded manifest bound")
+                raise IdentityCheckError("Invalid embedded manifest bound")
             content = archive.read(item)
             bundle = json.loads(content)
             result.update(bundle_sha256=hashlib.sha256(content).hexdigest(),
@@ -101,18 +104,18 @@ def identity(apk: Path, kind: str, badging: str, signing: str, environment: dict
                           expanded_payload_bytes=sum(record["bytes"] for record in bundle["files"].values()),
                           model_files=bundle["files"], export_validation=bundle["export_validation"])
         elif any(name.startswith("assets/models/") for name in archive.namelist()):
-            raise IdentityError("Compact identity must not contain embedded models")
+            raise IdentityCheckError("Compact identity must not contain embedded models")
     return result
 
 
 def record(apk: Path, kind: str, build_tools: Path, environment: dict[str, str]) -> dict:
     if environment.get("GITHUB_ACTIONS") != "true":
-        raise IdentityError("APK identity recording is CI-only")
+        raise IdentityCheckError("APK identity recording is CI-only")
     def tool(name: str, arguments: list[str]) -> str:
         process = subprocess.run([str(build_tools / name), *arguments, str(apk)],
                                  capture_output=True, text=True, timeout=180)
         if process.returncode:
-            raise IdentityError(f"{name} verification failed")  # Never print tool stderr or signer DN.
+            raise IdentityCheckError(f"{name} verification failed (exit={process.returncode})")
         return process.stdout
     badging = tool("aapt2", ["dump", "badging"])
     signing = tool("apksigner", ["verify", "--verbose", "--print-certs"])
@@ -138,7 +141,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         record(args.apk, args.kind, args.build_tools, dict(os.environ))
-    except IdentityError as error:
+    except IdentityCheckError as error:
         raise SystemExit(f"APK identity verification failed: {error}; no verified identity was emitted") from None
     except (ValueError, KeyError, OSError, subprocess.TimeoutExpired, zipfile.BadZipFile):
         raise SystemExit("APK identity verification failed; no verified identity was emitted") from None

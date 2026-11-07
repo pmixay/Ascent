@@ -77,6 +77,10 @@ marks, end-to-end first-launch time, PSS/RSS, ASR quality or processing RTF.
   reports **push/pull/triage**, not admin/maintain. Secret-name inventory contains
   only `ASCENT_MODEL_DEPLOY_KEY` and `ASCENT_MODEL_HOST_KEY`; no signing key exists.
   No GitHub Releases exist. No secret values, ACLs or server settings were changed.
+  Subsequent read-only environment inventory shows only `android-baseline`, not
+  `android-signing`. The main protection endpoint returns 404, which establishes
+  neither an accessible protection rule nor administrator access. Environment
+  creation/rules and actual key configuration remain the administrator's task.
 - Reconciled already integrated source/import/JSON/text/lease contracts against the
   actual code. Three model groups use a separate embedded schema 2; the acoustic
   Kotlin/Python/server schema 1 and its limits remain unchanged. Cross-language
@@ -97,6 +101,16 @@ marks, end-to-end first-launch time, PSS/RSS, ASR quality or processing RTF.
   preserving newer mode/lease/timing tasks. The merge was conflict-free; all of his
   application source was already present through main. No application code or
   model decision was imported under the guise of a documentation merge.
+- Follow-up source/signing/evidence implementation is `071c225`; Pasha's sign-off
+  merge and preserved assignments are included in pushed `a185d23ee2c4b0dd501e1749633c61aab7ed269b`.
+  Its [run 42408809405](https://github.com/pmixay/Ascent/actions/runs/42408809405)
+  failed in both ARM64 identity-recording steps, after successful compilation/R8/
+  payload inspection. Compact shared tooling/lint/JVM checks passed, but runtime
+  checks and artifact upload did not run; this is **not a passing candidate**.
+  The initially generic failure message did not distinguish SDK verification from
+  metadata parsing. Follow-up adds bounded content-free check diagnostics without
+  printing SDK stderr, signer DN or secrets; all gates remain enforced. Its exact
+  cause and corrected run must be inspected before marking the tooling verified.
 
 ## Tasks that require another person
 

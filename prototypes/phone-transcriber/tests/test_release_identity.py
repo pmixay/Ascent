@@ -190,6 +190,14 @@ class IdentityTests(unittest.TestCase):
             env["ASCENT_EXPECTED_CERT_SHA256"] = "a" * 64
             with self.assertRaises(ValueError):
                 apk_identity.identity(apk, "compact", badging, output, env)
+    def test_version_failure_diagnostic_is_bounded_and_sanitizes_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk, env, badging, signing = self.fixture(Path(directory))
+            badging = badging.replace("0.1.140-aaaaaaaa", "unexpected<version>")
+            with self.assertRaises(apk_identity.IdentityCheckError) as error:
+                apk_identity.identity(apk, "compact", badging, signing, env)
+            self.assertIn("package/version mismatch", str(error.exception))
+            self.assertNotIn("<", str(error.exception))
 
     def test_sdk_verification_failure_prints_no_identity_or_stderr(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -203,7 +211,7 @@ class IdentityTests(unittest.TestCase):
         signing = ("Verifies\nNumber of signers: 1\n"
                    "Signer unknown certificate DN: CN=private-subject, OU=private-team\n"
                    "Signer unknown certificate SHA-256 digest: " + "e" * 64 + "\n")
-        with self.assertRaises(apk_identity.IdentityError) as failure:
+        with self.assertRaises(apk_identity.IdentityCheckError) as failure:
             apk_identity.signer_certificate(signing)
         message = str(failure.exception)
         self.assertIn('"signer_counts":["1"]', message)
