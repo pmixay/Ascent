@@ -47,9 +47,10 @@ fixed; report development and validation results separately. Do not enroll the
 benchmark actors into application voice memory. Those three reserved recordings
 were later inspected and are diagnostic data, as `docs/roles/PASHA.md` records;
 new Dialogs validation uses `masha_dima_part3` and `masha_sveta_part3`, frozen in
-`tools/fixtures/dialogs/study_selection.json` before inference on them. Model
-selection, quantization and the local text model are decided under the hackathon
-plan, each with its own provenance and fresh measurements.
+`tools/fixtures/dialogs/study_selection.json` before inference on them. Within
+this Dialogs protocol the weights stay fixed; the hackathon verification section
+below governs any separate model, quantization or text-model decision, each with
+its own provenance and fresh measurements.
 
 ## Hackathon verification build
 

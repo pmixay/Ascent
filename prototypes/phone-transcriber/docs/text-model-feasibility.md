@@ -17,7 +17,8 @@ assigns speakers and never changes times.
 2. Generation is constrained by a per-phrase GBNF grammar that admits only the
    input words in order, each with an optional capital first letter and an
    optional mark from `, . ? !`. `tools/text_model_study.py edit_grammar` builds
-   it; llama.cpp applies the same grammar format on Android.
+   it in llama.cpp's GBNF format; that the Android runtime applies it is not yet
+   shown.
 3. The output is validated anyway: after the shared normalization (lowercase,
    `ё` to `е`, punctuation removed) its words must equal the input words. On any
    mismatch, runtime error or time limit, the phrase keeps its raw text and a
@@ -55,6 +56,14 @@ speech. Runtime: `llama-cpp-python` 0.3.36 prebuilt CPU wheel, 2 threads, greedy
 decoding, on the same 4-core x86 container as the ASR baseline. Raw ASR text has
 no punctuation, so its F1 is 0 for every mark. Fallback phrases count with no
 punctuation and lowercase words. "Accepted" means the output passed validation.
+Leaving every word lowercase already gets 84.87% of capitals right on these clips
+(1,795 of 2,115 words), so that is the baseline for the capitals column.
+
+This sample favours the models. It contains only clips with no recognition errors
+and the first 120 of them in file order, and each input is exactly one reference
+utterance, so a final mark is easy to place. The app will pass segmenter phrases
+that can end mid-sentence and can contain misrecognized words; scores there are
+likely lower.
 
 | Candidate | Grammar | Accepted | Comma F1 | Sentence-end F1 | Question F1 | Capitals correct | Added RTF (host) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -67,7 +76,9 @@ punctuation and lowercase words. "Accepted" means the output passed validation.
 
 Without the grammar, the small models often changed words (for example a
 diminutive replaced by its base form, or a short phrase dropped), and validation
-had to reject those outputs. The grammar removed every such rejection.
+had to reject those outputs. With the grammar, 120 of 120 is guaranteed by
+construction rather than measured; what the grammar runs measure is mark and
+capital quality and cost.
 Qwen3 ran with its `/no_think` switch and was not tried with the grammar.
 
 "Added RTF" is generation time divided by speech duration on this x86 container;
@@ -77,8 +88,8 @@ the on-device cost is unknown and could be several times higher.
 ## Recommendation and open work
 
 - **Proposed candidate:** Qwen2.5 1.5B Instruct Q4_K_M with the grammar
-  contract. It was the only configuration that combined full lexical preservation
-  with the best punctuation scores. Qwen2.5 0.5B with the grammar is the fallback
+  contract. It had the best punctuation scores and the only clear capitals gain
+  over the lowercase baseline (94.1% against 84.87%). Qwen2.5 0.5B with the grammar is the fallback
   if the device budget cannot absorb the 1.5B model (1.1 GB file).
 - **Not yet established:** ARM speed and memory, behaviour of the Android llama.cpp
   build, packaging into the verification APK, and quality on held-out or

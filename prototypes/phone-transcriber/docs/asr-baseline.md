@@ -217,7 +217,8 @@ real calls or meetings, so the slices below are controlled stand-ins.
 | Clips under 2 s (clip-level) | 1 / 18 words | 13 / 665 = 1.95% |
 
 The telephone condition resamples to 8 kHz, applies a 300 Hz high-pass and 8-bit
-mu-law companding (G.711-like), then returns to 16 kHz. It is a deterministic
+mu-law companding (G.711-like), then returns to 16 kHz as floating point without
+re-quantizing to 16-bit PCM, unlike the other conditions. It is a deterministic
 codec simulation, not a phone network, handset or packet loss. Short clips are
 whole utterances under 2 s, not short replies inside fast overlapping exchanges;
 speaker attribution on them was not measured here.
@@ -275,9 +276,10 @@ hypothesis still needs its own paired development measurement.
    is not allowed to change words, so this needs an acoustic or decoding change.
    Hypothesis: compare a Russian-only GigaAM v3 model on the same frozen inputs
    under a new provenance record before the APK model is frozen.
-3. **Phrase-start lag that depends on the speaker (timestamps, 10 points).** The
-   start lags the energy proxy by −12 to +87 ms across speakers and recordings, so
-   a constant shift failed. Hypothesis: refine each phrase start to a local energy
+3. **Phrase-start lag that depends on the speaker (timestamps, 10 points).** At
+   the 30 dB proxy the median start lag was +87 ms on development and, per
+   validation speaker, −12 ms (D), +16.5 ms (M) and +79 ms (S), so a constant shift
+   failed. Hypothesis: refine each phrase start to a local energy
    or VAD onset within a bounded window, never before the previous phrase. It must
    be judged on manually checked boundaries in continuous recordings, not on this
    proxy, which would make the check circular.

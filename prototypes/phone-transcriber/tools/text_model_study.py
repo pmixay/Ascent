@@ -33,8 +33,8 @@ def edit_grammar(source_words):
     """GBNF that admits only the input words, in order, each with optional capital and mark.
 
     With this grammar the text model cannot add, drop, reorder or respell words; it
-    only chooses capitalization and punctuation. llama.cpp applies the same grammar
-    format on Android.
+    only chooses capitalization and punctuation. This is llama.cpp's GBNF format;
+    the Android build has not yet been shown to apply it.
     """
     def literal(text):
         return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
@@ -131,7 +131,7 @@ def run(args):
     load_seconds = time.perf_counter() - started
     totals = {kind: {"tp": 0, "fp": 0, "fn": 0} for kind in ("comma", "terminal", "question")}
     raw = {kind: {"tp": 0, "fp": 0, "fn": 0} for kind in ("comma", "terminal", "question")}
-    valid = capital = words = 0
+    valid = capital = raw_capital = words = 0
     generation_seconds = audio_seconds = 0.0
     tokens_out = 0
     for clip in clips:
@@ -146,11 +146,14 @@ def run(args):
         audio_seconds += clip["seconds"]
         tokens_out += reply["usage"]["completion_tokens"]
         labels = validate_output(clip["words"], reply["choices"][0]["message"]["content"] or "")
-        fallback = [(normalize_text(w), False, None) for w in clip["words"]]
+        fallback = [(token, False, None) for token in normalize_text(text).split()]
+        if labels is not None and len(labels) != len(clip["words"]):
+            labels = None  # render() cannot project marks onto words that normalization split
         if labels is not None:
             valid += 1
         counts, correct = score_marks(clip["reference"], labels or fallback)
-        raw_counts, _ = score_marks(clip["reference"], fallback)
+        raw_counts, raw_correct = score_marks(clip["reference"], fallback)
+        raw_capital += raw_correct
         for kind in totals:
             for key in ("tp", "fp", "fn"):
                 totals[kind][key] += counts[kind][key]
@@ -162,6 +165,7 @@ def run(args):
                "f1_with_fallback": {kind: f1(item) for kind, item in totals.items()},
                "f1_raw_asr": {kind: f1(item) for kind, item in raw.items()},
                "capitalization_accuracy": round(capital / words, 4) if words else None,
+               "capitalization_lowercase_baseline": round(raw_capital / words, 4) if words else None,
                "load_seconds": round(load_seconds, 2), "generation_seconds": round(generation_seconds, 2),
                "completion_tokens": tokens_out, "audio_seconds": round(audio_seconds, 2),
                "incremental_rtf": round(generation_seconds / audio_seconds, 4) if audio_seconds else None}

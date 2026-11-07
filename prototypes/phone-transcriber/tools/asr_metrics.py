@@ -339,10 +339,11 @@ def compare_runs(first_blocks, second_blocks, distance=None):
     second = {block["id"]: block for block in second_blocks}
     result = {"blocks": 0, "windows": 0, "windows_with_different_ids": 0, "frames": 0, "different_frames": 0,
               "windows_with_different_length": 0, "word_edit_distance": 0, "words": 0, "max_word_time_shift_ms": 0,
-              "blocks_bitwise_identical": 0}
+              "blocks_bitwise_identical": 0, "blocks_missing": 0}
     for block in first_blocks:
         other = second.get(block["id"])
         if other is None:
+            result["blocks_missing"] += 1
             continue
         for key in ("audio_sha256", "condition", "preprocess"):
             if block.get(key) != other.get(key):
@@ -400,7 +401,7 @@ def start_shift_accepted(effect, primary="30", minimum_gain_ms=10.0):
     The primary-threshold mean absolute error must fall by at least ``minimum_gain_ms``,
     its 100 ms share must not fall, and every other threshold must move the same way.
     """
-    if primary not in effect:
+    if primary not in effect or any(threshold not in effect for threshold in ("25", "30", "35")):
         return False
     base, candidate = effect[primary]["baseline"], effect[primary]["candidate"]
     if base["mean_abs_ms"] - candidate["mean_abs_ms"] < minimum_gain_ms:

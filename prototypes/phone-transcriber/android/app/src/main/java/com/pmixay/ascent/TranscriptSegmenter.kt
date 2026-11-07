@@ -61,7 +61,7 @@ internal object TranscriptSegmenter {
                 var bestGap = Long.MIN_VALUE
                 for (cut in start + 1 until to) {
                     if (spanEnd(words, start, cut) - words[start].startMs > maxSpanMs) break
-                    val gap = words[cut].startMs - words[cut - 1].endMs
+                    val gap = words[cut].startMs - spanEnd(words, start, cut)
                     if (gap >= bestGap) {
                         bestGap = gap
                         best = cut

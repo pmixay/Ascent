@@ -185,6 +185,12 @@ class MetricsTest(unittest.TestCase):
         result = compare_runs([first], [second], edit_distance)
         self.assertEqual((0, 1), (result["blocks_bitwise_identical"], result["windows_with_different_length"]))
 
+    def test_a_block_missing_from_the_second_run_is_reported(self):
+        first, other = synthetic_block(), synthetic_block()
+        other["id"] = "public-block-001"
+        result = compare_runs([first], [other], edit_distance)
+        self.assertEqual((0, 1, 0), (result["blocks"], result["blocks_missing"], result["blocks_bitwise_identical"]))
+
     def test_runs_on_different_audio_are_not_compared(self):
         first, second = synthetic_block(), synthetic_block()
         first["audio_sha256"], second["audio_sha256"] = "a" * 64, "b" * 64

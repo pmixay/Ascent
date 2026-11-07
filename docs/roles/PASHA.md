@@ -26,8 +26,11 @@ describe is met.
   constant start shift failed validation and was rejected. Manually checked
   boundaries in continuous recordings are still needed.
 - **Code:** `TranscriptSegmenter` replaces inline phrase grouping and splits runs
-  over 20 s at their longest pause; CI run 42353343464 passed build, unit tests and
-  emulator runtime checks for commit `cb1f4b6`.
+  over 20 s at their longest pause. In CI run 42353343464 for commit `cb1f4b6`, the
+  job "Build and validate Android app" passed (Python and Kotlin unit tests, lint,
+  APK build, emulator runtime check). The run's overall conclusion is failure,
+  because "Score cached two-hour Russian speech evaluation" stops at its missing
+  inference cache, as it does on `main`.
 
 ## Ownership
 
