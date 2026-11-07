@@ -203,11 +203,14 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             id = UUID.randomUUID().toString(),
             capturedAtMs = startedAtMs,
             prepare = {
-                val file = withContext(NonCancellable + Dispatchers.IO) { active.stop() }
-                currentCoroutineContext().ensureActive()
-                OpenedAudio(runInterruptible(Dispatchers.IO) { PcmWave(file) }, null)
+                val file = active.stop()
+                OpenedAudio(PcmWave(file), null)
             },
-            cleanup = { if (audio.exists() && !audio.delete()) "Не удалось удалить временное аудио" else null },
+            cleanup = {
+                // Cancellation can precede prepare(); always join/release the recorder before deleting its file.
+                try { active.stop() } catch (_: Exception) { /* The main job reports capture failures. */ }
+                if (audio.exists() && !audio.delete()) "Не удалось удалить временное аудио" else null
+            },
         )
     }
 
@@ -232,8 +235,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             imported = true,
             capturedAtMs = importRetentionStart(current.conversations.firstOrNull { it.id == conversationId }, importedAtMs),
             prepare = {
-                val name = runInterruptible(Dispatchers.IO) { AudioSources.displayName(app, uri) }
-                OpenedAudio(runInterruptible(Dispatchers.IO) { AudioSources.open(app, uri) }, name)
+                val name = AudioSources.displayName(app, uri)
+                OpenedAudio(AudioSources.open(app, uri), name)
             },
         )
     }
@@ -256,7 +259,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         conversationId: String = id,
         imported: Boolean = false,
         capturedAtMs: Long,
-        prepare: suspend () -> OpenedAudio,
+        prepare: () -> OpenedAudio,
         cleanup: () -> String? = { null },
     ) {
         check(jobs.begin(id)) { "Обработка уже идёт" }
@@ -274,29 +277,26 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             var spoke = false
             try {
                 withContext(NonCancellable + Dispatchers.IO) { pendingImports.begin(id) }
-                val opened = prepare()
-                val acoustic: Pair<TranscriptionResult, Long> = try {
-                    currentCoroutineContext().ensureActive()
-                    val mediaDurationMs = opened.source.durationMs
-                    jobs.whileCurrent(id) { mutableState.update { it.copy(jobSource = opened.name,
-                        sourceDisplayName = opened.name, sourceDurationMs = mediaDurationMs,
-                        sourceFormat = opened.source.formatDescription) } }
-                    val recognized = AudioWork.inference.withLock {
-                        runInterruptible(Dispatchers.Default) {
-                            ModelSelection.acquire(app).use { lease ->
-                                TranscriptionEngine(lease.directory).transcribeWithSpeakers(opened.source) { message ->
+                // Acquire, use and close native/source handles in the same worker. No open descriptor
+                // crosses a cancellable dispatcher return, where its value could otherwise be discarded.
+                val (result, durationMs, sourceName) = AudioWork.inference.withLock {
+                    runInterruptible(Dispatchers.Default) {
+                        val opened = prepare()
+                        opened.source.use { source ->
+                            if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
+                            val mediaDurationMs = source.durationMs
+                            jobs.whileCurrent(id) { mutableState.update { it.copy(jobSource = opened.name,
+                                sourceDisplayName = opened.name, sourceDurationMs = mediaDurationMs,
+                                sourceFormat = source.formatDescription) } }
+                            val recognized = ModelSelection.acquire(app).use { lease ->
+                                TranscriptionEngine(lease.directory).transcribeWithSpeakers(source) { message ->
                                     reportProgress(id, message)
                                 }
                             }
+                            Triple(recognized, mediaDurationMs, opened.name)
                         }
                     }
-                    Pair(recognized, mediaDurationMs)
-                } finally {
-                    // The audio is not needed after the acoustic passes; release the file at once.
-                    runCatching { opened.source.close() }
                 }
-                val result = acoustic.first
-                val durationMs = acoustic.second
                 currentCoroutineContext().ensureActive()
                 stage = ProcessingState.Formatting
                 jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Formatting, jobProgress = null) } }
@@ -317,7 +317,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                         val remembered = if (imported) emptyMap() else voices.match(conversationId, capturedAtMs,
                             result.signatures, existing.map { it.id }.toSet())
                         val conversation = SavedConversation(conversationId, capturedAtMs, durationMs, presented.segments,
-                            names + remembered, opened.name)
+                            names + remembered, sourceName)
                         history.save(existing.filterNot { it.id == conversationId } + conversation).also { retained ->
                             saved = true
                             mutableState.update { it.copy(conversations = retained, expandedConversationIds = setOf(conversationId), elapsedMs = 0) }

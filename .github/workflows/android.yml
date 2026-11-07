@@ -199,7 +199,34 @@ jobs:
           working-directory: prototypes/phone-transcriber/android
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-save -noaudio -no-boot-anim -camera-back none
-          script: gradle --stacktrace -PascentAbi=x86_64 :app:connectedDebugAndroidTest
+          script: |
+            gradle --stacktrace -PascentAbi=x86_64 :app:connectedDebugAndroidTest
+            python3 ../scripts/verify_android_tests.py app/build/outputs/androidTest-results --diagnose-device \
+              --require 'com.pmixay.ascent.AudioImportRuntimeTest#stereoWaveImportHonorsAssetOffsetAndKeepsWindowBoundariesStable' \
+              --require 'com.pmixay.ascent.AudioImportRuntimeTest#flacImportUsesThePlatformDecoderAndRetainsSilenceAndAntiPhaseSpeech' \
+              --require 'com.pmixay.ascent.AudioImportRuntimeTest#compressedImportCanRewindAfterItsBoundedOutputCacheIsEvicted' \
+              --require 'com.pmixay.ascent.AudioImportRuntimeTest#truncatedWaveFailsWithoutChangingTheDocumentOrLeakingItsDescriptor' \
+              --require 'com.pmixay.ascent.ConversationStorageRuntimeTest#androidKeystoreHistorySurvivesStoreRecreation' \
+              --require 'com.pmixay.ascent.ImportRuntimeTest#aPickedStereo48kFileIsReadInPlaceConvertedAndNeverCopied' \
+              --require 'com.pmixay.ascent.ImportRuntimeTest#readingStillWorksWhileTheThreadIsInterrupted' \
+              --require 'com.pmixay.ascent.ImportRuntimeTest#missingEmptyAndNonSeekableSourcesAreRejectedWithTheirOwnCategory' \
+              --require 'com.pmixay.ascent.ImportRuntimeTest#mp3AndM4aDecodeToSixteenKilohertzMonoWithTheToneAtItsOriginalTime' \
+              --require 'com.pmixay.ascent.ModelDownloadServiceRuntimeTest#transferContinuesAfterActivityClosesAndRepeatedStartsStaySingle' \
+              --require 'com.pmixay.ascent.ModelDownloadServiceRuntimeTest#stoppingServiceInterruptsBlockedTransferAndReleasesItsLifetime' \
+              --require 'com.pmixay.ascent.ModelDownloadServiceRuntimeTest#serviceManifestSupportsIndependentDataTransfers' \
+              --require 'com.pmixay.ascent.ModelStatusRuntimeTest#selectingVerifiedModelsUpdatesTheObserverWithoutTransferPublication' \
+              --require 'com.pmixay.ascent.ModelStatusRuntimeTest#existingModelsRemainUsableThroughFailedUpdateAndReconnectWait' \
+              --require 'com.pmixay.ascent.ModelStatusRuntimeTest#lastSuccessfulCatalogCheckSurvivesFailureAndObservationRestart' \
+              --require 'com.pmixay.ascent.ModelStatusRuntimeTest#newerCatalogIsNotCurrentUntilVerifiedSelectionChanges' \
+              --require 'com.pmixay.ascent.ModelStatusRuntimeTest#restartingObservationDoesNotReviveAnOwnerlessSavedDownload' \
+              --require 'com.pmixay.ascent.ModelStatusRuntimeTest#clearingSelectionImmediatelyRemovesAvailability' \
+              --require 'com.pmixay.ascent.ModelStatusRuntimeTest#refreshRejectsMissingPayloadEvenWhenSavedTransferSaysReady' \
+              --require 'com.pmixay.ascent.ModelStatusRuntimeTest#equivalentSelectedPathsDoNotDeleteTheActiveOrLeasedRevision' \
+              --require 'com.pmixay.ascent.ModelStatusRuntimeTest#cancellingAQueuedTransferCannotOverwriteTheActiveOwnersProgress' \
+              --require 'com.pmixay.ascent.NativeRuntimeTest#bothInferenceLibrariesLoadInOneAndroidProcess' \
+              --require 'com.pmixay.ascent.NativeRuntimeTest#optimizedSpeakerBindingReachesNativeConfigurationValidation' \
+              --require 'com.pmixay.ascent.NativeRuntimeTest#optimizedActivityAndViewModelStart' \
+              --require 'com.pmixay.ascent.NativeRuntimeTest#automaticModelWorkIsUniqueAndWaitsForNetwork'
 
       - name: Upload checked debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

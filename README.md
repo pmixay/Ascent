@@ -33,7 +33,7 @@ scoring jobs from push CI on 7 November 2026 because they made CI too slow. Thos
 two-hour evaluations now run on a development machine only; the historical [run
 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969) is not a
 current gate. Earlier `4b16e3a` had a passing build job but failed for missing
-inputs. Latest model export remains failed run `42257595048`.
+inputs. Model publication is restored: [Model Export 42369233159, attempt 2](https://github.com/pmixay/Ascent/actions/runs/42369233159/attempts/2) passed, and all live transport/payload hashes were independently checked. See [Petya’s server evidence](docs/roles/PETYA_SERVER_STATUS.md).
 Public-reference results are not deployed-pack or offline ARM acceptance. The
 audit preserves its earlier snapshot.
 

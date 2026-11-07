@@ -54,11 +54,11 @@ val importAudio = rememberLauncherForActivityResult(ActivityResultContracts.Open
 // cancel button while state.processingAudio: conversation.cancelProcessing()
 ```
 
-The descriptor is opened when the job starts, so the picker's temporary read permission only has to
-last that long. The JSON export launcher already exists; `exportTranscript` now accepts its `Uri?`.
+Source construction, inference and descriptor closure share one worker scope, so cancellation
+cannot discard an opened descriptor while returning between dispatchers. The JSON export launcher already exists; `exportTranscript` now accepts its `Uri?`.
 The existing export button label says "Участники и время — JSON"; it now writes the competition file.
 
-## Integrated Petya branch — 7 November, 14:20 UTC
+## Integrated Petya branch — 7 November 2026
 
 `claude/improve-app-peter` integrates this API with the existing picker, source
 metadata and watch controls. A random job ID remains separate from the stable

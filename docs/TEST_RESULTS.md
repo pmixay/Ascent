@@ -5,6 +5,7 @@ No fresh offline ARM install, three-file sequence, held-out quality run or demon
 | Evidence | Status | APK commit / SHA-256 | Model manifest / SHA-256 | Device / Android / ABI | Evidence link or failure |
 | --- | --- | --- | --- | --- | --- |
 | Current branch Android build and required checks | not run | — | — | GitHub CI | Inspect all applicable jobs on the final commit. |
+| Acoustic model export and strict-SSH publication | pass | export `a83fdff` | `759890e4b6c3f6c640f117fc7b624a5dd8667a89284d991c0fd6681b76ec84c5` | GitHub CI + HTTPS server | [Attempt 2](https://github.com/pmixay/Ascent/actions/runs/42369233159/attempts/2), job `128424780303`; all 234 compressed chunks and six expanded payload hashes independently verified. [Evidence](roles/PETYA_SERVER_STATUS.md). |
 | Fresh first launch with all networks disabled | not run | — | — | ARM64 phone | Record model activation. |
 | Three unrelated imports and JSON exports | not run | — | — | ARM64 phone | Follow [QA_JUDGE_SCRIPT.md](QA_JUDGE_SCRIPT.md). |
 | Silence and independent export validation | not run | — | — | ARM64 phone | Include exact empty array. |

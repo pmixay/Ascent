@@ -160,7 +160,7 @@ The active [Petya checklist](docs/roles/PETYA.md) tracks the evaluator-facing wo
 
 | Package | Current branch progress | Evidence needed to close |
 | --- | --- | --- |
-| H05 — import, progress, result and export UX | Document picker, bounded WAV and Android-codec reading, live stage text, cancellation control, readable turns and dedicated JSON export are in source. | Inspected Android CI run and unaided offline ARM walkthrough, including silent input and large fonts. |
+| H05 — import, progress, result and export UX | Pasha’s job API is merged with Petya’s picker, per-stage progress/cancel, bounded WAV/codec reading and exact raw-word JSON. Watch coordination, source metadata, repeat-import expiry and interrupted-job recovery are preserved in source. | Inspected Android CI run and unaided offline ARM walkthrough, including silent input and large fonts. |
 | H11 — independent QA | Three-file judge procedure, negative/lifecycle matrix and independent JSON validator are prepared under `docs/` and `tools/qa/`. | CI validator result, identified APK/model hashes, physical-device outcomes and untouched holdout measurements. |
 | H12 — submission and demo | Quick-start, architecture, limitations, results and video protocol have draft locations under `docs/` and `artifacts/`. | Final signed APK and durable link, measured results, filmed exact-build demo and fresh offline rehearsal. |
 

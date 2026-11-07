@@ -22,6 +22,9 @@ android {
         versionCode = 1
         versionName = "0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Retain reflective test entry points and the shared tracing bridge under R8.
+        testProguardFiles("instrumentation-rules.pro")
+        proguardFiles("runtime-rules.pro")
         ndk { abiFilters += ascentAbi }
     }
     compileOptions {

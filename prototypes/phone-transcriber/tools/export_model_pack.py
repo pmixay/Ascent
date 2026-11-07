@@ -23,6 +23,7 @@ from model_pack import (
     UPSTREAM_COMMIT, ctc_decode, sha256_file, validate_directory, validate_manifest, validate_zip,
 )
 from evaluate_speech import measure_public_speech
+from checkpoint_source import load_huggingface
 
 UPSTREAM_REPOSITORY = "https://github.com/salute-developers/GigaAM"
 UPSTREAM_MODEL = "multilingual_ctc"
@@ -37,6 +38,8 @@ def arguments():
     parser.add_argument("--output", required=True, type=Path,
                         help="Verified ZIP transport for the model server; users download files in-app.")
     parser.add_argument("--cache-dir", type=Path, default=Path(".cache/gigaam"))
+    parser.add_argument("--checkpoint-source", choices=("upstream", "huggingface"), default="upstream",
+                        help="Pinned CDN checkpoint or separately identified official Hugging Face state dictionary.")
     parser.add_argument("--speaker-model", required=True, type=Path)
     parser.add_argument("--speaker-sha256", required=True)
     parser.add_argument("--speaker-license", required=True, type=Path)
@@ -286,8 +289,17 @@ def main():
         raise RuntimeError("Pinned upstream checkpoint checksum changed")
     args.cache_dir.mkdir(parents=True, exist_ok=True)
     print("Loading pinned GigaAM Multilingual 220M on CPU", flush=True)
-    model = gigaam.load_model(UPSTREAM_MODEL, device="cpu", fp16_encoder=False,
-                              use_flash=False, download_root=str(args.cache_dir))
+    if args.checkpoint_source == "huggingface":
+        model, checkpoint_source = load_huggingface(args.cache_dir / "huggingface")
+    else:
+        model = gigaam.load_model(UPSTREAM_MODEL, device="cpu", fp16_encoder=False,
+                                  use_flash=False, download_root=str(args.cache_dir))
+        checkpoint_source = {
+            "checkpoint_format": "upstream-ckpt",
+            "checkpoint_url": CHECKPOINT_URL, "checkpoint_md5": UPSTREAM_CHECKPOINT_MD5,
+            "checkpoint_sha256": sha256_file(args.cache_dir / f"{UPSTREAM_MODEL}.ckpt"),
+        }
+    print(f"Checkpoint source: {args.checkpoint_source}; SHA-256: {checkpoint_source['checkpoint_sha256']}", flush=True)
     if not model.decoding.tokenizer.charwise:
         raise RuntimeError("This exporter requires a character tokenizer")
     tokens = list(model.decoding.tokenizer.vocab)
@@ -364,8 +376,7 @@ def main():
             "source": {
                 "repository": UPSTREAM_REPOSITORY, "commit": UPSTREAM_COMMIT,
                 "model": UPSTREAM_MODEL, "release": "2026-06", "license": "MIT",
-                "checkpoint_url": CHECKPOINT_URL, "checkpoint_md5": UPSTREAM_CHECKPOINT_MD5,
-                "checkpoint_sha256": sha256_file(args.cache_dir / f"{UPSTREAM_MODEL}.ckpt"),
+                **checkpoint_source,
             },
             "speaker_source": {"url": args.speaker_source, "sha256": args.speaker_sha256,
                                "license": args.speaker_license_id},
@@ -376,6 +387,9 @@ def main():
         validate_manifest(manifest)
         write_json(staging / "manifest.json", manifest)
         validate_directory(staging)
+        print(f"Verified model manifest SHA-256: {sha256_file(staging / 'manifest.json')}", flush=True)
+        for name, record in files.items():
+            print(f"Verified model payload: {name}; bytes={record['bytes']}; SHA-256={record['sha256']}", flush=True)
         temporary_output = destination.with_name(destination.name + ".part")
         try:
             with zipfile.ZipFile(temporary_output, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
