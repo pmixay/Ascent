@@ -190,6 +190,24 @@ class IdentityTests(unittest.TestCase):
             env["ASCENT_EXPECTED_CERT_SHA256"] = "a" * 64
             with self.assertRaises(ValueError):
                 apk_identity.identity(apk, "compact", badging, output, env)
+
+    def test_apksigner_sdk_range_labels_accept_one_certificate_not_key_rotation(self):
+        digest = "e" * 64
+        for label in ("#1", "(minSdkVersion=33, maxSdkVersion=2147483647)",
+                      "(minSdkVersion=33 (dev release=true), maxSdkVersion=2147483647)"):
+            with self.subTest(label=label):
+                signing = f"Number of signers: 1\nSigner {label} certificate SHA-256 digest: {digest}\n"
+                self.assertEqual(digest, apk_identity.signer_certificate(signing))
+        ranged = (f"Number of signers: 1\nSigner (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: {digest}\n"
+                  f"Signer (minSdkVersion=31, maxSdkVersion=32) certificate SHA-256 digest: {digest}\n")
+        self.assertEqual(digest, apk_identity.signer_certificate(ranged))
+        with self.assertRaises(ValueError):
+            apk_identity.signer_certificate(ranged.replace(digest, "f" * 64, 1))
+        with self.assertRaises(ValueError):
+            apk_identity.signer_certificate(ranged.replace("Number of signers: 1", "Number of signers: 2"))
+        with self.assertRaises(ValueError):
+            apk_identity.signer_certificate("Source Stamp Signer certificate SHA-256 digest: " + digest)
+
     def test_version_failure_diagnostic_is_bounded_and_sanitizes_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
             apk, env, badging, signing = self.fixture(Path(directory))

@@ -111,6 +111,16 @@ marks, end-to-end first-launch time, PSS/RSS, ASR quality or processing RTF.
   metadata parsing. Follow-up adds bounded content-free check diagnostics without
   printing SDK stderr, signer DN or secrets; all gates remain enforced. Its exact
   cause and corrected run must be inspected before marking the tooling verified.
+  Diagnostic `198a8d1` / [42415925712](https://github.com/pmixay/Ascent/actions/runs/42415925712)
+  failed after successful SDK signature verification and package/version checks:
+  the numbered-signer regex parsed zero certificate lines. Upstream Android
+  `ApkSignerTool` also emits SDK-range labels and Build Tools 37 scheme-prefixed
+  labels such as `V3.0 Signer:`, not only `Signer #1`. The integrated parser covers
+  all three formats, requires the verbose single-signer count and one unique
+  certificate across all ranges, and still rejects different rotated keys,
+  multiple signers, unknown/mixed records, source-stamp-only output and incorrect
+  cert pins. Both branches' synthetic regressions are retained, including dev-release
+  SDK ranges. [PR #5](https://github.com/pmixay/Ascent/pull/5) tracks exact combined CI.
 
 ## Tasks that require another person
 
