@@ -11,8 +11,16 @@ import java.nio.LongBuffer
 
 data class TranscriptionResult(val segments: List<TranscriptSegment>, val signatures: List<VoiceSignature>)
 
-/** Both inference passes run locally, sequentially, to limit simultaneous model memory. */
-class TranscriptionEngine(private val modelDirectory: File) {
+/**
+ * Both inference passes run locally, sequentially, to limit simultaneous model memory.
+ * [mode] selects the recognizer; speaker attribution always uses the pack in [modelDirectory].
+ * [MULTILINGUAL][RecognitionMode.MULTILINGUAL] needs the Parakeet files in [multilingualDirectory].
+ */
+class TranscriptionEngine(
+    private val modelDirectory: File,
+    private val mode: RecognitionMode = RecognitionMode.RUSSIAN_CIS,
+    private val multilingualDirectory: File? = null,
+) {
     fun transcribe(audio: File, onProgress: (String) -> Unit): List<TranscriptSegment> =
         transcribeWithSpeakers(audio, onProgress).segments
 
@@ -25,7 +33,10 @@ class TranscriptionEngine(private val modelDirectory: File) {
     fun transcribeWithSpeakers(source: PcmWindowSource, onProgress: (String) -> Unit): TranscriptionResult {
         checkCancelled()
         val model = ModelSpec.load(modelDirectory)
-        val words = recognize(model, source, onProgress)
+        val words = when (mode) {
+            RecognitionMode.RUSSIAN_CIS -> recognize(model, source, onProgress)
+            RecognitionMode.MULTILINGUAL -> recognizeMultilingual(source, onProgress)
+        }
         checkCancelled()
         return if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList())
         else attribute(model, source, words, onProgress)
@@ -88,6 +99,36 @@ class TranscriptionEngine(private val modelDirectory: File) {
                     }
                     coreStart = coreEnd
                 }
+            }
+        }
+        return stitcher.finish()
+    }
+
+    /**
+     * Same bounded windows and stitching as the GigaAM path. No level normalization: Parakeet was
+     * measured without it, and its effect on this model is unmeasured.
+     */
+    private fun recognizeMultilingual(wave: PcmWindowSource, progress: (String) -> Unit): List<TimedWord> {
+        val directory = multilingualDirectory
+        require(ParakeetFiles.installed(directory)) { "Мультиязычная модель не установлена" }
+        progress("Загружаю мультиязычную модель…")
+        val stitcher = CtcChunkStitcher()
+        ParakeetRecognizer(requireNotNull(directory)).use { recognizer ->
+            var coreStart = 0L
+            while (coreStart < wave.sampleCount) {
+                checkCancelled()
+                val window = AsrChunking.next(coreStart, wave.sampleCount, wave::read)
+                val samples = wave.read(window.start, (window.end - window.start).toInt())
+                try {
+                    progress("Распознаю речь: ${(100 * coreStart / wave.sampleCount).toInt()}%")
+                    val decoded = recognizer.recognize(samples, window.start * 1000 / RATE, wave.durationMs)
+                    checkCancelled()
+                    stitcher.append(decoded, window.coreStart * 1000 / RATE, window.coreEnd * 1000 / RATE,
+                        window.start * 1000 / RATE, window.end * 1000 / RATE)
+                } finally {
+                    samples.fill(0f)
+                }
+                coreStart = window.coreEnd
             }
         }
         return stitcher.finish()

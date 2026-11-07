@@ -9,6 +9,10 @@ because the references contain none:
         frozen AMI EN2002a utterances from fixtures/ami_english.json (see ami_english_study.py)
     sherpa_asr_compare.py dialogs MODELS_DIR MODEL_KEY ROLE CACHE OUT.json [THREADS]
         Russian Dialogs clips of a frozen study role, each clip recognized on its own
+    sherpa_asr_compare.py windowed MODELS_DIR ROLE CACHE CHECKPOINT_DIR [THREADS]
+        the app's multilingual path: Parakeet v3 over the assembled Dialogs blocks with the
+        AsrChunking windows, ParakeetWords and midpoint ownership; score the checkpoints with
+        ``asr_study.py score CHECKPOINT_DIR``
 
 MODELS_DIR holds the unpacked csukuangfj/sherpa-onnx-* model directories named in
 ``recognizer``; their revisions are recorded in docs/hackathon/model-report.md.
@@ -126,6 +130,65 @@ def dialogs(key, role, cache, out, threads):
     print(json.dumps(summary), flush=True)
 
 
+def parakeet_words(tokens, starts, durations, offset_ms, limit_ms):
+    """Mirror of ParakeetWords.words in MultilingualRecognizer.kt."""
+    def normalize(raw):
+        kept = "".join(c for c in raw.replace("\u2581", " ").lower() if c.isalnum() or c in "'\u2019-").replace("\u2019", "'")
+        return kept.strip("'-")
+    words, text, start, end = [], "", -1, -1
+
+    def flush():
+        word = normalize(text)
+        if word and 0 <= start < limit_ms:
+            words.append({"text": word, "start_ms": start, "end_ms": min(max(end, start + 1), limit_ms)})
+
+    for index, token in enumerate(tokens):
+        if token.startswith((" ", "\u2581")):
+            flush(); text, start, end = "", -1, -1
+        text += token
+        if not normalize(token):
+            continue
+        token_start = offset_ms + round(starts[index] * 1000)
+        if len(durations):
+            token_end = offset_ms + round((starts[index] + durations[index]) * 1000)
+        elif index + 1 < len(starts):
+            token_end = offset_ms + round(starts[index + 1] * 1000)
+        else:
+            token_end = token_start + 80
+        if start < 0:
+            start = token_start
+        end = max(end, token_end, token_start + 1)
+    flush()
+    return words
+
+
+def windowed(role, cache, output, threads):
+    """Run asr_study's infer with the multilingual path in place of GigaAM recognition."""
+    import asr_study
+    from evaluate_speech import chunk_windows
+    rec = recognizer("parakeet-v3", threads)
+
+    class NoSession:  # asr_study opens a GigaAM session; this path never calls it
+        def __init__(self, *args, **kwargs):
+            pass
+
+    def recognize_windowed(_session, samples, _tokens, _block_id, np):
+        result, duration_ms = [], len(samples) // 16
+        for core_start, core_end, start, end in chunk_windows(samples, True, np):
+            stream = rec.create_stream(); stream.accept_waveform(16000, samples[start:end]); rec.decode_stream(stream)
+            r = stream.result
+            for word in parakeet_words(list(r.tokens), list(r.timestamps), list(getattr(r, "durations", [])), start // 16, duration_ms):
+                if core_start // 16 <= (word["start_ms"] + word["end_ms"]) // 2 < core_end // 16:
+                    result.append(word)
+        return sorted(result, key=lambda w: w["start_ms"]), []
+
+    asr_study.ReferenceSession = NoSession
+    asr_study.recognize = recognize_windowed
+    sys.argv = ["asr_study.py", "infer", "--cache", str(cache), "--output", str(output), "--role", role,
+                "--threads", str(threads)]
+    asr_study.main()
+
+
 def main():
     global ROOT
     command, models = sys.argv[1], sys.argv[2]
@@ -136,6 +199,8 @@ def main():
         ami(args[0], args[1], args[2], args[3], threads)
     elif command == "dialogs":
         dialogs(args[0], args[1], args[2], args[3], threads)
+    elif command == "windowed":
+        windowed(args[0], args[1], args[2], int(args[3]) if len(args) > 3 else 2)
     else:
         raise SystemExit(__doc__)
 

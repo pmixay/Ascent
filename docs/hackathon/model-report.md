@@ -191,6 +191,22 @@ Russian Dialogs clips; nothing was tuned.
 | GigaAM Multilingual 220M (current, windowed) | 2.91% (162) | 4.30% (432) |
 | Parakeet TDT 0.6B v3 (each clip on its own) | 4.74% (264) | 6.73% (677) |
 
+The app's multilingual path (`MultilingualRecognizer.kt`: Parakeet v3 over the assembled
+Dialogs blocks with the `AsrChunking` windows, token-to-word mapping and midpoint ownership),
+mirrored by `tools/sherpa_asr_compare.py windowed` and scored with `tools/asr_study.py score`:
+
+| Parakeet v3, windowed like the app | Development (5,572 words) | Validation (10,053 words) |
+| --- | --- | --- |
+| WER (block level) | 5.76% (321) | 6.98% (702) |
+| Word start / end vs energy proxy, median signed | -65.5 / +181.5 ms | -69.0 / +49.0 ms |
+| Starts within 250 ms | 94.9% | 97.1% |
+| RTF, 2 threads | 0.139 | 0.141 |
+
+Windowing costs about 1 point on development (87 of 321 errors are deletions) and 0.3 on
+validation against clips recognized one by one; the Russian default mode stays GigaAM, so this
+mainly bounds Russian quality in the multilingual mode. Word times are as close to the energy
+proxy as GigaAM's (start median +87 ms, end -14.5 ms).
+
 Revisions (`csukuangfj/sherpa-onnx-*` on Hugging Face, int8 files): whisper-tiny.en `d026532c`,
 whisper-base.en `59eea950`, whisper-small.en `d9533f69`, whisper-distil-small.en `0492324b`,
 sense-voice-zh-en-ja-ko-yue-int8-2025-09-09 `355f4d48`, nemo-parakeet-tdt-0.6b-v2-int8

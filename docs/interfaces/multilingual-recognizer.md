@@ -2,8 +2,9 @@
 
 Status: model choice of the team, 7 November 2026, from host measurements in
 [model-report.md](../hackathon/model-report.md#second-recognizer-english-and-multilingual-candidates-host).
-**Not integrated:** no APK contains Parakeet, no engine path runs it, and nothing here has run
-on Android or ARM.
+**Engine path written, not yet integrated:** the engine can run Parakeet (JVM-tested logic,
+host-mirrored), but no APK contains the files, no UI selects the mode, and nothing here has
+run on Android or ARM.
 
 ## Decision
 
@@ -32,22 +33,54 @@ licence **CC-BY-4.0** (attribution required in the app's licence screen and the 
 About 670 MB in total, stored uncompressed like the other embedded models and verified by
 hash at build time.
 
-## Runtime and engine contract
+## Engine API (speech lead, pushed with JVM tests)
 
-- Runtime: sherpa-onnx 2.0.0 `OfflineRecognizer` with a NeMo transducer config
-  (`model_type = "nemo_transducer"`), the library the app already ships for speaker
-  embeddings. No new native dependency.
-- Input: the same bounded `PcmWindowSource` windows as GigaAM (`AsrChunking`, 20 s cores with
-  context). Whether `AsrGain` helps Parakeet is unmeasured; the host numbers above ran without it.
-- Output: sherpa-onnx returns tokens with start times (80 ms frames). Words start at tokens
-  beginning with `▁`; a word ends at the next word's start or at the window end, then the
-  existing stitcher, speaker attribution, segmenter and text stage run unchanged.
-- Times stay approximate and must be checked like the CTC times; Parakeet timing accuracy is
-  unmeasured.
+`MultilingualRecognizer.kt` and `TranscriptionEngine.kt`:
 
-## Owners
+```kotlin
+enum class RecognitionMode { RUSSIAN_CIS, MULTILINGUAL }          // RUSSIAN_CIS is the default
 
-- Speech lead: engine path producing `TimedWord`s from Parakeet, with JVM tests, and the
-  device measurement of both modes.
-- Release lead: packaging, hashes, licence notice and APK size check.
-- Application lead: the mode control and passing the mode to the engine.
+object ParakeetFiles {                                              // pinned files above
+    const val DIRECTORY = "multilingual-asr"
+    val ALL: List<Asset>                                            // name, bytes, sha256
+    fun installed(directory: File?): Boolean                        // every file with its pinned size
+}
+
+TranscriptionEngine(
+    modelDirectory: File,                                           // GigaAM pack: always used for speakers
+    mode: RecognitionMode = RecognitionMode.RUSSIAN_CIS,
+    multilingualDirectory: File? = null,                            // directory holding ParakeetFiles.ALL
+).transcribeWithSpeakers(source, onProgress)
+```
+
+- `MULTILINGUAL` runs Parakeet through sherpa-onnx 2.0.0 `OfflineRecognizer`
+  (`nemo_transducer`, greedy search, 2 threads) over the same `AsrChunking` windows and
+  `CtcChunkStitcher` as GigaAM. Speaker attribution, segmenter and text stage are unchanged.
+- `ParakeetWords` turns tokens into the same lowercase, punctuation-free timed words as the
+  GigaAM path: a token starting with a space or `▁` starts a word; a word spans its first to
+  last letter/digit token (start + TDT duration); Parakeet's own punctuation and capitals are
+  dropped so the text stage treats both modes alike. A word starting after the recording end
+  is dropped.
+- No `AsrGain` in this mode: Parakeet was measured without it.
+- If the files are not installed, `MULTILINGUAL` fails with "Мультиязычная модель не
+  установлена"; the engine never falls back silently to the other model.
+- The same path is mirrored on the host by `tools/sherpa_asr_compare.py windowed` and scored
+  with `tools/asr_study.py score`: Russian Dialogs WER 5.76% development / 6.98% validation,
+  word starts within 250 ms of the energy proxy for 94.9% / 97.1% of clips (report has the
+  details). English was measured per utterance only (AMI), not through the windowed path.
+
+## Handoff
+
+- **Release lead (Timofey):** add the four files of `ParakeetFiles.ALL` under
+  `multilingual-asr/` of the embedded model set, stored uncompressed, with build-time SHA-256
+  checks against `ParakeetFiles`, and the CC-BY-4.0 attribution for `nvidia/parakeet-tdt-0.6b-v3`.
+  Check that R8 keeps what sherpa-onnx's JNI reads from `OfflineRecognizerConfig` and its nested
+  config classes (fields are looked up by name); if the minified build fails to create the
+  recognizer, add a keep rule for `com.k2fsa.sherpa.onnx.Offline*` and `FeatureConfig`. Add an
+  instrumented smoke test that creates `ParakeetRecognizer` on the emulator. APK size grows by
+  about 670 MB.
+- **Application lead (Pasha):** a mode control (Russian and CIS languages / multilingual,
+  Russian default) and pass it with the installed directory to `TranscriptionEngine`; show the
+  "not installed" error instead of switching modes silently.
+- **Speech lead:** measure both modes on the device with `tools/score_competition_json.py`
+  once an APK contains the files.

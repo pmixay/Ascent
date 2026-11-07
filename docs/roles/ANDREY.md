@@ -27,12 +27,15 @@ Pushed and inspected. Host and CI evidence only; no Android device result exists
   the export, not run on ARM.
 - **Acoustic model decision open:** GigaAM Multilingual Large is better on Russian (validation
   3.20% vs 4.30%) and English but about three times slower and not packaged.
-- **Second recognizer (chosen, not integrated):** Russian and CIS languages stay on GigaAM;
+- **Second recognizer (chosen; engine path written, not packaged or selectable):** Russian and CIS languages stay on GigaAM;
   the multilingual mode uses Parakeet TDT 0.6B v3 via the shipped sherpa-onnx
   ([multilingual-recognizer.md](../interfaces/multilingual-recognizer.md))
   (AMI headsets 18.57% vs 54.65%, Russian validation 6.73% vs 4.30% for GigaAM). Whisper
   tiny/base/small/distil-small, Moonshine and SenseVoice were measured and are behind; see the
-  report. Integration needs the application and release roles.
+  report. `TranscriptionEngine(..., RecognitionMode.MULTILINGUAL, directory)` runs it
+  (`MultilingualRecognizer.kt`, JVM tests); host mirror of the windowed path: Russian
+  validation 6.98%. Packaging and the mode control are handed off in
+  [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md#handoff).
 - **Device scoring tool:** `tools/score_competition_json.py` is ready for exported JSON and
   hand-made references.
 - **Earlier work kept:** P1 baseline, rejected constant start shift, segmenter, bounded
