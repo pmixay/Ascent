@@ -33,8 +33,17 @@ Everything runs on the phone, offline, one stage after another:
 
 ## Why these choices
 
-- **GigaAM:** the best open Russian model family we could run on ONNX Runtime; MIT licence;
-  CTC keeps decoding simple and gives word times.
+- **GigaAM for Russian and CIS languages:** the best open Russian model family we could run
+  on ONNX Runtime; it also covers Kazakh, Kyrgyz and Uzbek; MIT licence; CTC keeps decoding
+  simple and gives word times.
+- **Why recognition is split between two models (proposed modes: Russian + CIS with GigaAM,
+  multilingual with Parakeet TDT 0.6B v3):** among open models small enough for a phone we
+  found none that is good at both Russian and English. On the same data GigaAM makes 36-39%
+  fewer Russian errors than the multilingual Parakeet v3 (validation 4.30% vs 6.73%), while
+  Parakeet v3 makes 2.9 times fewer English errors on meeting headsets (18.57% vs 54.65%).
+  Models that are strong on both, such as Whisper large-v3 with about 1.5B parameters, are
+  too large for on-device use. **Say clearly whether the multilingual mode is in the shipped
+  APK:** at the time of writing it is measured on the host only, not integrated.
 - **CTC times instead of forced alignment:** no second model on the phone. The cost: times
   are approximate (host check against an energy proxy: start median +87 ms, end -14.5 ms).
 - **Constrained LLM instead of free generation:** free generation rewrites words, which would
@@ -52,6 +61,8 @@ Everything runs on the phone, offline, one stage after another:
 | Telephone-channel validation WER | 4.63% | host |
 | English read speech (LibriSpeech, 1,901 words) | 6.73% | host |
 | English meeting, headsets / distant microphone, with level rule | 54.65% / 74.96% | host |
+| Same, Parakeet TDT 0.6B v3 (multilingual candidate, not shipped) | 18.57% / 44.74% | host |
+| Russian validation, Parakeet v3 vs GigaAM | 6.73% vs 4.30% | host |
 | Recognition RTF, x86, 2 threads | about 0.07 | host |
 | Whole pipeline RTF, x86 | about 0.26 | host |
 
@@ -75,11 +86,15 @@ Everything runs on the phone, offline, one stage after another:
   punctuation mark and capital of the text it processes; on 120 development clips (host) it
   raised correct capitals from 84.87% (lowercase baseline) to 88.98%. It does not touch
   recognition. Check whether the shipped APK already runs it before answering.
-- **"Why not Whisper?"** We did not measure it ourselves. Whisper large-v3 has about 1.5B
-  parameters; in the GigaAM Multilingual card it is worse on Russian Common Voice (9.1% vs
-  7.1%) and the in-the-wild set (10.1% vs 7.6%), better on Russian FLEURS (3.1% vs 4.4%) and
-  much better on English. Its autoregressive decoder can also invent sentences in silence;
-  CTC has no such language loop.
+- **"Why not Whisper?"** We measured the phone-sized English Whispers on AMI meetings:
+  tiny.en 34.55%, base.en 30.75%, small.en 29.39%, distil-small.en 28.06% on headsets, all
+  behind Parakeet (18.02%). Through sherpa-onnx they give no word times, which speaker
+  attribution and the JSON timestamps need, and they pad every input to 30 s. Whisper
+  large-v3 (about 1.5B) is too large; by the GigaAM Multilingual card it is also worse on
+  Russian Common Voice (9.1% vs 7.1%) and better on Russian FLEURS (3.1% vs 4.4%).
+- **"What about SenseVoice?"** Measured: 52.75% / 72.44% on AMI headsets / distant microphone,
+  close to GigaAM and far behind Parakeet; it targets Chinese, Japanese, Korean and Cantonese
+  first.
 - **"Why this LLM?"** On the same stage and clips it beat Qwen2.5 1.5B, Qwen3 0.6B and
   Qwen3.5 0.8B overall (sentence-end F1 0.456 vs 0.188, 0.108-0.204 and 0.007-0.039) and is
   the fastest; bigger models were better only with free generation, which needs a runtime the

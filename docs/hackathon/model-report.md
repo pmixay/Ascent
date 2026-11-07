@@ -159,6 +159,59 @@ under a non-commercial licence and publishes no English figures; the others are 
 Uzbek or Bashkir fine-tunes, Russian-only GigaAM-v3 derivatives, or format conversions
 without retraining. GigaAM Multilingual Large is the only stronger model of the same family.
 
+## Second recognizer: English and multilingual candidates (host)
+
+Proposed design, not implemented: three recognition modes. **Russian** and **Russian + CIS
+languages** use GigaAM Multilingual (its card covers Russian, Kazakh, Kyrgyz and Uzbek);
+**multilingual** (English and other European languages) uses a second model. The candidates
+below all run on sherpa-onnx 2.0.0, which the app already ships for speaker embeddings, so no
+new native library is needed. Same container, 2 threads (runs shared the 4 cores, so RTF is
+indicative), int8 exports from `csukuangfj/sherpa-onnx-*`, measured once with
+`tools/sherpa_asr_compare.py` on the frozen AMI EN2002a utterances (8,015 words) and on the
+Russian Dialogs clips; nothing was tuned.
+
+| Model (int8, size) | Languages | Word times in sherpa-onnx | EN2002a IHM | EN2002a SDM | RTF (IHM) |
+| --- | --- | --- | --- | --- | --- |
+| NVIDIA Parakeet TDT 0.6B v2 (661 MB, CC-BY-4.0) | English | yes | **18.02%** | **44.72%** | 0.15 |
+| NVIDIA Parakeet TDT 0.6B v3 (671 MB, CC-BY-4.0) | 25 European incl. en, ru, uk | yes | 18.57% | 44.74% | 0.15 |
+| Moonshine base (287 MB, MIT) | English | no | 27.21% | 59.41% | 0.06 |
+| Whisper distil-small.en (298 MB, MIT) | English | no | 28.06% | 56.93% | 0.34 |
+| Whisper small.en (375 MB, MIT) | English | no | 29.39% | 56.78% | 0.84 |
+| Whisper base.en (160 MB, MIT) | English | no | 30.75% | 61.02% | 0.24 |
+| Whisper tiny.en (103 MB, MIT) | English | no | 34.55% | 66.25% | 0.09 |
+| SenseVoice small (237 MB) | zh, en, ja, ko, yue | yes | 52.75% | 72.44% | 0.05 |
+| GigaAM Multilingual 220M with `AsrGain` (current) | ru, en, kk, ky, uz | yes | 54.65% | 74.96% | 0.12 |
+| GigaAM Multilingual Large 600M with `AsrGain` | ru, en, kk, ky, uz | yes | 52.80% | 65.39% | 0.30 |
+
+| Russian Dialogs WER | Development (5,572 words) | Validation (10,053 words) |
+| --- | --- | --- |
+| GigaAM Multilingual 220M (current, windowed) | 2.91% (162) | 4.30% (432) |
+| Parakeet TDT 0.6B v3 (each clip on its own) | 4.74% (264) | 6.73% (677) |
+
+Revisions (`csukuangfj/sherpa-onnx-*` on Hugging Face, int8 files): whisper-tiny.en `d026532c`,
+whisper-base.en `59eea950`, whisper-small.en `d9533f69`, whisper-distil-small.en `0492324b`,
+sense-voice-zh-en-ja-ko-yue-int8-2025-09-09 `355f4d48`, nemo-parakeet-tdt-0.6b-v2-int8
+`84b478d5`, nemo-parakeet-tdt-0.6b-v3-int8 `ed5d7456`, moonshine-base-en-int8 `052b0798`.
+
+Findings:
+
+- No compact open model we measured is best on both languages. GigaAM makes 36-39% fewer
+  Russian errors than the multilingual Parakeet v3; Parakeet v3 makes 2.9 times fewer English
+  errors on headsets and 1.7 times fewer on the distant microphone. Models strong on both,
+  such as Whisper large-v3 (about 1.5B parameters; GigaAM Multilingual card, Whisper vs
+  GigaAM: Russian CV 9.1% vs 7.1%, Russian FLEURS 3.1% vs 4.4%), are too large for the phone;
+  Whisper turbo (about 1 GB int8) was not run.
+- Parakeet v3 is the natural multilingual model: within 0.6 points of the English-only v2 on
+  headsets and equal on the distant microphone, and it also covers Russian and Ukrainian.
+- Whisper and Moonshine return no token times through sherpa-onnx 2.0.0's offline API, so
+  they cannot feed speaker attribution or the JSON timestamps; Whisper also pads every input
+  to 30 s, which makes it slow on short phrases. SenseVoice is weak on English meetings, and
+  its licence (FunASR model licence) was not reviewed.
+- Caveats: AMI is utterance-level recognition only, English diarization is unmeasured, and
+  Parakeet ran on clips one by one while GigaAM ran on assembled windows. Parakeet is not
+  integrated into the app: it needs a mode switch, the sherpa-onnx recognizer path producing
+  timed words, and about 670 MB more in the embedded APK.
+
 ## Worst case: software ARM emulation on an x86 host
 
 A lower bound on speed if the jury's ARM emulator runs on an x86 host with pure
@@ -202,8 +255,9 @@ therefore a risk, unobserved on real hardware.
 - **Text model** improves presentation only. If the jury does not normalize text before
   WER, punctuation could add word errors; the integration contract recommends exporting the
   raw ASR text.
-- **English** conversation is weak: 54.65% WER on AMI headsets and 74.96% on a distant
-  microphone with the current model, and English diarization is unmeasured.
+- **English** conversation is weak with the shipped model: 54.65% WER on AMI headsets and
+  74.96% on a distant microphone. Parakeet TDT 0.6B (18.02% / 44.72%) is measured on the host
+  but not integrated. English diarization is unmeasured.
 
 ## Device measurements (to fill)
 
