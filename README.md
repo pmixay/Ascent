@@ -27,7 +27,7 @@ Newly pushed `6a078e3` adds dedicated public inference/cache generation and a
 provenance-aware scorer; its [run 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969)
 was in progress when inspected. Verify that path instead of implementing it again;
 no completed success is claimed. Earlier `4b16e3a` had a passing build job but
-failed for missing inputs. Latest model export remains failed run `42257595048`.
+failed for missing inputs. At that inspection, latest model export was failed run `42257595048`.
 Public-reference results are not deployed-pack or offline ARM acceptance. The
 audit preserves its earlier snapshot.
 
@@ -40,8 +40,10 @@ embedded assets, signing custody and ARM acceptance remain open.
 T1 implementation adds a pinned official Hugging Face checkpoint source for model
 export, with strict loading and all numerical/speaker checks retained. The CI
 inference policy now explicitly includes the existing fixture/export validation
-checks. Source identity stays separate from the historical deployed export;
-recovery CI and publication are not yet verified. See [model sources](prototypes/phone-transcriber/docs/model-pack.md#t1-secure-checkpoint-recovery).
+checks. Main's cold inference/cache/scoring run now passed. HF export/parity/speaker
+checks also passed at `46f00e9`, but its workflow failed on changed SSH host-key
+verification during publication. The additional cache guards await exact-revision
+CI; see [T1 evidence and remaining blockers](docs/roles/TIMOFEY_T1_STATUS.md).
 
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present

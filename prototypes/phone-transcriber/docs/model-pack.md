@@ -36,9 +36,13 @@ checks do not establish equality to the historical deployed ONNX hash. Andrey
 must review the new export evidence before integration; frozen dialogue-model
 hashes and its existing two accepted provenances remain unchanged.
 
-At implementation time, CI validation/publication of this recovery is pending.
-The fixed deployment host has a separate TLS/access blocker; repairing checkpoint
-acquisition alone does not make the catalog reachable.
+The recovery's export/parity/speaker checks passed at commit `46f00e9` in
+[run 42367250167](https://github.com/pmixay/Ascent/actions/runs/42367250167).
+The workflow failed at SSH publication because the server host key differs from
+the pinned secret. Subsequent tooling changes need their own run; see
+[T1 evidence](../../../docs/roles/TIMOFEY_T1_STATUS.md). The fixed deployment host
+has a separate TLS/access blocker; repairing checkpoint acquisition alone does
+not make the catalog reachable.
 
 ## Download in the app
 

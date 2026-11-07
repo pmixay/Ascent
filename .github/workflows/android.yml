@@ -270,6 +270,9 @@ jobs:
           --model-source public-reference
           --threads 4
 
+      - name: Verify completed inference provenance before caching
+        run: python3 tools/verify_dialog_cache.py android/app/build/generated/long-evaluation
+
   speech-evaluation:
     name: Score cached two-hour Russian speech evaluation
     needs: dialog-inference
@@ -297,6 +300,9 @@ jobs:
         run: |-
           echo 'The dialog-inference job did not leave a speech-inference cache; inspect its log.'
           exit 1
+
+      - name: Verify restored inference source, pipeline and payloads
+        run: python3 ../tools/verify_dialog_cache.py app/build/generated/long-evaluation
 
       - name: Restore native dependency download
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

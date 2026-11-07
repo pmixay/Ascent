@@ -387,6 +387,9 @@ def main():
         validate_manifest(manifest)
         write_json(staging / "manifest.json", manifest)
         validate_directory(staging)
+        print(f"Verified model manifest SHA-256: {sha256_file(staging / 'manifest.json')}", flush=True)
+        for name, record in files.items():
+            print(f"Verified model payload: {name}; bytes={record['bytes']}; SHA-256={record['sha256']}", flush=True)
         temporary_output = destination.with_name(destination.name + ".part")
         try:
             with zipfile.ZipFile(temporary_output, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:

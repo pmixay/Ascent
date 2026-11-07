@@ -46,8 +46,10 @@ completed by this checkpoint.
 
 T1 recovery implementation adds a hash-pinned official Hugging Face checkpoint
 loader and explicitly reconciles the existing CI fixture/export inference checks.
-Export validation, publication and complete inference-cache/scoring acceptance
-remain unchecked until inspected runs establish them.
+Main's cold inference/cache/scoring run and the HF export/parity/speaker steps
+are now verified; publication still fails strict SSH host-key checking. Added
+cache guards and task-branch acceptance await their exact-revision CI. See
+[T1 evidence](docs/roles/TIMOFEY_T1_STATUS.md); full H01 remains open.
 
 The old “reserved validation” references below are historical: the original
 Dialogs recordings have since informed algorithm fixes and are diagnostic data.
