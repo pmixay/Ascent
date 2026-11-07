@@ -101,9 +101,25 @@ recovery and leased-triple corruption. They run only in existing GitHub CI.
 
 ## Evidence status
 
-New Parakeet packaging/smoke changes are **not yet CI-verified**. No local build,
-application test, Android dependency preparation, model export or inference was
-run. New exact-commit CI must establish packaging/installation and minified native
-creation; Petya/user then performs actual ARM/offline validation and Pasha wires
-the mode chooser. Signing identity, durable publication and release approval stay
-open. The earlier 1.49 GB default-model APK is not this new candidate.
+Parakeet implementation `dbbce95074d9338beb970c01e76dbd04273c5f52` is now
+**CI-verified** in [run 42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446),
+attempt 1. Both jobs completed successfully:
+
+- Compact `128498687976`: existing shared tooling/JVM/lint/build/native/runtime
+  checks retained; compact APK still rejects model weights.
+- Embedded `128498687716`: schema-2 asset preparation and enlarged ARM64 archive
+  inspection/build, actual x86_64 install/bootstrap/text/lease recovery and the
+  additional required minified Parakeet creation smoke all passed. The XML gate
+  requires both named methods; a successful empty/skip report cannot satisfy it.
+
+The exact-run waiter returned success for both required jobs. Follow-up attempts
+to retrieve the detailed logs/artifact metadata failed with local DNS/transport
+errors. Therefore the exact new APK byte count, raw APK SHA-256, generated bundle
+digest and download artifact ID are **not collected in this handoff**; do not fill
+them with the older candidate's values or the approximate 670 MB growth estimate.
+
+No local build, application test, Android dependency preparation, model export
+or inference was run. Actual ARM/offline validation remains Petya/user's task;
+Pasha still wires the mode chooser. Signing identity, durable publication and
+release approval stay open. The earlier 1.49 GB default-model APK is not this new
+candidate; green emulator creation does not measure ASR quality or phone speed.

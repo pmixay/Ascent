@@ -33,7 +33,10 @@ remain required.
 
 Latest user assignment: [Parakeet packaging/R8/emulator smoke](TIMOFEY_PARAKEET_STATUS.md).
 Source adds the four pinned files and CC-BY-4.0 notice in schema 2, with a third
-leased directory. New exact-commit CI/enlarged-APK installation are still required.
+leased directory. Both jobs passed at `dbbce95` in [42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446),
+including enlarged-APK emulator installation and required minified recognizer creation.
+Exact new APK/bundle hashes remain uncollected because follow-up network access failed;
+mode selection and actual ARM acceptance remain open.
 T4 `68487f1` passed both jobs in `42402862397`; no ARM results are inferred.
 
 - Root `.github/workflows/android.yml` and `model-pack.yml`.

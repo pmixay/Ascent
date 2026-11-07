@@ -105,6 +105,13 @@ large-APK installation, ARM/model acceptance and final release remain unverified
 until their own evidence exists. T4 source `68487f1` passed both CI jobs in
 `42402862397`, which does not certify these later packaging changes.
 
+The subsequent Parakeet implementation `dbbce95` passed both Android jobs in
+[42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446), including
+the enlarged APK's emulator installation and required minified native creation.
+Exact new artifact/hash metadata could not be retrieved after follow-up network
+errors. Mode chooser, physical ARM operation/quality/performance, stable signing
+and final release acceptance are still open; see the packaging status above.
+
 Deliver one clearly identified CI-built ARM64 APK containing every model needed for the default pipeline. On a clean supported phone with networking disabled before first launch, a judge can import an unfamiliar local recording, process it on the phone, inspect timestamped speaker turns and export the exact required JSON. Three successive files must work independently. Provide source, measured results, installation instructions, architecture, limitations and a video of the same release.
 
 Priority order:

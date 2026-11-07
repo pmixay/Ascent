@@ -66,7 +66,10 @@ T4 timing hooks passed both jobs at `68487f1` / [42402862397](https://github.com
 The user's explicit [Parakeet handoff](docs/roles/TIMOFEY_PARAKEET_STATUS.md) now
 adds a schema-2 third embedded group, pinned/uncompressed assets and attribution,
 and a required emulator JNI-configuration creation probe. Its new CI and enlarged
-APK installation evidence are pending; mode selection/ARM acceptance stay open.
+APK emulator installation passed at `dbbce95` in [42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446),
+with both Android jobs successful and both embedded methods required. Exact new
+artifact/hash metadata is uncollected after follow-up network errors; mode
+selection/ARM acceptance stay open.
 Historical teammate runs are in
 [T2 status](docs/roles/TIMOFEY_T2_STATUS.md).
 

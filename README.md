@@ -80,8 +80,11 @@ The task branch merges main's multilingual engine and adds its four pinned files
 under `multilingual-asr/`, uncompressed, with CC-BY-4.0 attribution, a third leased
 group and a required R8/emulator recognizer-creation smoke test. Schema-2 payload
 budget is 2.2 GB; the acoustic/server schema and compact weight-absence rules stay
-unchanged. The enlarged APK and new native smoke require their own CI. Default
-recognition is still GigaAM; mode selection and ARM validation remain separate.
+unchanged. Both jobs for `dbbce95` passed in [CI 42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446),
+including enlarged-APK emulator installation and required minified Parakeet
+creation. Exact new artifact/hash metadata is not yet collected due to follow-up
+network errors. Default recognition is still GigaAM; mode selection, ARM quality/
+performance and final release validation remain separate.
 
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
