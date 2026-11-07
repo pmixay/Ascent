@@ -1,5 +1,23 @@
 # Ascent
 
+## Current competition delivery plan — 6 November 2026
+
+The supplied Neuro-stenographer specification and organizer clarifications now
+define the phone competition release. See the [requirements/code/CI audit](docs/HACKATHON_AUDIT.md)
+and [four-person delivery plan](docs/HACKATHON_PLAN.md). Required work includes a
+usable embedded model set, reachable audio import, the exact competition JSON
+schema, resolved local-LLM compliance and clean-install offline ARM validation.
+These are planned changes, not implemented capabilities. For this competition
+scope, the new requirements supersede the older no-weights/capture-only packaging
+direction and exclude remote text processing. The watch-first product target
+below remains a separate future track. Builds and executable application checks
+remain CI-only.
+
+At audited commit `d7759627`, the Android build job passed, but the overall
+workflow failed because the two-hour evaluation inputs were unavailable; model
+export also failed before publication. Historical green runs below do not establish
+a fully verified current release. See the audit for inspected run links and scope.
+
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
 for review: listening stops into automatic local transcription, then the temporary
