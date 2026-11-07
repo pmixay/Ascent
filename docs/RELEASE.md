@@ -25,8 +25,8 @@ After `check_apk.py` succeeds, `record_apk_identity.py` uses CI's already instal
 and APK signature. It prints one `ASCENT_APK_IDENTITY` JSON line plus a short step
 summary: raw APK size/hash, certificate fingerprint, signing mode, commit/run/
 attempt and (offline only) bundle/file hashes and export-validation producer.
-The parser accepts the indexed and SDK-range signer labels emitted by
-[AOSP apksigner](https://android.googlesource.com/platform/tools/apksig/+/refs/heads/main/src/apksigner/java/com/android/apksigner/ApkSignerTool.java).
+The parser accepts numbered, SDK-range and Build Tools 37 scheme-prefixed signer
+labels ([AOSP format change](https://android.googlesource.com/platform/tools/apksig/+/d177d78e4649d08499d90e6cbf9ca47d77c9b865)).
 It requires one verified signer and the same certificate across SDK ranges; a
 rotated/different certificate does not qualify. Signature verification is independent of ZIP hashing. No signer distinguished
 name, credential, audio, source URI or transcript is emitted.

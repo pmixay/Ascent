@@ -25,34 +25,23 @@ class IdentityError(ValueError):
 
 
 def signer_certificate(signing: str) -> str:
-    # apksigner prints SDK ranges instead of #1 for v3.1, including two ranges
-    # with the same certificate. Key rotation to another identity stays refused.
-    # See AOSP ApkSignerTool.verify(): isVerifiedUsingV31Scheme().
-    label = r"(?:#[1-9][0-9]*|\(minSdkVersion=[1-9][0-9]*(?: \(dev release=true\))?, maxSdkVersion=[1-9][0-9]*\))"
+    # Build Tools 37 names the signature scheme (e.g. V3.0 Signer:); older
+    # tools use #1 or SDK ranges. AOSP format change: d177d78e4649d08499d90e6cbf9ca47d77c9b865.
+    sdk_range = r"\(minSdkVersion=[1-9][0-9]*(?: \(dev release=true\))?, maxSdkVersion=[1-9][0-9]*\)"
+    label = (r"(?:Signer (?:#[1-9][0-9]*|" + sdk_range + r")|"
+             r"V(?:1|2|3\.[01]) Signer:(?: " + sdk_range + r")?)")
     lines = [line for line in signing.splitlines()
-             if line.startswith("Signer ") and " certificate SHA-256 digest:" in line]
-    records = [re.fullmatch(r"Signer (" + label + r") certificate SHA-256 digest: ([0-9a-fA-F:]+)", line)
+             if " certificate SHA-256 digest:" in line and not line.startswith("Source Stamp Signer")]
+    records = [re.fullmatch(r"(" + label + r") certificate SHA-256 digest: ([0-9a-fA-F:]+)", line)
                for line in lines]
-    # Only SDK-generated public counts/labels are diagnostic; never emit a DN,
-    # arbitrary stdout/stderr or an unverified ASCENT_APK_IDENTITY record.
-    public_labels = []
-    for line in signing.splitlines():
-        candidate = line.split(" certificate SHA-256 digest:", 1)
-        if len(candidate) == 2 and re.fullmatch(r"Signer [A-Za-z0-9 #(),=._-]{1,120}", candidate[0].strip()):
-            public_labels.append(candidate[0].strip())
-    diagnostic = json.dumps({"signer_counts": re.findall(r"Number of signers:\s*([0-9]+)", signing),
-                             "certificate_labels": public_labels,
-                             "stdout_lines": len(signing.splitlines()),
-                             "sha256_lines": sum("SHA-256" in line for line in signing.splitlines()),
-                             "sdk_fields": sorted({line.split(":", 1)[0].strip() for line in signing.splitlines()
-                                                   if re.fullmatch(r"(?:Signer |Number of signers|Verified using |Verifies)[A-Za-z0-9 #(),=._-]{0,120}",
-                                                                   line.split(":", 1)[0].strip())}),
+    counts = re.findall(r"^Number of signers: ([0-9]+)$", signing, re.M)
+    # Counts only: no certificate subjects, arbitrary tool output or unverified identity.
+    diagnostic = json.dumps({"signer_counts": counts, "certificate_records": len(lines),
                              "recognized_records": sum(record is not None for record in records)}, separators=(",", ":"))
-    if (re.findall(r"^Number of signers: ([0-9]+)$", signing, re.M) != ["1"]
-            or not records or any(record is None for record in records)):
+    if counts != ["1"] or not records or any(record is None for record in records):
         raise IdentityError("APK must have one verified signer; SDK format " + diagnostic)
     labels = [record[1] for record in records]
-    if any(value.startswith("#") for value in labels) and labels != ["#1"]:
+    if any(value.startswith("Signer #") for value in labels) and labels != ["Signer #1"]:
         raise IdentityError("APK must have one verified signer; SDK format " + diagnostic)
     certificates = {certificate_digest(record[2]) for record in records}
     if len(certificates) != 1:
