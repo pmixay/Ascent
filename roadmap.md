@@ -99,7 +99,7 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 
 ## Parallel track: Hackathon verification build
 
-**Dependency:** existing prototype and CI. **Outcome:** an APK the jury can install and score offline. This track follows the Hackathon verification section of [AGENTS.md](AGENTS.md); it is phone-only and does not complete any production milestone.
+**Dependency:** existing prototype and CI. **Outcome:** an APK the jury can install and score offline. This track follows the Hackathon verification section of [AGENTS.md](AGENTS.md); it is phone-only and does not complete any production milestone. It is the jury-requirements checklist for the active competition track above; owners, ordering and hour estimates live in [the delivery plan](docs/HACKATHON_PLAN.md) and the per-person files in `docs/roles/`, and this list adds no separate schedule.
 
 - [ ] Embed the verified speech models in a verification APK. Extend the existing **Ascent Android CI** workflow, keep push-only triggers and every current check, and keep the compact network APK with weights outside it.
 - [ ] Decide between two APKs and one APK whose embedded model can be deleted. If deletion is offered, add only that control and return to the fixed-catalog download flow afterward.

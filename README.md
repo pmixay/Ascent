@@ -486,7 +486,8 @@ The jury's [task brief](docs/hackathon/hackathon-brief-2026-11.pdf) and
 install on an ARM emulator, import three recordings into, transcribe and export,
 then score against reference transcripts. This is a separate deliverable on the
 phone only. It does not change the production plan above, and every item here is a
-requirement, not an implemented feature.
+requirement, not an implemented feature. Owners and ordering are in the
+[four-person delivery plan](docs/HACKATHON_PLAN.md) and the [audit](docs/HACKATHON_AUDIT.md).
 
 | Requirement | Plan |
 | --- | --- |

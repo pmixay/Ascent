@@ -51,17 +51,22 @@ benchmark actors into application voice memory.
 The jury's [task brief](docs/hackathon/hackathon-brief-2026-11.pdf) and
 [written clarifications](docs/hackathon/jury-clarifications.md) define a separate
 deliverable: an Android APK that experts install and score automatically. It
-applies to the phone application only. It does not weaken sections 1 to 6, does not
-make any production milestone complete, and does not extend the prototype's
-temporary-audio exception to production. Everything below is a requirement, not an
-implemented feature, until an inspected CI run or device result says otherwise.
+applies to the phone application only. The scoped precedence at the top of this file
+and the [delivery plan](docs/HACKATHON_PLAN.md) govern which older rules it
+overrides; this section states the jury-specific requirements and the exceptions
+below. Outside this scope sections 1 to 6 are unchanged. It does not make any
+production milestone complete and does not extend the prototype's temporary-audio
+exception to production. Everything below is a requirement, not an implemented
+feature, until an inspected CI run or device result says otherwise.
 
 - **Embedded model.** The verification APK contains the speech models so that
   verification needs no network. Source the weights from verified model-export
   output and check their hashes at build time. The compact network APK keeps weights
   outside the APK. The jury accepts either two APKs or one APK whose built-in model
   the user can delete. Downloading a model from the fixed catalog is only a UX
-  extra and is not needed for verification. Deleting an embedded model is the one
+  extra and is not needed for verification. Deleting an extracted embedded model does
+  not shrink the installed APK's immutable assets, so do not promise reclaimed space;
+  a second lightweight APK is the way to offer a smaller install. Deleting an embedded model is the one
   model control this build may add; archive import, reinstall and server selection
   stay prohibited. Publishing a verification APK means extending the existing
   **Ascent Android CI** workflow with every current check kept, push-only triggers
