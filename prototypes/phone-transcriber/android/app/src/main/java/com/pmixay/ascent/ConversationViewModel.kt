@@ -69,6 +69,8 @@ data class ConversationState(
     val jobProgress: Float? = null,
     val jobError: JobError? = null,
     val textStage: TextStageReport? = null,
+    /** Last finished phone job only; volatile counters, never written into transcript/export/history. */
+    val measurements: ProcessingMeasurementReport? = null,
 )
 
 /** The data a job processes. The job closes [source] on every path. */
@@ -190,7 +192,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             val started = SystemClock.elapsedRealtime()
             mutableState.update { it.copy(recording = true, elapsedMs = 0, level = 0f,
                 waveform = List(52) { 0f }, status = "Слушаю разговор", jobError = null,
-                sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null) }
+                sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null, measurements = null) }
             meterJob = viewModelScope.launch {
                 while (isActive) {
                     mutableState.update { it.copy(elapsedMs = SystemClock.elapsedRealtime() - started,
@@ -274,10 +276,12 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         cleanup: () -> String? = { null },
     ) {
         check(jobs.begin(id)) { "Обработка уже идёт" }
+        val timings = ProcessingTimings()
+        var measuredMediaDurationMs: Long? = null
         mutableState.update { it.copy(busy = true, processingAudio = true, recording = false, level = 0f,
             status = PROCESSING_AUDIO_STATUS, jobId = id, jobSource = null, processingState = ProcessingState.ReadingInput,
             jobProgress = null, jobError = null, textStage = null, cancellingProcessing = false,
-            sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null) }
+            sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null, measurements = null) }
         // Enter the try/finally immediately so clearing the ViewModel cannot skip cleanup.
         activeJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             var saved = false
@@ -290,18 +294,21 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 withContext(NonCancellable + Dispatchers.IO) { pendingImports.begin(id) }
                 // Acquire, use and close native/source handles in the same worker. No open descriptor
                 // crosses a cancellable dispatcher return, where its value could otherwise be discarded.
-                val processed = AudioWork.inference.withLock {
+                val queued = timings.enter(ProcessingMetricStage.QUEUE)
+                val processed = try { AudioWork.inference.withLock {
+                    queued.close()
                     runInterruptible(Dispatchers.Default) {
                         // Pin the acoustic/text pair across both stages, including cancellation.
-                        ModelSelection.acquire(app).use { lease ->
-                            val opened = prepare()
-                            val (recognized, mediaDurationMs) = opened.source.use { source ->
+                        timings.measure(ProcessingMetricStage.MODEL_VALIDATION) { ModelSelection.acquire(app) }.use { lease ->
+                            val opened = timings.measure(ProcessingMetricStage.SOURCE_OPEN) { prepare() }
+                            val (recognized, mediaDurationMs) = MeasuredPcmWindowSource(opened.source, timings).use { source ->
                                 if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
                                 val duration = source.durationMs
+                                measuredMediaDurationMs = duration
                                 jobs.whileCurrent(id) { mutableState.update { it.copy(jobSource = opened.name,
                                     sourceDisplayName = opened.name, sourceDurationMs = duration,
                                     sourceFormat = source.formatDescription) } }
-                                val result = TranscriptionEngine(lease.directory).transcribeWithSpeakers(source) { message ->
+                                val result = TranscriptionEngine(lease.directory, timings = timings).transcribeWithSpeakers(source) { message ->
                                     reportProgress(id, message)
                                 }
                                 result to duration
@@ -310,11 +317,13 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                             if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
                             stage = ProcessingState.Formatting
                             jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Formatting, jobProgress = null) } }
-                            val presented = TextStages.run(lease.textDirectory, recognized.segments)
+                            val presented = timings.measure(ProcessingMetricStage.TEXT) {
+                                TextStages.run(lease.textDirectory, recognized.segments, timings)
+                            }
                             ProcessedAudio(recognized, presented, mediaDurationMs, opened.name)
                         }
                     }
-                }
+                } } finally { queued.close() }
                 val result = processed.recognition
                 val presented = processed.presentation
                 val durationMs = processed.durationMs
@@ -325,7 +334,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 stage = ProcessingState.Saving
                 jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Saving, jobProgress = null) } }
                 // Once saving starts it finishes: the atomic file replacement is never cut in half.
-                withContext(NonCancellable + Dispatchers.IO) {
+                timings.enter(ProcessingMetricStage.SAVING).use { withContext(NonCancellable + Dispatchers.IO) {
                     val names = presented.segments.map { it.speakerId }.distinct().filter { it != UNKNOWN_SPEAKER }
                         .mapIndexed { index, speakerId -> speakerId to "Участник ${index + 1}" }.toMap()
                     historyMutex.withLock {
@@ -340,7 +349,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                             voices.prune(retained.map { it.id }.toSet())
                         }
                     }
-                }
+                } }
                 finalState = ProcessingState.Completed
             } catch (_: OutOfMemoryError) {
                 if (!saved) failure = JobError(JobErrorCategory.OutOfMemory, MEMORY_MESSAGE)
@@ -356,12 +365,12 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             } finally {
                 var warning: String? = null
                 try {
-                    withContext(NonCancellable + Dispatchers.IO) {
+                    timings.enter(ProcessingMetricStage.CLEANUP).use { withContext(NonCancellable + Dispatchers.IO) {
                         try {
                             if (!saved && !imported) voices.discard(conversationId)
                             warning = cleanup()
                         } finally { pendingImports.complete(id) }
-                    }
+                    } }
                 } catch (_: Exception) {
                     warning = "Не удалось завершить очистку состояния. Проверьте историю после перезапуска."
                 } finally {
@@ -373,10 +382,16 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                         ProcessingState.Cancelled -> "Обработка отменена"
                         else -> failure?.message ?: "Ошибка: операция не завершена"
                     }
+                    val measurement = timings.finish(when (finalState) {
+                        ProcessingState.Completed -> ProcessingMeasurementOutcome.COMPLETED
+                        ProcessingState.Cancelled -> ProcessingMeasurementOutcome.CANCELLED
+                        else -> ProcessingMeasurementOutcome.FAILED
+                    }, measuredMediaDurationMs)
                     jobs.finish(id) {
                         mutableState.update { it.copy(busy = false, processingAudio = false, recording = false, level = 0f,
                             waveform = List(52) { 0f }, processingState = finalState, jobProgress = null,
-                            jobError = failure, textStage = report, cancellingProcessing = false, status = warning?.let { w -> "$message. $w" } ?: message) }
+                            jobError = failure, textStage = report, measurements = measurement,
+                            cancellingProcessing = false, status = warning?.let { w -> "$message. $w" } ?: message) }
                     }
                 }
             }

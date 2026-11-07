@@ -181,11 +181,25 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
 
 ### Explicit T2 handoff from Timofey — user-assigned
 
+- [ ] After its own green CI, validate the new [schema-2 Parakeet APK](TIMOFEY_PARAKEET_STATUS.md)
+  on ARM: install/extraction/storage costs, readable NVIDIA/CC-BY-4.0 attribution,
+  old triple-lease recovery and actual selected-mode operation. The requested
+  emulator creation probe is not ARM acceptance; mode control remains Pasha's work.
+
 - [ ] Perform exact-build ARM cold-offline acoustic and text inference; record
   commit/APK/bundle hashes, OS/ABI/RAM/storage, cold/warm RTF and peak memory.
   The user will do phone trials later; x86_64 extraction is separate evidence.
 - [ ] Exercise corrupted/missing assets, low storage, kill during extraction and
   processing, reopen and three consecutive files. Original inputs stay unchanged.
+  Timofey's [T3 storage diagnostics](TIMOFEY_T3_STATUS.md) supplies a content-free
+  model-preparation record, verified in x86_64 CI at `62fbe3f`. Collect exact-build ARM values;
+  distinguish Android package stats, model logical bytes and sampled lower bounds
+  from the estimated extraction reserve. This is tooling, not completed evidence.
+  The next [T4 timing report](TIMOFEY_T4_STATUS.md) shows last-job exclusive stages,
+  total/media duration and completed RTF in volatile UI state. Review the small
+  status presentation seam; collect real fixed-input ARM values only after its own
+  CI. Nothing is added to logs, saved history or competition JSON; PSS/RSS and
+  thermal/run-order/device evidence remain your assigned trials.
 - [x] Repair authenticated model publication and verify live HTTPS payloads.
   See [server evidence](PETYA_SERVER_STATUS.md), including successful CI publication.
 - [ ] Validate Russian preparation/readiness/error UI on the exact offline APK.

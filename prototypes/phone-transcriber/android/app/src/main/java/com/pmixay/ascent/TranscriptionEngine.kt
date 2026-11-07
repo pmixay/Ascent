@@ -26,6 +26,7 @@ class TranscriptionEngine(
     private val modelDirectory: File,
     private val mode: RecognitionMode = RecognitionMode.RUSSIAN_CIS,
     private val multilingualDirectory: File? = null,
+    private val timings: ProcessingTimings? = null,
 ) {
     fun transcribe(audio: File, onProgress: (String) -> Unit): List<TranscriptSegment> =
         transcribeWithSpeakers(audio, onProgress).segments
@@ -38,21 +39,25 @@ class TranscriptionEngine(
 
     fun transcribeWithSpeakers(source: PcmWindowSource, onProgress: (String) -> Unit): TranscriptionResult {
         checkCancelled()
-        val model = ModelSpec.load(modelDirectory)
-        val (words, used) = when (mode) {
-            RecognitionMode.RUSSIAN_CIS -> requireNotNull(recognize(model, source, onProgress)) to RecognitionMode.RUSSIAN_CIS
-            RecognitionMode.MULTILINGUAL -> recognizeMultilingual(source, onProgress) to RecognitionMode.MULTILINGUAL
-            RecognitionMode.AUTO -> {
-                // Without Parakeet there is nothing to switch to, so no probe runs.
-                val probe = if (ParakeetFiles.installed(multilingualDirectory)) LanguageProbe() else null
-                val russian = recognize(model, source, onProgress, probe)
-                if (russian != null) russian to RecognitionMode.RUSSIAN_CIS
-                else recognizeMultilingual(source, onProgress) to RecognitionMode.MULTILINGUAL
+        val model = measureProcessing(timings, ProcessingMetricStage.MODEL_VALIDATION) { ModelSpec.load(modelDirectory) }
+        val (words, used) = measureProcessing(timings, ProcessingMetricStage.ASR) {
+            when (mode) {
+                RecognitionMode.RUSSIAN_CIS -> requireNotNull(recognize(model, source, onProgress)) to RecognitionMode.RUSSIAN_CIS
+                RecognitionMode.MULTILINGUAL -> recognizeMultilingual(source, onProgress) to RecognitionMode.MULTILINGUAL
+                RecognitionMode.AUTO -> {
+                    // Preserve Andrey's probe and full restart, accounting for both passes in total ASR time.
+                    val probe = if (ParakeetFiles.installed(multilingualDirectory)) LanguageProbe() else null
+                    val russian = recognize(model, source, onProgress, probe)
+                    if (russian != null) russian to RecognitionMode.RUSSIAN_CIS
+                    else recognizeMultilingual(source, onProgress) to RecognitionMode.MULTILINGUAL
+                }
             }
         }
         checkCancelled()
         return if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList(), used)
-        else attribute(model, source, words, onProgress).copy(recognitionMode = used)
+        else measureProcessing(timings, ProcessingMetricStage.DIARIZATION) {
+            attribute(model, source, words, onProgress).copy(recognitionMode = used)
+        }
     }
 
     /**
@@ -63,13 +68,16 @@ class TranscriptionEngine(
         model: ModelSpec, wave: PcmWindowSource, progress: (String) -> Unit, probe: LanguageProbe? = null,
     ): List<TimedWord>? {
         progress("Загружаю GigaAM…")
-        val environment = OrtEnvironment.getEnvironment()
-        environment.setTelemetry(false)
+        val environment = measureProcessing(timings, ProcessingMetricStage.ASR_MODEL_LOAD) {
+            OrtEnvironment.getEnvironment().also { it.setTelemetry(false) }
+        }
         val stitcher = CtcChunkStitcher()
         OrtSession.SessionOptions().use { options ->
             options.setIntraOpNumThreads(2)
             options.setInterOpNumThreads(1)
-            environment.createSession(model.asrFile.absolutePath, options).use { session ->
+            measureProcessing(timings, ProcessingMetricStage.ASR_MODEL_LOAD) {
+                environment.createSession(model.asrFile.absolutePath, options)
+            }.use { session ->
                 require(session.inputNames == setOf("audio", "audio_lengths")) { "Несовместимая модель GigaAM" }
                 var coreStart = 0L
                 while (coreStart < wave.sampleCount) {
@@ -139,7 +147,9 @@ class TranscriptionEngine(
         require(ParakeetFiles.installed(directory)) { "Мультиязычная модель не установлена" }
         progress("Загружаю мультиязычную модель…")
         val stitcher = CtcChunkStitcher()
-        ParakeetRecognizer(requireNotNull(directory)).use { recognizer ->
+        measureProcessing(timings, ProcessingMetricStage.ASR_MODEL_LOAD) {
+            ParakeetRecognizer(requireNotNull(directory))
+        }.use { recognizer ->
             var coreStart = 0L
             while (coreStart < wave.sampleCount) {
                 checkCancelled()
@@ -162,9 +172,11 @@ class TranscriptionEngine(
 
     private fun attribute(model: ModelSpec, wave: PcmWindowSource, words: List<TimedWord>, progress: (String) -> Unit): TranscriptionResult {
         progress("Определяю говорящих…")
-        val extractor = SpeakerEmbeddingExtractor(config = SpeakerEmbeddingExtractorConfig(
-            model = model.speakerFile.absolutePath, numThreads = 2, debug = false, provider = "cpu",
-        ))
+        val extractor = measureProcessing(timings, ProcessingMetricStage.SPEAKER_MODEL_LOAD) {
+            SpeakerEmbeddingExtractor(config = SpeakerEmbeddingExtractorConfig(
+                model = model.speakerFile.absolutePath, numThreads = 2, debug = false, provider = "cpu",
+            ))
+        }
         val windows = mutableListOf<SpeakerObservation>()
         val regions = mutableListOf<Int>()
         try {

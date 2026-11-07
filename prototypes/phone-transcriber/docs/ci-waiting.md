@@ -42,6 +42,18 @@ retains checksum verification. No extra deployment ZIP is created for embedding;
 the model-server workflow still creates and validates its deployment transport.
 Warm exports also skip restoring the large Python ML package cache.
 
+The receipt-aware cache revision (`offline-export-py312-v2`) additionally stores
+`build/offline-export-provenance.json` beside the unchanged flat export directory.
+The successful exporter is followed by CI-only receipt recording: exact validation
+source/dependency/fixture hashes, output-manifest digest and producer commit/run/
+attempt. Preparation verifies those inputs independently of the Actions key on
+both cold and warm paths, before copying/downloading assets. It includes the
+receipt in hashed `bundle.json`; APK inspection checks it again. Missing/stale
+receipts fail rather than accepting a nominal cache hit. Old receipt-less caches
+are intentionally not reused. This records CI provenance, not a signature or ARM
+acceptance. The new receipt checks still require their own inspected CI run; see
+[Timofey's review](../../../docs/roles/TIMOFEY_PLAN_REVIEW.md).
+
 Long Dialogs inference/scoring/cache-bootstrap jobs remain absent. Gradle also
 excludes `TwoHourSpeechEvaluationTest` when `CI=true`, even if evaluation inputs
 are accidentally supplied. Opt-in development evaluation stays available.
