@@ -24,6 +24,8 @@ remains separate from these host/code outputs.
   ONNX Runtime, with Kotlin stage, tokenizer and JVM tests pushed; see
   [text-punctuation.md](../interfaces/text-punctuation.md). Not yet packaged, integrated or
   measured on ARM; CI has not yet run the new tests.
+- **Report:** [model-report.md](../hackathon/model-report.md) holds models, licences, the
+  inspected CI two-hour scores and host results; its device table is still empty.
 - **P3 diarization:** no candidate measured; the short-reply hypothesis is blocked
   on the same cache.
 - **CI bootstrap update (`6a078e3`):** dedicated public inference/cache generation and a two-provenance scorer are now pushed. Their first inspected run was in progress, not accepted. Help Timofey verify results/provenance instead of implementing bootstrap again; public-reference scores do not measure the deployed pack.
