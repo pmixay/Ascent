@@ -114,13 +114,19 @@ marks, end-to-end first-launch time, PSS/RSS, ASR quality or processing RTF.
   Diagnostic `198a8d1` / [42415925712](https://github.com/pmixay/Ascent/actions/runs/42415925712)
   failed after successful SDK signature verification and package/version checks:
   the numbered-signer regex parsed zero certificate lines. Upstream Android
-  `ApkSignerTool` also emits SDK-range labels and Build Tools 37 scheme-prefixed
-  labels such as `V3.0 Signer:`, not only `Signer #1`. The integrated parser covers
-  all three formats, requires the verbose single-signer count and one unique
-  certificate across all ranges, and still rejects different rotated keys,
-  multiple signers, unknown/mixed records, source-stamp-only output and incorrect
-  cert pins. Both branches' synthetic regressions are retained, including dev-release
-  SDK ranges. [PR #5](https://github.com/pmixay/Ascent/pull/5) tracks exact combined CI.
+  `ApkSignerTool` emits numbered, SDK-range and Build Tools 37 scheme-prefixed
+  labels. The integrated text-format parser covered those variants, but Timofey's
+  SDK-range-only attempt `5c34010` /
+  [42416839672](https://github.com/pmixay/Ascent/actions/runs/42416839672) still
+  matched no certificate. His newest `91e2598` removes that format dependency:
+  request `--print-certs-pem` and calculate SHA-256 from the verified certificate's
+  DER bytes. One signer/unique certificate, size/base64 bounds and independent
+  pinned-cert comparison remain; a different rotated key, missing/truncated PEM
+  or source-stamp output fails. Both branches' regressions now exercise actual
+  certificate bytes, including SDK-range/Build Tools 37 labels, protected pins,
+  content-free diagnostics and the four-case offline evidence gate.
+  [PR #5](https://github.com/pmixay/Ascent/pull/5) tracks exact combined CI; no
+  failed iteration's APK is promoted as an accepted candidate.
 
 ## Tasks that require another person
 
