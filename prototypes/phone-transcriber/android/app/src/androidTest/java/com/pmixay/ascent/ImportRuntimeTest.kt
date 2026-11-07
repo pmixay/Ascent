@@ -66,6 +66,27 @@ class ImportRuntimeTest {
         } finally { folder.deleteRecursively() }
     }
 
+    /**
+     * Cancelling a job interrupts its worker thread. A NIO channel would be closed by that interrupt and the
+     * read would look like a damaged file; `pread` must be unaffected, leaving the cancel request for the
+     * engine's own checks.
+     */
+    @Test fun readingStillWorksWhileTheThreadIsInterrupted() {
+        val folder = File(context.cacheDir, "import-test-${UUID.randomUUID()}").apply { mkdirs() }
+        try {
+            val picked = File(folder, "picked.wav").apply { writeBytes(stereoWav(16_000, 1)) }
+            AudioSources.open(context, Uri.fromFile(picked)).use { source ->
+                Thread.currentThread().interrupt()
+                try {
+                    assertEquals(1_000, source.read(0, 1_000).size)
+                    assertTrue("the interrupt must not be consumed by the read", Thread.currentThread().isInterrupted)
+                } finally {
+                    Thread.interrupted()
+                }
+            }
+        } finally { folder.deleteRecursively() }
+    }
+
     private fun failureOf(block: () -> Unit): ImportFailure {
         try {
             block()
