@@ -20,7 +20,7 @@ private class WaveHandle(
 )
 
 /** Bounded, seekable PCM WAVE reader and mono 16 kHz converter. */
-class PcmWave private constructor(private val handle: WaveHandle) : AudioWindowSource {
+class PcmWave private constructor(private val handle: WaveHandle) : PcmWindowSource {
     constructor(file: File) : this(openFile(file))
     constructor(context: Context, uri: Uri) : this(openDocument(context, uri))
 
@@ -33,8 +33,8 @@ class PcmWave private constructor(private val handle: WaveHandle) : AudioWindowS
     private var blockAlign = 2
     private var resamplingKernel: PcmResamplingKernel? = null
     override val sampleCount: Long
-    // Round the source duration up to its containing millisecond, like the codec source.
-    override val durationMs: Long get() = (sourceFrames * 1000 + sampleRate - 1) / sampleRate
+    // durationMs uses the PcmWindowSource default: sounding length truncated to whole
+    // milliseconds, informative and consistent with the codec and live sources.
     override val formatDescription: String get() =
         "WAV PCM$bitsPerSample, $sampleRate Гц, ${if (channels == 1) "моно" else "стерео"}"
 

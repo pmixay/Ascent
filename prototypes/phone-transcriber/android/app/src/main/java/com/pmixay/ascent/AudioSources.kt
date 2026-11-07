@@ -2,19 +2,11 @@ package com.pmixay.ascent
 
 import android.content.Context
 import android.net.Uri
-import java.io.Closeable
 import java.io.IOException
 
-/** Bounded reads of source-relative mono PCM at 16 kHz. Nothing here owns an audio file. */
-interface AudioWindowSource : Closeable {
-    val sampleCount: Long
-    val durationMs: Long
-    val formatDescription: String
-    fun read(start: Long, count: Int): FloatArray
-}
-
+/** Opens a user-selected import as one bounded PcmWindowSource; nothing here owns an audio file. */
 object AudioSources {
-    fun open(context: Context, uri: Uri): AudioWindowSource {
+    fun open(context: Context, uri: Uri): PcmWindowSource {
         val header = ByteArray(12)
         val count = context.contentResolver.openInputStream(uri)?.use { input ->
             var read = 0

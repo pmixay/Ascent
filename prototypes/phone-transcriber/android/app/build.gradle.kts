@@ -31,7 +31,10 @@ android {
     // Built-in Kotlin follows compileOptions.targetCompatibility.
     // CI-only public speech and real embeddings: JVM resources never enter the phone APK.
     sourceSets.getByName("test").resources.srcDir(layout.buildDirectory.dir("generated/speaker-fixtures").get().asFile)
-    sourceSets.getByName("main").java.srcDir(rootProject.file("shared/src/main/kotlin"))
+    // Shared companion sources compile into this module; AGP 9 drops java srcDirs for Kotlin.
+    sourceSets.named("main") {
+        kotlin.directories += rootProject.file("shared/src/main/kotlin").absolutePath
+    }
     buildFeatures { compose = true }
     lint { abortOnError = true }
     packaging {

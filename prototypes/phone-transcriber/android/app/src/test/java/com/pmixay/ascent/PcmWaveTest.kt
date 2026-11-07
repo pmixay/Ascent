@@ -59,6 +59,34 @@ class PcmWaveTest {
         } finally { file.delete() }
     }
 
+    @Test fun fileReaderIsABoundedWindowSourceWithOriginalCoordinates() {
+        val file = File.createTempFile("audio", ".wav")
+        try {
+            file.writeBytes(fixture())
+            val source: PcmWindowSource = PcmWave(file)
+            source.use {
+                assertEquals(3L, it.sampleCount)
+                assertEquals(0L, it.durationMs)
+                assertArrayEquals(floatArrayOf(0f, 32767f / 32768), it.read(1, 2), 0.00001f)
+                assertThrows(IllegalArgumentException::class.java) { it.read(2, 2) }
+            }
+        } finally { file.delete() }
+    }
+
+    @Test fun anInMemorySourceDerivesDurationFromItsSampleCount() {
+        val samples = FloatArray(32000) { it / 32000f }
+        val source = object : PcmWindowSource {
+            override val sampleCount = samples.size.toLong()
+            override fun read(start: Long, count: Int): FloatArray {
+                require(start >= 0 && count >= 0 && start + count <= sampleCount)
+                return samples.copyOfRange(start.toInt(), start.toInt() + count)
+            }
+            override fun close() = Unit
+        }
+        assertEquals(2000L, source.durationMs)
+        assertEquals(0.5f, source.read(16000, 1)[0], 0f)
+    }
+
     @Test fun rejectsTruncatedPcmInsteadOfTranscribingGarbage() {
         val file = File.createTempFile("audio", ".wav")
         try {
@@ -143,7 +171,7 @@ class PcmWaveTest {
             file.writeBytes(pcmFixture(44_100, 1, 16, 100, 8192))
             PcmWave(file).use { wave ->
                 assertEquals(37L, wave.sampleCount)
-                assertEquals(3L, wave.durationMs)
+                assertEquals(2L, wave.durationMs)
                 val all = wave.read(0, 37)
                 assertTrue(all.all { it.isFinite() })
                 assertArrayEquals(floatArrayOf(all.last()), wave.read(36, 1), .00001f)

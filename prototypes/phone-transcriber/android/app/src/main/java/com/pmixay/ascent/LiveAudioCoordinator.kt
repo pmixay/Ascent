@@ -14,10 +14,9 @@ internal class WatchPcmWindow(
     private val hello: CompanionWire.Hello,
     private val frames: List<CompanionWire.Frame>,
     private val expiresAtElapsedMs: Long,
-) : AudioWindowSource {
+) : PcmWindowSource {
     @Volatile private var closed = false
     override val sampleCount = frames.sumOf { it.sampleCount.toLong() }
-    override val durationMs = sampleCount * 1000 / CompanionWire.SAMPLE_RATE
     override val formatDescription = "Микрофон часов, 16 кГц, моно"
 
     override fun read(start: Long, count: Int): FloatArray {

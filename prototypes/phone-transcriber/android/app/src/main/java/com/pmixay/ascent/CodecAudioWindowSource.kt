@@ -16,7 +16,7 @@ import kotlin.math.roundToLong
  * overlapping ASR reads; the decoder starts over when a read goes behind that ring. Decoder PTS
  * places samples on the original file's timeline, so leading silence and gaps are retained.
  */
-internal class CodecAudioWindowSource(context: Context, uri: Uri) : AudioWindowSource {
+internal class CodecAudioWindowSource(context: Context, uri: Uri) : PcmWindowSource {
     private val extractor = MediaExtractor()
     private lateinit var decoder: MediaCodec
     private var decoderStarted = false

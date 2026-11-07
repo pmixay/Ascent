@@ -17,7 +17,10 @@ android {
         versionCode = 1
         versionName = "0.1"
     }
-    sourceSets.getByName("main").java.srcDir(rootProject.file("shared/src/main/kotlin"))
+    // Shared companion sources compile into this module; AGP 9 drops java srcDirs for Kotlin.
+    sourceSets.named("main") {
+        kotlin.directories += rootProject.file("shared/src/main/kotlin").absolutePath
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

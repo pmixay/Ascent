@@ -22,16 +22,16 @@ class TranscriptionEngine(private val modelDirectory: File) {
         }
     }
 
-    fun transcribeWithSpeakers(wave: AudioWindowSource, onProgress: (String) -> Unit): TranscriptionResult {
+    fun transcribeWithSpeakers(source: PcmWindowSource, onProgress: (String) -> Unit): TranscriptionResult {
         checkCancelled()
         val model = ModelSpec.load(modelDirectory)
-        val words = recognize(model, wave, onProgress)
+        val words = recognize(model, source, onProgress)
         checkCancelled()
         return if (words.isEmpty()) TranscriptionResult(emptyList(), emptyList())
-        else attribute(model, wave, words, onProgress)
+        else attribute(model, source, words, onProgress)
     }
 
-    private fun recognize(model: ModelSpec, wave: AudioWindowSource, progress: (String) -> Unit): List<TimedWord> {
+    private fun recognize(model: ModelSpec, wave: PcmWindowSource, progress: (String) -> Unit): List<TimedWord> {
         progress("Загружаю GigaAM…")
         val environment = OrtEnvironment.getEnvironment()
         environment.setTelemetry(false)
@@ -91,7 +91,7 @@ class TranscriptionEngine(private val modelDirectory: File) {
         return stitcher.finish()
     }
 
-    private fun attribute(model: ModelSpec, wave: AudioWindowSource, words: List<TimedWord>, progress: (String) -> Unit): TranscriptionResult {
+    private fun attribute(model: ModelSpec, wave: PcmWindowSource, words: List<TimedWord>, progress: (String) -> Unit): TranscriptionResult {
         progress("Определяю говорящих…")
         val extractor = SpeakerEmbeddingExtractor(config = SpeakerEmbeddingExtractorConfig(
             model = model.speakerFile.absolutePath, numThreads = 2, debug = false, provider = "cpu",
