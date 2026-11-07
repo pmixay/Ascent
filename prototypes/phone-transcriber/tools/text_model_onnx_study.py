@@ -23,8 +23,6 @@ import numpy as np
 from evaluate_speech import normalize_text
 from text_model_study import INSTRUCTION, f1, score_marks, word_labels
 
-SPLIT = (r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*"
-         r"|\s*[\r\n]+|\s+(?!\S)|\s+")
 MARKS = [",", ".", "?", "!"]
 NAMES = {",": "comma", ".": "period", "?": "question", "!": "exclamation"}
 TERMINAL = {".", "?", "!"}
@@ -43,13 +41,19 @@ def byte_chars():
     return chars
 
 
+def split_pattern(data):
+    """The Split regex of the file's pre-tokenizer (Qwen2.5 and Qwen3.5 differ in `\\p{M}`)."""
+    steps = data["pre_tokenizer"].get("pretokenizers", [data["pre_tokenizer"]])
+    return next(step["pattern"]["Regex"] for step in steps if step["type"] == "Split")
+
+
 class Tokenizer:
     """Byte-level BPE as in QwenTokenizer.kt (requires the `regex` package for \\p{L})."""
 
     def __init__(self, path):
         import regex
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        self.split = regex.compile(SPLIT)
+        self.split = regex.compile(split_pattern(data))
         self.chars = byte_chars()
         self.vocab = data["model"]["vocab"]
         self.ranks = {}
@@ -80,18 +84,36 @@ class OnnxTextModel:
         options = ort.SessionOptions()
         options.intra_op_num_threads, options.inter_op_num_threads = threads, 1
         self.session = ort.InferenceSession(str(model), options, providers=["CPUExecutionProvider"])
-        self.past_names = sorted(i.name for i in self.session.get_inputs() if i.name.startswith("past_key_values."))
-        shape = next(i.shape for i in self.session.get_inputs() if i.name == self.past_names[0])
+        inputs = {i.name: i for i in self.session.get_inputs()}
+        self.past_names = sorted(name for name in inputs if name.startswith("past_"))
+        outputs = {o.name for o in self.session.get_outputs()}
+        self.present = {name: present_name(name, outputs) for name in self.past_names}
         self.block = block
-        empty = {name: np.zeros((1, shape[1], 0, shape[3]), np.float32) for name in self.past_names}
+        # Symbolic dimensions: batch is 1, a growing sequence starts empty; fixed state sizes stay.
+        empty = {}
+        for name in self.past_names:
+            shape = [1 if i == 0 else (d if isinstance(d, int) else 0) for i, d in enumerate(inputs[name].shape)]
+            dtype = np.float16 if "float16" in inputs[name].type else np.float32
+            empty[name] = np.zeros(shape, dtype)
+        self.other = {name for name in inputs} - set(self.past_names) - {"input_ids", "attention_mask", "position_ids", "num_logits_to_keep"}
+        if self.other:
+            raise ValueError(f"unsupported inputs {sorted(self.other)}")
+        self.position_rank = len(inputs["position_ids"].shape) if "position_ids" in inputs else 0
+        self.keep_logits = "num_logits_to_keep" in inputs
         self.cache = self.chained(prefix, empty, 0, {}, {})
         self.prefix_length = len(prefix)
 
     def forward(self, ids, past, past_length):
         count = len(ids)
+        positions = np.arange(past_length, past_length + count, dtype=np.int64)[None]
+        if self.position_rank == 3:  # multimodal rotary positions: the same text positions on all three axes
+            positions = np.repeat(positions[None], 3, axis=0)
         feeds = {"input_ids": np.array([ids], np.int64),
-                 "attention_mask": np.ones((1, past_length + count), np.int64),
-                 "position_ids": np.arange(past_length, past_length + count, dtype=np.int64)[None], **past}
+                 "attention_mask": np.ones((1, past_length + count), np.int64), **past}
+        if self.position_rank:
+            feeds["position_ids"] = positions
+        if self.keep_logits:  # logits for every token of the block
+            feeds["num_logits_to_keep"] = np.array(count, np.int64)
         names = [o.name for o in self.session.get_outputs()]
         return dict(zip(names, self.session.run(None, feeds)))
 
@@ -103,7 +125,7 @@ class OnnxTextModel:
             for position in range(offset, offset + count):
                 if position in wanted:
                     scores[position] = [result["logits"][0, position - offset, i] for i in wanted[position]]
-            past = {name: result["present." + name.removeprefix("past_key_values.")] for name in self.past_names}
+            past = {name: result[self.present[name]] for name in self.past_names}
             length += count
             offset += count
         return past
@@ -114,6 +136,15 @@ class OnnxTextModel:
         return scores
 
 
+def present_name(past, outputs):
+    """Output that carries the next state for a `past_*` input (KV cache, conv or recurrent state)."""
+    for candidate in ("present." + past.removeprefix("past_key_values."), "present" + past.removeprefix("past"),
+                      past.replace("past_", "present_", 1), past.replace("past", "present", 1)):
+        if candidate in outputs:
+            return candidate
+    raise ValueError(f"no output for {past}")
+
+
 def instruction_prefix(tokenizer):
     sp = tokenizer.special
     return ([sp["<|im_start|>"]] + tokenizer.encode("system\n" + INSTRUCTION) + [sp["<|im_end|>"]]
@@ -121,10 +152,17 @@ def instruction_prefix(tokenizer):
 
 
 class TextPunctuator:
-    def __init__(self, tokenizer, model):
-        self.tokenizer, self.model = tokenizer, model
+    def __init__(self, tokenizer, model, assistant_opening="assistant\n"):
+        self.tokenizer, self.model, self.opening = tokenizer, model, assistant_opening
         self.im_start, self.im_end = tokenizer.special["<|im_start|>"], tokenizer.special["<|im_end|>"]
         self.marks = [tokenizer.encode(mark)[0] for mark in MARKS]
+
+    def encode_with_special(self, text):
+        import regex
+        ids = []
+        for chunk in regex.split(r"(<think>|</think>)", text):
+            ids += [self.tokenizer.special[chunk]] if chunk in self.tokenizer.special else (self.tokenizer.encode(chunk) if chunk else [])
+        return ids
 
     def styles(self, words):
         result = []
@@ -137,7 +175,7 @@ class TextPunctuator:
 
     def block(self, words):
         t = self.tokenizer
-        user = t.encode(" ".join(words)) + [self.im_end] + t.encode("\n") + [self.im_start] + t.encode("assistant\n")
+        user = t.encode(" ".join(words)) + [self.im_end] + t.encode("\n") + [self.im_start] + self.encode_with_special(self.opening)
         answer, starts, lower, upper = [], [], [], []
         for index, word in enumerate(words):
             lead = "" if index == 0 else " "
@@ -191,10 +229,13 @@ def main():
     parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--block", type=int, default=24)
     parser.add_argument("--limit", type=int, default=120)
+    parser.add_argument("--no-thinking-opening", action="store_true",
+                        help="Open the answer with an empty think block (Qwen3.5 non-thinking chat template).")
     args = parser.parse_args()
     tokenizer = Tokenizer(args.tokenizer)
     started = time.perf_counter()
-    stage = TextPunctuator(tokenizer, OnnxTextModel(args.model, instruction_prefix(tokenizer), args.threads, args.block))
+    opening = "assistant\n<think>\n\n</think>\n\n" if args.no_thinking_opening else "assistant\n"
+    stage = TextPunctuator(tokenizer, OnnxTextModel(args.model, instruction_prefix(tokenizer), args.threads, args.block), opening)
     setup = time.perf_counter() - started
     totals = {kind: {"tp": 0, "fp": 0, "fn": 0} for kind in ("comma", "terminal", "question")}
     capital = words = 0
