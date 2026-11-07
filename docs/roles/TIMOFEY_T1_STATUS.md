@@ -7,6 +7,11 @@ The earlier [diagnosis](TIMOFEY_H01_STATUS.md) is a historical snapshot, superse
 by the implementation evidence below. **Server work is explicitly excluded by
 the user; full H01/release acceptance is not claimed.**
 
+**Non-server T1 implementation is verified at `a83fdff`: all Android jobs passed,
+including the added guards and 18 new regression tests. Model export/validation
+passed; only its excluded server publication step failed.** No T2 work is
+included. Later documentation commits do not change this tested code revision.
+
 ## Implemented
 
 - Added `tools/checkpoint_source.py`: byte-count/SHA-256-pinned official
@@ -92,18 +97,54 @@ commit `46f00e9`, job `128387801081`:
   as an Actions artifact. A passing export step is not a passing whole workflow.
 
 [Android CI 42367250170](https://github.com/pmixay/Ascent/actions/runs/42367250170),
-same commit: the complete build/validation job `128387801174` passed. This includes
-the new Python tests and the unchanged lint/JVM/R8/ARM64 APK/x86_64 checks. Its
-separate cold inference/scoring completion was still pending when this draft
-was recorded; do not cancel it with another push.
+same commit: **all three jobs passed**. Build/validation job `128387801174` includes
+the new Python tests and unchanged lint/JVM/R8/ARM64 APK/x86_64 checks. Inference
+job `128387801407` logged a second cold miss on the task branch and saved its
+own cache at 11:38:12 UTC. Scoring job `128393056274` restored it and passed,
+reporting the same aggregate counts as main above. This demonstrates independent
+branch-scope recovery, not just reuse of main's warm cache. The branch cache API
+entry is `10160681659`, 179,851,594 bytes, with the same exact key.
 
-## Final verification pending
+### Added guards and exact export identity — commit a83fdff
 
-The added cache verifier and content-free export identity logging still need
-their committed-revision CI run. Verify task-branch restore/scope, producer and
-consumer checks, no-skip Kotlin scoring and all Android build checks on that exact
-revision. The earlier export cannot certify changed export tooling; inspect its
-new run as well, even though server publication is expected to remain blocked.
+Implementation revision: `a83fdfffbcceb731d76330717c973aefedc4e51d`.
+[Android CI 42369233100](https://github.com/pmixay/Ascent/actions/runs/42369233100)
+restored the task-branch cache. Producer guard job `128393704106` and consumer/
+scoring job `128393740994` passed, including the new verification steps and
+required, non-skipped Kotlin scoring. Both independent checks reported:
+
+```text
+asr_source: public-reference
+pipeline_fingerprint: b5bf78bcd8f5a4d5054eb57aaf23f5edf6b00addadb20ee714bc03a03a7e3acf
+source_files: 1134
+source_duration_ms: 7232648
+sessions: 27
+```
+
+Scores and denominators are unchanged from the cold runs. The complete Android
+build job `128393704273` also passed: all 18 new loader/cache regression tests,
+existing Python/server checks, lint/JVM checks, R8/ARM64 compact APK inspection
+and optimized x86_64 instrumentation. **The whole Android workflow succeeded.**
+This is not an ARM inference/device acceptance claim.
+
+[Model Export 42369233159](https://github.com/pmixay/Ascent/actions/runs/42369233159),
+job `128393704447`, verified another cold HF download, all retained parity/speech/
+speaker checks and the deployment archive. Only SSH publication failed, again.
+The new content-free identity logging establishes:
+
+| File | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `asr.onnx` | 885,826,856 | `9e423f2690bfaf3e0fbb81185a080bfff27c4ec5aacef5e615676fffbe2545ff` |
+| `speaker.onnx` | 71,441,526 | `bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239` |
+| `tokens.json` | 535 | `f3c52d56529a595c9de0c2b2f2fd95553ef8834861e6d2ee720a1626bcd01a8a` |
+
+Manifest SHA-256 for this run:
+`593eceb422076a5c13eb2c6192e4ddc6924eb1eb29173b030cb0bc5f6c564551`.
+Both acoustic graph hashes **match the historical deployed hashes pinned in the
+scorer**. This establishes exported graph byte identity, despite the distinct
+HF input serialization; it does not establish original `.ckpt` byte identity,
+publication, APK packaging or successful Android model execution. The manifest
+also contains creation/provenance/report data, so its digest is run-specific.
 
 ## Excluded / unresolved
 
@@ -111,10 +152,9 @@ new run as well, even though server publication is expected to remain blocked.
   returning the catalog. CI sees a different SSH ED25519 host key than the pinned
   secret. Do not replace the pin from an unauthenticated scan. Local SSH connection
   timed out before authentication. The user excluded further server work.
-- Andrey's review of the HF export's numerical/provenance evidence remains a
-  human handoff; passing retained parity is not proof of byte equality to the
-  historical deployed pack. The frozen dialogue scorer's model hashes were not
-  changed.
+- Andrey's review of the export evidence remains a human handoff. The graph hashes
+  now demonstrate acoustic graph identity to the historical pins, not full-pack
+  manifest equality. The frozen dialogue scorer's model hashes were not changed.
 - T2–T5, embedded assets, import/JSON/text runtime integration, signing/release,
   ARM inference and device measurements are outside this T1 implementation.
 

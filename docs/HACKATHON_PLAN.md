@@ -36,7 +36,7 @@ This inventory was reconciled against fetched `origin/main`, not just the older 
 
 ## 1. Delivery objective and order
 
-Execution update: [Timofey's 13:55 MSK H01 checkpoint](roles/TIMOFEY_H01_STATUS.md)
+Historical execution update: [Timofey's 13:55 MSK H01 checkpoint](roles/TIMOFEY_H01_STATUS.md)
 records inspected attempts, the cold cache key, access and current TLS blockers.
 The first inference attempt was cancelled; attempt 2 is running. Latest-run
 diagnosis is recorded, but H01 acceptance, verified embedded assets and the
@@ -45,10 +45,13 @@ remaining inference-policy decision are still open.
 T1 implementation follow-up: the existing fixture/export validation checks are
 now explicitly covered in `AGENTS.md`. Model export gains a separately identified,
 hash-pinned official Hugging Face state-dictionary source, preserving all parity
-and speaker checks. Main's cold inference/cache/scoring run and HF export steps
-have now passed, but publication fails strict SSH host-key verification. Added
-cache guards still need exact-revision CI; see [T1 evidence](roles/TIMOFEY_T1_STATUS.md).
-Historical deployed hashes and the frozen dialogue evaluation are unchanged.
+and speaker checks. Main and task-branch cold inference/cache/scoring runs passed.
+At `a83fdff`, both new cache guards and scoring passed; HF export graph hashes
+match the historical acoustic pins. The entire Android run has now passed,
+including the 18 new regression tests and R8/native/emulator checks. Publication
+still fails strict SSH host-key verification and is excluded by the user. See
+[T1 evidence](roles/TIMOFEY_T1_STATUS.md). Frozen dialogue inputs/gates are unchanged;
+non-server T1 is verified, but full H01 and competition acceptance remain open.
 
 Deliver one clearly identified CI-built ARM64 APK containing every model needed for the default pipeline. On a clean supported phone with networking disabled before first launch, a judge can import an unfamiliar local recording, process it on the phone, inspect timestamped speaker turns and export the exact required JSON. Three successive files must work independently. Provide source, measured results, installation instructions, architecture, limitations and a video of the same release.
 

@@ -40,10 +40,13 @@ embedded assets, signing custody and ARM acceptance remain open.
 T1 implementation adds a pinned official Hugging Face checkpoint source for model
 export, with strict loading and all numerical/speaker checks retained. The CI
 inference policy now explicitly includes the existing fixture/export validation
-checks. Main's cold inference/cache/scoring run now passed. HF export/parity/speaker
-checks also passed at `46f00e9`, but its workflow failed on changed SSH host-key
-verification during publication. The additional cache guards await exact-revision
-CI; see [T1 evidence and remaining blockers](docs/roles/TIMOFEY_T1_STATUS.md).
+checks. Main and task-branch cold inference/cache/scoring runs passed. At `a83fdff`,
+the added cache guards and required scoring passed, and exported acoustic graphs
+match the historical pinned hashes. The entire Android workflow passed, including
+18 new regression tests and the unchanged R8/native/emulator checks. Model
+publication still fails changed SSH host-key verification and is excluded from
+this task; no competition/device readiness is claimed.
+See [T1 evidence and remaining blockers](docs/roles/TIMOFEY_T1_STATUS.md).
 
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present

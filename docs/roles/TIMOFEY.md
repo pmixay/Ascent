@@ -39,12 +39,17 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 
 - [x] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks. HF recovery export passed at `46f00e9`; server publication remains failed/excluded, not accepted. See [T1 evidence](TIMOFEY_T1_STATUS.md).
 - [x] Verify the pushed integrity-checked regeneration path from durable pinned public sources; do not rely only on a warm cache or implement this path again. Main run `42363045969`, attempt 2, completed a cold miss → inference → cache save → required scoring successfully.
-- [ ] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope.
+- [x] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope. Task-branch cold run `42367250170` passed; guards on the same unchanged cache key passed in `42369233100` at `a83fdff`. See [T1 evidence](TIMOFEY_T1_STATUS.md).
 - [x] Keep two-hour scoring required; never turn absence into skip/success or reuse inputs for a different model silently. Existing two-provenance Kotlin scorer and >75% gates remain unchanged; main's required scoring passed.
 - [x] Reconcile the documented CI-inference policy inconsistency explicitly: existing fixture/export validation runs inference while the written rule broadly forbids it. Do not remove validation to conceal the contradiction. `AGENTS.md` now explicitly retains the existing fixed fixture/export checks without authorizing new corpus jobs.
-- [ ] Preserve existing push triggers/workflow names, R8, native integrity and emulator checks.
+- [x] Preserve existing push triggers/workflow names, R8, native integrity and emulator checks. Whole Android run `42369233100` passed at `a83fdff`, including both new guards, required scoring and optimized emulator checks.
 
 **Done:** applicable existing jobs pass on the intended revision, and the input-recovery path works without relying on a particular warm cache. If access prevents this, report the exact missing permission/artifact instead of asserting success.
+
+**T1 handoff:** non-server implementation and verification are complete; see
+[exact commits/runs/hashes](TIMOFEY_T1_STATUS.md). The user excluded server work.
+Both current export runs still fail at strict SSH host-key verification during
+publication, so full H01/workflow-wide model publication acceptance remains open.
 
 ## 11:20–15:00 in the same workstream — complete offline packaging
 
