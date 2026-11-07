@@ -47,6 +47,8 @@ class TranscriptionEngine(private val modelDirectory: File) {
                     val end = window.end
                     val input = wave.read(start, (end - start).toInt())
                     val samples = if (input.size < 4000) input.copyOf(4000) else input
+                    // Recognizer input only: speaker embeddings read the window source again.
+                    AsrGain.normalizeInPlace(samples)
                     progress("Распознаю речь: ${(100 * coreStart / wave.sampleCount).toInt()}%")
                     try {
                         OnnxTensor.createTensor(environment, FloatBuffer.wrap(samples), longArrayOf(1, samples.size.toLong())).use { signal ->
