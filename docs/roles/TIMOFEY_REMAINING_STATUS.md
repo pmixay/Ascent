@@ -89,6 +89,10 @@ marks, end-to-end first-launch time, PSS/RSS, ASR quality or processing RTF.
 - Prepared [release/signing/publication instructions](../RELEASE.md), corrected
   three-group/size guidance and recorded cross-role blockers below. No acceptance
   sign-off is inferred from a contract document or an unchecked role task.
+- Integrated Pasha's sole branch-only commit `f3e4386` (documentation sign-off),
+  preserving newer mode/lease/timing tasks. The merge was conflict-free; all of his
+  application source was already present through main. No application code or
+  model decision was imported under the guise of a documentation merge.
 
 ## Tasks that require another person
 
