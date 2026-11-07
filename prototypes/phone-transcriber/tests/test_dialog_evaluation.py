@@ -1,4 +1,4 @@
-"""Integrity and accounting checks; model inference runs locally; CI scores a completed cache."""
+"""Integrity and accounting checks; model inference runs on a development machine."""
 import hashlib
 import io
 import json

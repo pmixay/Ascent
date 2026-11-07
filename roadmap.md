@@ -14,7 +14,7 @@ future track, not additional competition prerequisites or completed work.
 11:00–20:00.** Role outputs/package/sign-offs are due 19:30; reserve the last
 30 minutes for submission. Remaining-work owners: Pasha — app/import/exact JSON
 and Android text adapter; Andrey — ML/runtime acceptance and missing device
-metrics; Timofey — evaluation-input/export repair, embedded models and CI release;
+metrics; Timofey — build/export repair, embedded models and CI release;
 Petya — missing UX wiring, independent QA and submission. Baseline push 13:00;
 complete mandatory integration/model freeze 15:00; final app push 17:00; final
 APK handoff by 18:00; exact-build offline QA 18:00–19:00. See the plan for risks
@@ -24,19 +24,20 @@ Already pushed at `origin/main` `4b16e3a` (including PR #2): frozen study/Englis
 manifests, reference ASR/scoring tools, host ASR/telephone/English and text-model
 studies, grammar contract and segmenter/tests. These are excluded from remaining
 implementation; reuse them. ARM inference, speakers, true natural boundaries and
-complete offline flow are not established by the host studies. Current inspected
-[CI run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042)
-has a passing build job but fails overall for missing two-hour inference inputs.
-Keep that check required. New acoustic tuning/quantization/VAD and the expanded
-corpus/device/stress matrix move beyond today's deadline without being marked done.
+complete offline flow are not established by the host studies. The user removed
+the long public-corpus inference and scoring jobs from push CI on 7 November 2026
+because they made CI too slow. Run those two-hour evaluations on a development
+machine only; keep the bounded Android build, lint, unit, APK and emulator checks
+required and fast. The historical [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042)
+has a passing build job but fails overall for missing two-hour inference inputs;
+that failure is historical, not a current CI gate. New acoustic
+tuning/quantization/VAD and the expanded corpus/device/stress matrix move beyond
+today's deadline without being marked done.
 
-Newer pushed `6a078e3` already implements dedicated public inference/cache
-generation and provenance-aware scoring. [Run 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969)
-was in progress when inspected; remaining H01 work is verification/failure repair,
-not bootstrap implementation. Reference-export provenance must remain explicit.
-Freeze cache-key inputs by 14:00: cold inference/scoring limits are 150 + 45 min,
-before queue overhead. Default-branch pushes preserve the running workflow rather
-than cancelling its cache generation; batch pushes to avoid queued duplication.
+The development evaluation tooling pushed in `6a078e3` remains available for
+algorithm improvement. The former CI `dialog-inference` and `speech-evaluation`
+jobs were removed; no cache bootstrap, long inference or scoring runs in push CI.
+Reference-export provenance must remain explicit in development reports.
 
 The old “reserved validation” references below are historical: the original
 Dialogs recordings have since informed algorithm fixes and are diagnostic data.
@@ -50,9 +51,9 @@ Specification version: 0.6
 
 Updated: 7 November 2026
 
-The hackathon jury's requirements ([brief](docs/hackathon/hackathon-brief-2026-11.pdf) and [clarifications](docs/hackathon/jury-clarifications.md)) add a separate verification APK with an embedded model, audio import and JSON export in the brief's schema. They are tracked in the hackathon track below, all unchecked; none is implemented, and none changes the production milestones.
+The hackathon jury's requirements ([brief](docs/hackathon/hackathon-brief-2026-11.pdf) and [clarifications](docs/hackathon/jury-clarifications.md)) add a separate verification APK with an embedded model, audio import and JSON export in the brief's schema. The current branch has source changes for bounded WAV and Android-codec import, its user interface and the JSON serializer, but no new CI/device evidence for them. The verification APK, complete model bundle and local LLM remain open. The unchecked gates below do not change the production milestones.
 
-The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. Stopping listening automatically transcribes and deletes its temporary WAV. It retains multiple encrypted text conversations and confirmed voice templates with source-based seven-day filtering, but still writes temporary audio and has no watch app. Cleanup after process death waits for the next launch; this is not the production no-persistence guarantee. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) push-only workflows; their actual run results must be checked. The compact prototype uses R8 optimization, automatically downloads compressed, resumable model chunks through the fixed catalog with an activity-started foreground service, fast connection recovery and WorkManager fallback, and publishes only the ARM64 APK as `debug-<8-character commit>.zip`. Model controls are status-only. Emulator APKs, reports and model weights are not Android download artifacts.
+The separate [phone transcription prototype](prototypes/phone-transcriber/README.md) is review work. Stopping listening automatically transcribes and deletes its temporary WAV. It retains multiple encrypted text conversations and confirmed voice templates with source-based seven-day filtering, but still writes temporary audio and has only a source-level Wear OS companion preview without CI or paired-device evidence. Cleanup after process death waits for the next launch; this is not the production no-persistence guarantee. Its presence and CI configuration do not complete any production implementation or acceptance task below. The branch adds the requested [Ascent Android CI](.github/workflows/android.yml) and [Ascent Model Export](.github/workflows/model-pack.yml) push-only workflows; their actual run results must be checked. The compact prototype uses R8 optimization, automatically downloads compressed, resumable model chunks through the fixed catalog with an activity-started foreground service, fast connection recovery and WorkManager fallback, and publishes only the ARM64 APK as `debug-<8-character commit>.zip`. Model controls are status-only. Emulator APKs, reports and model weights are not Android download artifacts.
 
 ## Confirmed scope
 
@@ -81,9 +82,9 @@ check independent within-group agreement before merging centroids, and reconcile
 unique overlapping duplicate words at ASR chunk seams. Their acceptance depends
 on measured development improvement and unchanged regression gates.
 
-The new CI dialogue evaluation freezes 1,134 unique public clips from three
-actors, totaling 7,233.107 metadata seconds. It requires at least two hours of
-verified resampled source audio and reports WER/CER, joint speaker-attributed
+The development-machine dialogue evaluation freezes 1,134 unique public clips
+from three actors, totaling 7,233.107 metadata seconds. It requires at least two
+hours of verified resampled source audio and reports WER/CER, joint speaker-attributed
 word errors, strict/completed clip-time attribution and inferred coverage.
 Use `masha_dima_part1` errors for algorithm development, then validate chosen
 changes on the other three frozen recordings without selecting fixes from their
@@ -152,6 +153,18 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 - [ ] Verify the ARM64 APK on an ARM emulator or device; the existing x86_64 build remains a CI check only.
 - [ ] Measure WER and real-time factor on our own call-like and meeting-like recordings, and report them separately from the constructed Dialogs evaluation.
 - [ ] Prepare the report material: installation and usage instructions, architecture and models, limitations, our own test results and a demonstration video, in a repository following the jury's template (not yet inspected).
+
+### Petya work map — H05, H11 and H12
+
+The active [Petya checklist](docs/roles/PETYA.md) tracks the evaluator-facing work across three packages. Source changes and prepared procedures are progress; completion still requires the evidence in the rightmost column.
+
+| Package | Current branch progress | Evidence needed to close |
+| --- | --- | --- |
+| H05 — import, progress, result and export UX | Document picker, bounded WAV and Android-codec reading, live stage text, cancellation control, readable turns and dedicated JSON export are in source. | Inspected Android CI run and unaided offline ARM walkthrough, including silent input and large fonts. |
+| H11 — independent QA | Three-file judge procedure, negative/lifecycle matrix and independent JSON validator are prepared under `docs/` and `tools/qa/`. | CI validator result, identified APK/model hashes, physical-device outcomes and untouched holdout measurements. |
+| H12 — submission and demo | Quick-start, architecture, limitations, results and video protocol have draft locations under `docs/` and `artifacts/`. | Final signed APK and durable link, measured results, filmed exact-build demo and fresh offline rehearsal. |
+
+The Android workflow no longer runs the two-hour inference or scoring jobs. Those evaluations run on a development machine only; push CI keeps the bounded build, lint, unit, APK and emulator checks and never runs model inference or processes application audio.
 
 **Acceptance criteria**
 

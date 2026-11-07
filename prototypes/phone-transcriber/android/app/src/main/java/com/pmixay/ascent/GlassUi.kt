@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
@@ -30,6 +31,8 @@ import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -91,15 +94,20 @@ internal fun AscentTheme(content: @Composable () -> Unit) {
 @Composable
 internal fun ConversationScreen(
     state: ConversationState,
+    onImport: () -> Unit,
+    onCancelProcessing: () -> Unit,
     onRecord: () -> Unit,
     onToggleConversation: (String) -> Unit,
     onRename: (String, String, String) -> Unit,
     onExport: (String, Boolean) -> Unit,
+    watch: WatchPhoneState = WatchPhoneState(),
+    onWatchToggle: () -> Unit = {},
+    onWatchPauseResume: () -> Unit = {},
+    onWatchStop: () -> Unit = {},
 ) {
     var renameConversation by rememberSaveable { mutableStateOf<String?>(null) }
     var renameSpeaker by rememberSaveable { mutableStateOf<String?>(null) }
     var renameText by rememberSaveable { mutableStateOf("") }
-    var exportConversation by rememberSaveable { mutableStateOf<String?>(null) }
     val editable = !state.busy && !state.recording
     val timelineTurns = remember(state.conversations) {
         state.conversations.associate { it.id to TranscriptTimeline.turns(it.segments) }
@@ -114,10 +122,50 @@ internal fun ConversationScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             spacedItem("wordmark") { AscentWordmark(Modifier.widthIn(max = 620.dp).fillMaxWidth()) }
+            spacedItem("import") {
+                GlassCard {
+                    Text("РАСШИФРОВКА ФАЙЛА", fontSize = 14.sp, letterSpacing = 1.1.sp,
+                        fontWeight = FontWeight.Medium, color = Ink)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Выберите аудиофайл", fontSize = 22.sp, lineHeight = 28.sp,
+                        fontWeight = FontWeight.SemiBold, color = Ink)
+                    Spacer(Modifier.height(5.dp))
+                    Text("Для импорта не нужен доступ к микрофону.",
+                        fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
+                    state.sourceDisplayName?.let { name ->
+                        Spacer(Modifier.height(12.dp))
+                        Text("Файл: $name", modifier = Modifier.testTag("selected-audio-file"),
+                            fontSize = 15.sp, lineHeight = 22.sp, color = Ink,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                    state.sourceFormat?.let { format ->
+                        Text("Формат: $format", fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
+                    }
+                    state.sourceDurationMs?.let { duration ->
+                        Text("Длительность: ${formatTime(duration)}", fontSize = 15.sp,
+                            lineHeight = 22.sp, color = Ink)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = onImport,
+                        enabled = editable && !watch.enabled && state.historyReady && state.modelDirectory != null,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("import-audio"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Amber, contentColor = Ink),
+                    ) { Text("Импорт аудио", fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
+                    if (state.modelDirectory == null) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("Импорт станет доступен после подготовки моделей.",
+                            fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
+                    }
+                }
+            }
+            spacedItem("watch") {
+                WatchStatus(watch, enabled = editable && state.historyReady && state.modelDirectory != null,
+                    onToggle = onWatchToggle, onPauseResume = onWatchPauseResume, onStop = onWatchStop)
+            }
             if (!state.processingAudio) spacedItem("capture") {
                 GlassCard {
                     Text(if (state.recording) "СЛУШАЮ" else "НОВЫЙ РАЗГОВОР", modifier = Modifier.fillMaxWidth(),
-                        fontSize = 11.sp, letterSpacing = 1.8.sp, textAlign = TextAlign.Center, color = Secondary)
+                        fontSize = 14.sp, letterSpacing = 1.2.sp, textAlign = TextAlign.Center, color = Ink)
                     Spacer(Modifier.height(10.dp))
                     Text(formatTime(state.elapsedMs), modifier = Modifier.fillMaxWidth(), fontSize = 42.sp,
                         fontWeight = FontWeight.Light, letterSpacing = (-1.2).sp, textAlign = TextAlign.Center,
@@ -125,20 +173,27 @@ internal fun ConversationScreen(
                     AudioWaveform(state.waveform, Modifier.fillMaxWidth().height(65.dp))
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         RecordOrb(recording = state.recording, level = state.level,
-                            enabled = state.recording || (!state.busy && state.historyReady && state.modelDirectory != null), onClick = onRecord)
+                            enabled = state.recording || (!state.busy && !watch.enabled && state.historyReady && state.modelDirectory != null), onClick = onRecord)
                     }
                     Text(if (state.recording) "Завершить разговор" else "Начать разговор",
                         modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontSize = 15.sp, color = Ink)
                 }
             }
             spacedItem("status") { ConversationStatus(state) }
+            if (state.processingAudio) spacedItem("processing-cancel") {
+                TextButton(onClick = onCancelProcessing,
+                    modifier = Modifier.widthIn(max = 620.dp).fillMaxWidth().heightIn(min = 48.dp)
+                        .testTag("cancel-processing")) {
+                    Text("Отменить обработку", fontSize = 16.sp)
+                }
+            }
             spacedItem("models") { ModelsStatus(state) }
             if (state.conversations.isEmpty()) {
                 spacedItem("empty-history") {
                     Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().padding(vertical = 16.dp)) {
                         Text("Ваши разговоры", fontSize = 24.sp, fontWeight = FontWeight.Medium, color = Ink)
                         Spacer(Modifier.height(8.dp))
-                        Text("Завершите разговор — здесь появятся участники, реплики и время.",
+                        Text("Импортируйте файл или завершите разговор — здесь появятся участники, реплики и время.",
                             fontSize = 15.sp, lineHeight = 22.sp, color = Secondary)
                     }
                 }
@@ -147,7 +202,7 @@ internal fun ConversationScreen(
                     Row(Modifier.widthIn(max = 620.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("Разговоры", modifier = Modifier.weight(1f), fontSize = 24.sp,
                             fontWeight = FontWeight.Medium, color = Ink)
-                        Text("7 дней", fontSize = 13.sp, color = Secondary)
+                        Text("7 дней", fontSize = 14.sp, color = Ink)
                     }
                 }
                 state.conversations.forEach { conversation ->
@@ -169,7 +224,9 @@ internal fun ConversationScreen(
                         }
                         item(key = "${conversation.id}:footer", contentType = "conversation-footer") {
                             Column {
-                                ConversationFooter(conversation, editable) { exportConversation = conversation.id }
+                                ConversationFooter(conversation, editable,
+                                    onExportJson = { onExport(conversation.id, true) },
+                                    onExportText = { onExport(conversation.id, false) })
                                 Spacer(Modifier.height(18.dp))
                             }
                         }
@@ -190,13 +247,54 @@ internal fun ConversationScreen(
         }) { Text("Сохранить") } },
         dismissButton = { TextButton(onClick = { renameConversation = null; renameSpeaker = null }) { Text("Отмена") } },
     )
-    exportConversation?.let { id ->
-        AlertDialog(onDismissRequest = { exportConversation = null }, title = { Text("Экспорт расшифровки") },
-            text = { Column {
-                TextButton(onClick = { exportConversation = null; onExport(id, false) }) { Text("Текст — TXT") }
-                TextButton(onClick = { exportConversation = null; onExport(id, true) }) { Text("Участники и время — JSON") }
-            } }, confirmButton = {},
-            dismissButton = { TextButton(onClick = { exportConversation = null }) { Text("Отмена") } })
+}
+
+@Composable
+private fun WatchStatus(
+    watch: WatchPhoneState,
+    enabled: Boolean,
+    onToggle: () -> Unit,
+    onPauseResume: () -> Unit,
+    onStop: () -> Unit,
+) {
+    GlassCard {
+        Text("МИКРОФОН ЧАСОВ", fontSize = 14.sp, letterSpacing = 1.1.sp, color = Ink)
+        Spacer(Modifier.height(8.dp))
+        Text(watch.message, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            .testTag("watch-status"), fontSize = 17.sp, lineHeight = 24.sp, color = Ink)
+        if (!watch.enabled) {
+            Spacer(Modifier.height(6.dp))
+            Text("Galaxy Watch7: включите приём, затем начните слушать на часах. Телефон обрабатывает речь локально.",
+                fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
+        }
+        if (watch.droppedFrames > 0) {
+            Spacer(Modifier.height(6.dp))
+            Text("Пропущено фрагментов: ${watch.droppedFrames}. Эти интервалы не восстановятся.",
+                fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
+        }
+        if (watch.lastText.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text(watch.lastText, fontSize = 16.sp, lineHeight = 23.sp, color = Ink)
+        }
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = onToggle, enabled = watch.enabled || enabled,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("watch-toggle"),
+            colors = ButtonDefaults.buttonColors(containerColor = Amber, contentColor = Ink)) {
+            Text(if (watch.enabled) "Выключить приём с часов" else "Включить приём с часов", fontSize = 16.sp)
+        }
+        if (watch.connected) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onPauseResume,
+                    enabled = !watch.pendingCommand && (watch.listening || watch.paused),
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                    Text(if (watch.paused) "Продолжить" else "Пауза", fontSize = 16.sp)
+                }
+                TextButton(onClick = onStop, enabled = !watch.pendingCommand,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Остановить", fontSize = 16.sp) }
+            }
+        }
+        if (watch.enabled) Text("Для импорта файла или микрофона телефона выключите приём с часов.",
+            fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
     }
 }
 
@@ -206,9 +304,9 @@ private fun ConversationStatus(state: ConversationState) {
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), color = Amber, strokeWidth = 2.dp)
         else Box(Modifier.size(8.dp).background(if (state.recording) Amber else Secondary, CircleShape))
-        Text(if (state.processingAudio) PROCESSING_AUDIO_STATUS else state.status,
+        Text(state.status,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("conversation-status"),
-            fontSize = 14.sp, lineHeight = 20.sp, color = Ink)
+            fontSize = 16.sp, lineHeight = 23.sp, color = Ink)
     }
 }
 
@@ -326,8 +424,8 @@ private fun ConversationHeader(conversation: SavedConversation, expanded: Boolea
                 Text(conversationDate(conversation.startedAtMs), fontSize = 18.sp,
                     fontWeight = FontWeight.Medium, color = Ink)
                 Spacer(Modifier.height(5.dp))
-                Text("${formatTime(conversation.durationMs)} — участников: ${conversation.participantCount}",
-                    fontSize = 13.sp, color = Ink.copy(alpha = 0.78f))
+                Text("Длительность ${formatTime(conversation.durationMs)}", fontSize = 14.sp, color = Ink)
+                Text("Участников: ${conversation.participantCount}", fontSize = 14.sp, color = Ink)
             }
             Text(if (expanded) "−" else "+", modifier = Modifier.padding(start = 16.dp), fontSize = 28.sp, color = Ink)
         }
@@ -369,10 +467,11 @@ private fun ConversationTimelineRow(
         Column(Modifier.weight(1f).padding(bottom = if (index < lastIndex) 20.dp else 0.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(conversation.speakerName(turn.speakerId), fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                    color = Ink, modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                    color = Ink, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(6.dp))
                         .clickable(enabled = editable && turn.speakerId != UNKNOWN_SPEAKER,
                             role = Role.Button, onClick = onRename)
-                        .padding(vertical = 4.dp))
+                        .padding(vertical = 10.dp))
             }
             Text(formatTimelineRange(turn.startMs, turn.endMs), fontSize = 14.sp, color = Ink,
                 style = TextStyle(fontFeatureSettings = "tnum"))
@@ -413,13 +512,24 @@ private fun TimelinePause(durationMs: Long, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ConversationFooter(conversation: SavedConversation, editable: Boolean, onExport: () -> Unit) {
+private fun ConversationFooter(
+    conversation: SavedConversation,
+    editable: Boolean,
+    onExportJson: () -> Unit,
+    onExportText: () -> Unit,
+) {
     Column(Modifier.conversationSurface(last = true).padding(horizontal = 20.dp, vertical = 16.dp)) {
-        if (conversation.segments.isEmpty()) Text("Речь не обнаружена", color = Ink, fontSize = 15.sp)
-        else {
-            Text("Время реплик и пауз приблизительное", color = Ink, fontSize = 14.sp, lineHeight = 20.sp)
-            TextButton(onClick = onExport, enabled = editable, modifier = Modifier.align(Alignment.End)) {
-                Text("Экспорт текста", color = Ink)
+        if (conversation.segments.isEmpty()) Text("Речь не обнаружена", color = Ink, fontSize = 16.sp)
+        else Text("Время реплик и пауз приблизительное", color = Ink, fontSize = 14.sp, lineHeight = 20.sp)
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = onExportJson, enabled = editable,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("export-json-${conversation.id}"),
+            colors = ButtonDefaults.buttonColors(containerColor = Ink, contentColor = Color.White),
+        ) { Text("Экспорт JSON", fontSize = 16.sp) }
+        if (conversation.segments.isNotEmpty()) {
+            TextButton(onClick = onExportText, enabled = editable,
+                modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp)) {
+                Text("Сохранить текст — TXT", fontSize = 15.sp)
             }
         }
     }
@@ -515,5 +625,5 @@ private fun RecordOrb(recording: Boolean, level: Float, enabled: Boolean, onClic
 @Preview(name = "Ascent — yellow glass", widthDp = 393, heightDp = 852, showBackground = true)
 @Composable
 private fun ConversationPreview() {
-    AscentTheme { ConversationScreen(ConversationState(), {}, {}, { _, _, _ -> }, { _, _ -> }) }
+    AscentTheme { ConversationScreen(ConversationState(), {}, {}, {}, {}, { _, _, _ -> }, { _, _ -> }) }
 }

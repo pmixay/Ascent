@@ -3,6 +3,8 @@ package com.pmixay.ascent
 import android.app.Application
 import android.net.Uri
 import android.os.SystemClock
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
@@ -23,7 +25,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -39,6 +40,9 @@ data class ConversationState(
     val historyReady: Boolean = false,
     val recording: Boolean = false,
     val status: String = "Готово к разговору",
+    val sourceDisplayName: String? = null,
+    val sourceDurationMs: Long? = null,
+    val sourceFormat: String? = null,
     val elapsedMs: Long = 0,
     val level: Float = 0f,
     val waveform: List<Float> = List(52) { 0f },
@@ -62,11 +66,12 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     val state = mutableState.asStateFlow()
     private val history = ConversationStore(app.filesDir)
     private val voices = VoiceProfileStore(app.filesDir)
-    private val historyMutex = Mutex()
+    private val historyMutex = AudioWork.history
     private var recorder: AudioRecorder? = null
     private var pendingAudio: File? = null
     private var captureStartedAtMs = 0L
     private var meterJob: Job? = null
+    private var processingJob: Job? = null
     private var foreground = false
     private var historyReady = false
 
@@ -82,18 +87,42 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             }
         }
         viewModelScope.launch {
+            var revision = 0L
+            WatchCompanion.state.collect { watch ->
+                // Do not consume a watch revision before the initial history read. Publishing
+                // readiness and the initial list under the same lock closes that startup race.
+                if (!historyReady || watch.transcriptRevision == revision) return@collect
+                try {
+                    withContext(Dispatchers.IO) {
+                        historyMutex.withLock {
+                            val conversations = history.load()
+                            revision = watch.transcriptRevision
+                            mutableState.update { it.copy(conversations = conversations,
+                                expandedConversationIds = it.expandedConversationIds.ifEmpty {
+                                    conversations.firstOrNull()?.let { setOf(it.id) }.orEmpty()
+                                }) }
+                        }
+                    }
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    reportError(error)
+                }
+            }
+        }
+        viewModelScope.launch {
             try {
-                val conversations = withContext(Dispatchers.IO) {
+                withContext(Dispatchers.IO) {
                     // A process death cannot run a finally block. Remove abandoned audio on the next launch.
                     clearAbandonedAudio()
                     historyMutex.withLock {
-                        history.load().also { voices.prune(it.map { conversation -> conversation.id }.toSet()) }
+                        val conversations = history.load()
+                        voices.prune(conversations.map { conversation -> conversation.id }.toSet())
+                        historyReady = true
+                        mutableState.update { it.copy(busy = false, historyReady = true, conversations = conversations,
+                            expandedConversationIds = conversations.firstOrNull()?.let { setOf(it.id) }.orEmpty(),
+                            status = "Готово к разговору") }
                     }
                 }
-                historyReady = true
-                mutableState.update { it.copy(busy = false, historyReady = true, conversations = conversations,
-                    expandedConversationIds = conversations.firstOrNull()?.let { setOf(it.id) }.orEmpty(),
-                    status = "Готово к разговору") }
             } catch (_: OutOfMemoryError) { reportMemoryError() }
             catch (error: Exception) {
                 if (error is CancellationException) throw error
@@ -134,7 +163,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             captureStartedAtMs = System.currentTimeMillis()
             val started = SystemClock.elapsedRealtime()
             mutableState.update { it.copy(recording = true, elapsedMs = 0, level = 0f,
-                waveform = List(52) { 0f }, status = "Слушаю разговор") }
+                waveform = List(52) { 0f }, status = "Слушаю разговор", sourceDisplayName = null,
+                sourceDurationMs = null, sourceFormat = null) }
             meterJob = viewModelScope.launch {
                 while (isActive) {
                     mutableState.update { it.copy(elapsedMs = SystemClock.elapsedRealtime() - started,
@@ -158,22 +188,27 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         mutableState.update { it.copy(recording = false, busy = true, processingAudio = true,
             level = 0f, status = PROCESSING_AUDIO_STATUS) }
         // Enter the try/finally immediately so clearing the ViewModel cannot skip recorder cleanup.
-        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+        processingJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             var saved = false
             try {
                 val file = withContext(NonCancellable + Dispatchers.IO) { active.stop() }
                 currentCoroutineContext().ensureActive()
-                val result = runInterruptible(Dispatchers.Default) {
+                val result = AudioWork.inference.withLock { runInterruptible(Dispatchers.Default) {
                     ModelSelection.acquire(app).use { lease ->
                         TranscriptionEngine(lease.directory).transcribeWithSpeakers(file) { }
                     }
-                }
-                val durationMs = (file.length() - 44).coerceAtLeast(0) * 1000 / (AudioRecorder.SAMPLE_RATE * 2)
+                } }
+                val audioBytes = (file.length() - 44).coerceAtLeast(0)
+                val bytesPerSecond = AudioRecorder.SAMPLE_RATE * 2
+                val durationMs = (audioBytes * 1000 + bytesPerSecond - 1) / bytesPerSecond
                 val names = result.segments.map { it.speakerId }.distinct().filter { it != UNKNOWN_SPEAKER }
                     .mapIndexed { index, speakerId -> speakerId to "Участник ${index + 1}" }.toMap()
-                withContext(Dispatchers.IO) {
+                // Once the atomic save begins, report its committed result rather than
+                // allowing a late cancellation to claim that a saved transcript vanished.
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable + Dispatchers.IO) {
                     historyMutex.withLock {
-                        val existing = mutableState.value.conversations
+                        val existing = history.load()
                         val remembered = voices.match(id, startedAtMs, result.signatures,
                             existing.map { it.id }.toSet())
                         val conversation = SavedConversation(id, startedAtMs, durationMs, result.segments, names + remembered)
@@ -204,8 +239,86 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                     // Resuming from the IO dispatcher can deliver cancellation after cleanup.
                     mutableState.update { it.copy(busy = false, processingAudio = false, recording = false, level = 0f,
                         waveform = List(52) { 0f }) }
+                    processingJob = null
                 }
             }
+        }
+    }
+
+    /** Reads a selected document in bounded windows. The selected audio stays with its provider. */
+    fun importAudio(uri: Uri) {
+        if (!historyReady || mutableState.value.busy || mutableState.value.recording) return
+        if (mutableState.value.modelDirectory == null) {
+            mutableState.update { it.copy(status = "Модели ещё не готовы. Дождитесь загрузки.") }
+            return
+        }
+        // Reprocessing the same provider URI replaces its transcript without renewing retention.
+        val id = "import-${UUID.nameUUIDFromBytes(uri.toString().toByteArray(Charsets.UTF_8))}"
+        val importedAtMs = System.currentTimeMillis()
+        var startedAtMs = mutableState.value.conversations.firstOrNull { it.id == id }?.startedAtMs ?: importedAtMs
+        mutableState.update { it.copy(busy = true, processingAudio = true, status = "Читаю выбранный файл…",
+            sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null) }
+        processingJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                val (result, durationMs) = AudioWork.inference.withLock { runInterruptible(Dispatchers.Default) {
+                    val displayName = try {
+                        app.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                            if (cursor.moveToFirst()) cursor.getString(0)?.take(120) else null
+                        }
+                    } catch (_: Exception) { null }
+                    mutableState.update { it.copy(sourceDisplayName = displayName) }
+                    val modifiedAtMs = try {
+                        app.contentResolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+                            null, null, null)?.use { cursor ->
+                            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null
+                        }
+                    } catch (_: Exception) { null }
+                    // A provider timestamp is source metadata, not proof of capture time. When
+                    // available it is a stable conservative fallback; otherwise first import wins.
+                    if (modifiedAtMs != null && modifiedAtMs > 0) {
+                        startedAtMs = minOf(startedAtMs, modifiedAtMs.coerceAtMost(importedAtMs))
+                    }
+                    ModelSelection.acquire(app).use { lease ->
+                        AudioSources.open(app, uri).use { wave ->
+                            val duration = wave.durationMs
+                            mutableState.update { it.copy(sourceDurationMs = duration,
+                                sourceFormat = wave.formatDescription, status = "Распознаю речь…") }
+                            TranscriptionEngine(lease.directory).transcribeWithSpeakers(wave) { progress ->
+                                if (mutableState.value.status != "Отменяю обработку…")
+                                    mutableState.update { it.copy(status = progress) }
+                            } to duration
+                        }
+                    }
+                } }
+                currentCoroutineContext().ensureActive()
+                val names = result.segments.map { it.speakerId }.distinct().filter { it != UNKNOWN_SPEAKER }
+                    .mapIndexed { index, speakerId -> speakerId to "Участник ${index + 1}" }.toMap()
+                mutableState.update { it.copy(status = "Сохраняю расшифровку…") }
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable + Dispatchers.IO) {
+                    historyMutex.withLock {
+                        val conversation = SavedConversation(id, startedAtMs, durationMs, result.segments, names)
+                        val existing = history.load()
+                        val retained = history.save(existing.filterNot { it.id == id } + conversation)
+                        mutableState.update { it.copy(conversations = retained, expandedConversationIds = setOf(id),
+                            status = if (result.segments.isEmpty()) "Речь не обнаружена" else "Расшифровка готова") }
+                    }
+                }
+            } catch (_: OutOfMemoryError) { reportMemoryError() }
+            catch (error: Exception) {
+                if (error is CancellationException) mutableState.update { it.copy(status = "Обработка отменена") }
+                else reportError(error)
+            } finally {
+                mutableState.update { it.copy(busy = false, processingAudio = false) }
+                processingJob = null
+            }
+        }
+    }
+
+    fun cancelProcessing() {
+        if (mutableState.value.processingAudio && processingJob?.isActive == true) {
+            mutableState.update { it.copy(status = "Отменяю обработку…") }
+            processingJob?.cancel()
         }
     }
 
@@ -221,7 +334,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             var learned = false
             val retained = withContext(Dispatchers.IO) {
                 historyMutex.withLock {
-                    val updated = mutableState.value.conversations.map { conversation ->
+                    val updated = history.load().map { conversation ->
                         if (conversation.id == conversationId) conversation.copy(speakerNames = conversation.speakerNames + (speakerId to clean))
                         else conversation
                     }
@@ -239,10 +352,10 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
 
     fun exportTranscript(conversationId: String, uri: Uri, json: Boolean) {
         val conversation = mutableState.value.conversations.firstOrNull { it.id == conversationId } ?: return
-        if (conversation.segments.isEmpty() || conversation.startedAtMs <= System.currentTimeMillis() - HISTORY_RETENTION_MS) return
+        if (conversation.startedAtMs <= System.currentTimeMillis() - HISTORY_RETENTION_MS) return
         work("Сохраняю расшифровку…") {
             runInterruptible(Dispatchers.IO) {
-                val text = if (json) ConversationStore.conversationJson(conversation).put("schemaVersion", 1).toString(2)
+                val text = if (json) CompetitionTranscriptJson.serialize(conversation)
                 else conversation.segments.joinToString("\n\n") {
                     "[${formatTime(it.startMs)} — ${formatTime(it.endMs)}] ${conversation.speakerName(it.speakerId)}\n${it.text}"
                 }
@@ -259,9 +372,9 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             withContext(Dispatchers.IO) {
                 historyMutex.withLock {
                     if (mutableState.value.busy || mutableState.value.recording) return@withLock
-                    val existing = mutableState.value.conversations
+                    val existing = history.load()
                     val retained = ConversationStore.retained(existing, System.currentTimeMillis())
-                    if (retained != existing) {
+                    if (retained != existing || retained != mutableState.value.conversations) {
                         history.save(retained)
                         mutableState.update { it.copy(conversations = retained,
                             expandedConversationIds = it.expandedConversationIds.intersect(retained.map { conversation -> conversation.id }.toSet())) }

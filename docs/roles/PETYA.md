@@ -10,6 +10,8 @@ Make the evaluator's task obvious, reproduce failures independently and deliver 
 
 At fetched `origin/main` `4b16e3a`, participant timeline/result UI and model-status UI already exist. PR #2 supplies frozen RU/English study manifests, normalization/scoring tools, host ASR/timestamp/telephone/English results, model feasibility/description and segmenter/tests. Link/reuse them; do not assign a new corpus selection, host benchmark report or timeline redesign. Remaining UX is picker/job-state/cancel/exact-export wiring; remaining evidence is real final Android/offline operation, missing natural call/meeting references and submission material. Pasha owns app APIs; Andrey owns ML.
 
+Prepared on 7 November 2026: the [three-file offline judge script](../QA_JUDGE_SCRIPT.md), [test evidence register](../TEST_RESULTS.md), [holdout custody protocol](../HOLDOUT_CUSTODY.md), [input/output protocol](../PROTOCOL.md), independent [JSON validator](../../tools/qa/validate_transcript.py) and its CI-ready contract cases. Six AMI English meeting excerpts have supplied but unreviewed human annotations; six DataHive Russian call sources are hash-pinned but have no transcripts. Neither set has app inference or device evidence. [Installation](../INSTALLATION.md), [architecture](../ARCHITECTURE.md), [limitations](../LIMITATIONS.md), and [demo record/storyboard](../../artifacts/demo/README.md) are draft judge-facing material. They need exact final APK, model, CI, device and video evidence before H11/H12 can close.
+
 ## Ownership
 
 Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
@@ -21,11 +23,11 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 ## 11:00–11:20 — agree the missing evaluator flow
 
-- [ ] Read audit and supplied JSON/three-file acceptance procedure.
-- [ ] Write a step-by-step script: install → offline first launch → import → process → inspect → export → repeat twice.
+- [x] Read audit and supplied JSON/three-file acceptance procedure.
+- [x] Write a step-by-step script: install → offline first launch → import → process → inspect → export → repeat twice.
 - [ ] Agree commands/state/error categories with Pasha and model-readiness statuses with Timofey.
 - [ ] Identify at least one primary physical ARM64 phone and a second device where available; record Android/RAM/storage.
-- [ ] Create a test-results table with explicit `not run`, `pass`, `fail`, `blocked` states and APK/model identifiers.
+- [x] Create a test-results table with explicit `not run`, `pass`, `fail`, `blocked` states and APK/model identifiers.
 - [ ] Reuse Andrey's pushed protocol/manifests; identify only missing natural call/meeting references and predeclare the small final app subset before its predictions. Do not restart source selection.
 
 **Checkpoint:** the team has a single visible acceptance script and device/test ownership before UI polishing starts.

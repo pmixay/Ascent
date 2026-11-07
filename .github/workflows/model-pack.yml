@@ -9,6 +9,8 @@ on:
       - '.github/workflows/model-pack.yml'
       - 'prototypes/phone-transcriber/tools/export_model_pack.py'
       - 'prototypes/phone-transcriber/tools/model_pack.py'
+      - 'prototypes/phone-transcriber/tools/restore_gigaam_checkpoint.py'
+      - 'prototypes/phone-transcriber/tools/test_restore_gigaam_checkpoint.py'
       - 'prototypes/phone-transcriber/tools/requirements-*.txt'
       - 'server/**'
 
@@ -66,6 +68,15 @@ jobs:
         with:
           path: prototypes/phone-transcriber/build/gigaam-cache/multilingual_ctc.ckpt
           key: ${{ runner.os }}-gigaam-v1-${{ hashFiles('prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tools/requirements-gigaam.txt') }}
+
+      # The mirror must contain the exact original checkpoint, with independent
+      # SHA-256/size pins plus the unchanged official upstream checksum.
+      - name: Prepare verified official GigaAM checkpoint
+        env:
+          ASCENT_GIGAAM_CHECKPOINT_URL: ${{ secrets.ASCENT_GIGAAM_CHECKPOINT_URL }}
+          ASCENT_GIGAAM_CHECKPOINT_SHA256: ${{ vars.ASCENT_GIGAAM_CHECKPOINT_SHA256 }}
+          ASCENT_GIGAAM_CHECKPOINT_BYTES: ${{ vars.ASCENT_GIGAAM_CHECKPOINT_BYTES }}
+        run: python3 tools/restore_gigaam_checkpoint.py --directory build/gigaam-cache
 
       - name: Download and verify speaker weights and public speech fixture
         run: |

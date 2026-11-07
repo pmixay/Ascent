@@ -7,7 +7,11 @@ define the phone competition release. See the [requirements/code/CI audit](docs/
 and [four-person delivery plan](docs/HACKATHON_PLAN.md). Required work includes a
 usable embedded model set, reachable audio import, the exact competition JSON
 schema, resolved local-LLM compliance and clean-install offline ARM validation.
-These are planned changes, not implemented capabilities. For this competition
+The current branch has source changes for bounded WAV and Android-codec audio
+import, an evaluator-facing
+interface and the brief-schema JSON serializer; they still need CI and device
+verification. The complete offline APK, local LLM and release evidence remain
+planned. For this competition
 scope, the new requirements supersede the older no-weights/capture-only packaging
 direction and exclude remote text processing. The watch-first product target
 below remains a separate future track. Builds and executable application checks
@@ -23,11 +27,13 @@ Reuse them; remaining qualification work is Android import/JSON/text integration
 complete offline packaging, matching CI inputs, device evidence and submission.
 Optional model/quality research and extended tests are backlog, not marked done.
 
-Newly pushed `6a078e3` adds dedicated public inference/cache generation and a
-provenance-aware scorer; its [run 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969)
-was in progress when inspected. Verify that path instead of implementing it again;
-no completed success is claimed. Earlier `4b16e3a` had a passing build job but
-failed for missing inputs. Latest model export remains failed run `42257595048`.
+The development evaluation tooling pushed in `6a078e3` remains available for
+algorithm improvement, but the user removed its long public-corpus inference and
+scoring jobs from push CI on 7 November 2026 because they made CI too slow. Those
+two-hour evaluations now run on a development machine only; the historical [run
+42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969) is not a
+current gate. Earlier `4b16e3a` had a passing build job but failed for missing
+inputs. Latest model export remains failed run `42257595048`.
 Public-reference results are not deployed-pack or offline ARM acceptance. The
 audit preserves its earlier snapshot.
 
@@ -35,7 +41,8 @@ The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
 for review: listening stops into automatic local transcription, then the temporary
 WAV is deleted. It keeps multiple encrypted text conversations with a seven-day
-retention filter and has no Wear OS app. Temporary audio still reaches disk, so
+retention filter and has only a source-level Wear OS companion preview without CI
+or paired-device evidence. Temporary audio still reaches disk, so
 this does not satisfy the production no-audio-persistence requirement. Its CI and model-export
 results must be inspected before treating an artifact as verified. The compact
 phone APK uses R8 optimization and automatically downloads compressed model
@@ -100,8 +107,13 @@ The hackathon jury ([brief](docs/hackathon/hackathon-brief-2026-11.pdf),
 [clarifications](docs/hackathon/jury-clarifications.md)) requires a verification APK
 with an embedded speech model, audio import from device storage and JSON export in
 the brief's schema, working offline with a local LLM, Russian first and English
-second. None of this is implemented yet; the current prototype downloads its
-models and has no import or brief-schema export. See [Hackathon verification build](#12-hackathon-verification-build).
+second. The current branch implements a bounded, seekable WAV path plus an
+in-memory Android codec path for platform-supported compressed audio, and a
+separate brief-schema serializer in source. Their behavior is unverified on
+Android; the prototype still downloads models, and the local LLM is absent. The
+[judge procedure](docs/QA_JUDGE_SCRIPT.md), [installation guide](docs/INSTALLATION.md)
+and [test ledger](docs/TEST_RESULTS.md) record the remaining evidence. See
+[Hackathon verification build](#12-hackathon-verification-build).
 
 Russian speech memory for Android and Wear OS.
 

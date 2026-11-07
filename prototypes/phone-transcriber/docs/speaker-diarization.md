@@ -399,13 +399,14 @@ available update until activation, and initial downloads retain their progress.
 
 ### Frozen two-hour dialogue evaluation
 
-The new Android CI job uses the
+The development-machine evaluator uses the
 [frozen Dialogs selection](../tools/fixtures/dialogs/README.md): 1,134 distinct
 public audio payloads, three actors and 7,233.107 seconds of publisher metadata
 duration. Every source checksum and annotation file is pinned before inference.
-CI verifies at least 7,200 seconds of actual resampled source audio, excluding
-inserted gaps. It runs the deployed GigaAM and ERes2NetV2 revisions without
-training model weights or enrolling benchmark actors into voice memory.
+The runner verifies at least 7,200 seconds of actual resampled source audio,
+excluding inserted gaps. It runs the deployed GigaAM and ERes2NetV2 revisions
+without training model weights or enrolling benchmark actors into voice memory.
+The former long CI jobs that ran this evaluation were removed on 7 November 2026.
 
 Before baseline inference or score inspection, `masha_dima_part1` is frozen as
 the development subset for diagnosing failures and choosing algorithm changes.
@@ -431,9 +432,10 @@ report strict and completed attribution, per-actor scores, inferred coverage and
 speaker-count errors. Their denominator includes source clip silence and excludes
 only inserted silence; unknown/missing strict evidence remains an error.
 
-Validated checkpoints cache inference, while the dedicated job always reruns
-scoring and rejects a skipped evaluation. Public audio, transcripts, embeddings
-and reports are not download artifacts.
+Validated checkpoints cache inference during development runs, while scoring
+always reruns against the current application code and rejects a skipped
+evaluation. Public audio, transcripts, embeddings and reports are not download
+artifacts and do not enter push CI.
 
 The inspected development baseline at `e9df416` passed
 [CI 40378549620](https://github.com/pmixay/Ascent/actions/runs/40378549620);

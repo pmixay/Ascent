@@ -16,22 +16,26 @@ remains separate from these host/code outputs.
   with frozen development and fresh validation recordings, telephone-channel and
   English smoke slices, error inventory and three ranked hypotheses. It used a
   public reference export because the deployed pack was unreachable, ran on an
-  x86 container, and did not re-measure diarization, cpWER or speaker counts: the
-  CI scorer's inference cache is missing (needs Timofey).
+  x86 container, and did not re-measure diarization, cpWER or speaker counts. The
+  former CI scorer's inference cache no longer exists as a gate; rerun the
+  evaluation on a development machine when those measurements are needed.
 - **P2 local text model:** host feasibility study and edit contract in
   [text-model feasibility](../../prototypes/phone-transcriber/docs/text-model-feasibility.md).
   No model is integrated, packaged or measured on ARM.
-- **P3 diarization:** no candidate measured; the short-reply hypothesis is blocked
-  on the same cache.
-- **CI bootstrap update (`6a078e3`):** dedicated public inference/cache generation and a two-provenance scorer are now pushed. Their first inspected run was in progress, not accepted. Help Timofey verify results/provenance instead of implementing bootstrap again; public-reference scores do not measure the deployed pack.
+- **P3 diarization:** no candidate measured; the short-reply hypothesis still
+  needs development-machine evaluation.
+- **CI change (`6a078e3`):** the user removed the dedicated public inference and
+  scoring jobs because they made push CI too slow. The development tooling and
+  opt-in scorer remain; do not restore long inference or a cache bootstrap to CI.
+  Public-reference scores do not measure the deployed pack.
 - **P4 timestamps:** frame-to-time mapping audited (no offset bug found); a
   constant start shift failed validation and was rejected. Manually checked
   boundaries in continuous recordings are still needed.
 - **Code:** `TranscriptSegmenter` replaces inline phrase grouping and splits runs
-  over 20 s at their longest pause. Current inspected [CI run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042)
+  over 20 s at their longest pause. Historical inspected [CI run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042)
   at `4b16e3a` has a successful build/validation job, but the overall run failed
-  because the two-hour scorer lacks matching inference inputs. Do not rewrite the
-  segmenter or claim whole-workflow success.
+  because the since-removed two-hour scorer lacked matching inference inputs.
+  Do not rewrite the segmenter or treat that historical failure as a current gate.
 
 ## Ownership
 
@@ -48,7 +52,7 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 | --- | --- |
 | **11:00–11:20** | Agree only the missing bounded engine/source seam with Pasha; preserve existing timed words, segmenter and attribution provenance. |
 | **11:20–12:00** | Hand Pasha/Timofey existing Qwen2.5 1.5B Q4_K_M hashes/licenses/grammar/validator and the measured 0.5B fallback; hand Petya the pushed scoring protocol and manifests. No new shortlist, corpus freeze or host benchmark. |
-| **12:00–13:00** | Implement the engine seam; review the pushed cache job's accepted recognizer/speaker provenance with Timofey, not another bootstrap. Existing ASR-only host checkpoints cannot replace its complete inference inputs. Submit seam for the 13:00 push; freeze cache-key inputs by 14:00. |
+| **12:00–13:00** | Implement the engine seam; review the retained development-evaluation provenance with Timofey, not another bootstrap. Existing ASR-only host checkpoints cannot replace complete development inference inputs. Submit seam for the 13:00 push. |
 | **13:00–14:30** | Review Android grammar/lexical preservation with Pasha; verify actual CI-built ARM text inference as the APK arrives. Measure cost with Timofey; host feasibility alone is not acceptance. |
 | **14:30–15:00** | Freeze the viable text model/runtime/config from ARM evidence; preserve acoustic models/thresholds. Escalate failed LLM/CI as qualification blockers, not reasons to relabel ASR. |
 | **15:00–16:00** | Review candidate regressions, raw/presentation text projection and source-relative timing; prepare missing Android scoring using existing tools. No algorithm sweep. |
@@ -62,7 +66,7 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 - [ ] Bounded source seam preserves original-media offsets, words and existing segmenter behavior.
 - [ ] Pushed grammar and independent validator actually run with the bundled text model on ARM; lexical content, numbers, negation, IDs and times stay unchanged. Record successful operation, fallbacks and incremental time.
-- [ ] Existing stricter regressions remain passing on compatible inputs; missing cache stays a blocker for Timofey, not a waived check.
+- [ ] Existing stricter regressions remain passing on compatible inputs; missing development evaluation inputs stay a local blocker, not a waived check or a restored CI job.
 - [ ] Missing Android RU call/meeting, short-reply/speaker and English smoke measurements have denominators and build/model/device identifiers. Do not repeat the already published host baseline/error inventory.
 - [ ] Checked natural-recording boundaries report start/end errors, matched/unmatched counts and annotation uncertainty; do not call the existing energy proxy human ground truth.
 - [ ] Final report and model/license review reach Petya by 19:00; personal sign-off by 19:30. Unmeasured conditions are explicitly open.

@@ -36,8 +36,9 @@ and removes content older than seven days on load/save, foreground entry and
 periodic checks while the process is active. Pruning also removes voice-template
 contributions from expired conversations. A stopped process cannot run cleanup;
 this is not proof of deletion at an exact wall-clock deadline. Explicit text
-exports are user-managed files outside app retention. There is no Wear OS app,
-watch transport, continuous background listening, Rewind or remote AI.
+exports are user-managed files outside app retention. The branch also contains a
+source-level Wear OS companion preview; it has no CI or paired-device evidence,
+and continuous background listening, Rewind and remote AI remain absent.
 
 Temporary audio still reaches disk. These differences do not satisfy the production architecture and protections in
 the [project plan](../../README.md) and [engineering contract](../../AGENTS.md).
@@ -48,8 +49,10 @@ milestones is complete merely because this source or an APK exists.
 
 - A start/stop listening control with a 30-minute limit. Stopping, reaching the
   limit or leaving the foreground stops capture and starts local processing.
-  Listening requires installed models. There are no audio-import, manual
-  transcribe, playback or audio-delete controls.
+  Listening requires installed models. The branch also has a document-picker
+  import path that reads WAV directly or decodes Android-supported compressed
+  audio in memory, plus exact jury JSON export. There are no playback or
+  audio-delete controls.
 - Local GigaAM Multilingual 220M CTC inference, the June 2026 GigaAM line. Bounded
   chunks prefer a sustained quiet seam near 20 seconds and include 1.25 seconds
   of context at each edge to reduce word cuts. All samples remain covered.
@@ -66,6 +69,11 @@ milestones is complete merely because this source or an APK exists.
   text or timestamps or reconstructing audio.
 - Multiple encrypted text conversations, collapsible connected timelines,
   participant renaming and explicit per-conversation TXT/JSON export.
+- A source-level Wear OS 6.0 companion preview: a visible watch action starts
+  microphone capture, bounded encrypted frames travel over bonded Bluetooth to
+  the phone, and the watch displays phone-produced text. It has no CI build or
+  paired-device evidence yet; continuous background listening, Rewind and remote
+  AI remain absent.
 - Automatic compressed model downloads from the fixed Ascent HTTPS catalog,
   continued by a foreground service after ordinary app closure, with an ongoing
   progress notification and prompt reconnect retries. WorkManager provides
@@ -129,17 +137,15 @@ triggers. The base repository had no workflow to reuse.
 
 1. **Ascent Android CI**, with job **Build and validate Android app**, validates
    packaging and server-publication tooling, runs Android lint/unit tests, builds
-   the compact ARM64 APK, and checks the optimized app and native runtime loading
-   on an x86_64 emulator. It inspects the APK for its expected ABI, compression,
-   optimization output and absence of model weights. Its only download artifact
-   is `debug-<8-character commit>.zip`, containing only `ascent.apk`. Test and lint
-   diagnostics remain in the workflow console; report artifacts are not uploaded.
-   Its additional **Create public two-hour speech inference cache** job runs the
-   frozen public-corpus inference once per cache key (hash-pinned public reference
-   ASR export and the identical public speaker model, never application audio),
-   and **Score cached two-hour Russian speech evaluation** scores that cache
-   against the application attribution code. Model inference for algorithm
-   improvement may also run on the development machine; no other job runs models.
+   the compact ARM64 phone APK and the source-only Wear companion, and checks the
+   optimized app and native runtime loading on an x86_64 emulator. It inspects the
+   APK for its expected ABI, compression, optimization output and absence of model
+   weights. Its only download artifact is `debug-<8-character commit>.zip`,
+   containing only `ascent.apk`. Test and lint diagnostics remain in the workflow
+   console; report artifacts are not uploaded. Long public-corpus inference and
+   scoring are development-machine work and are not CI jobs; the former
+   `dialog-inference` and `speech-evaluation` jobs were removed because they made
+   push CI too slow.
 2. **Ascent Model Export**, with job **Export and validate offline models**, runs
    on relevant model/export/server changes on `main` and the current prototype
    branch. It exports pinned official GigaAM and speaker weights, requires
@@ -258,16 +264,16 @@ accuracy benchmark. See [fixture provenance](tools/fixtures/speakers/README.md).
 
 The new [Dialogs evaluation](tools/fixtures/dialogs/README.md) freezes 1,134
 distinct public audio payloads from three actors, totaling 7,233.107 metadata
-seconds. CI verifies every source hash and requires at least two hours of actual
-resampled source audio. Approximately five-minute sequences retain source turn
-order with inserted 100 ms gaps. These are constructed acted dialogues, not
-original continuous conversations. The job reports WER/CER, joint
-speaker-attributed word errors (cpWER), strict and completed clip-time attribution,
-per-actor results, extra/missing labels and inferred assignments. Kotlin checks
-the host CTC/context mirrors and runs the production attribution policy on real
-embeddings. Inference checkpoints resume only after integrity checks; scoring
-runs on every evaluation job using the completed inference cache. Audio, transcripts,
-vectors and reports are not download artifacts.
+seconds. The development-machine runner verifies every source hash and requires
+at least two hours of actual resampled source audio. Approximately five-minute
+sequences retain source turn order with inserted 100 ms gaps. These are constructed
+acted dialogues, not original continuous conversations. The runner reports WER/CER,
+joint speaker-attributed word errors (cpWER), strict and completed clip-time
+attribution, per-actor results, extra/missing labels and inferred assignments.
+Kotlin checks the host CTC/context mirrors and runs the production attribution
+policy on real embeddings. Inference checkpoints resume only after integrity
+checks; scoring uses completed inference output from that development run. Audio,
+transcripts, vectors and reports are not download artifacts and never enter push CI.
 
 The initial development baseline covers `masha_dima_part1`: 336 clips,
 2,866.068 source seconds and 5,572 reference words. It measures 2.8715% WER,

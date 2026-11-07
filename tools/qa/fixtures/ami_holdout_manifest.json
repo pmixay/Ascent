@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "selection_date_utc": "2026-11-07",
+  "status": "source selection frozen before application inference; human reference review and device trials pending",
+  "corpus": "AMI Meeting Corpus",
+  "license": "CC BY 4.0",
+  "license_url": "https://groups.inf.ed.ac.uk/ami/download/",
+  "annotation_archive": {
+    "url": "https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip",
+    "bytes": 22887865,
+    "sha256": "b56e5babb2496b8795deeeda7e71178d7fbc9963f94276cf2a3f4b56ebbc9f9d"
+  },
+  "selection_rule": "Take the first 600 seconds of each distinct official headset-mix meeting WAV, without selecting for model output. WAV crop copies the first 9,600,000 PCM frames and preserves time origin at zero.",
+  "clip_duration_ms": 600000,
+  "language": "English",
+  "condition": "meeting",
+  "clips": [
+    {
+      "meeting_id": "ES2008a",
+      "source_url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2008a/audio/ES2008a.Mix-Headset.wav",
+      "source_bytes": 33387564,
+      "source_sha256": "65fcfc924e9bdb0388cbc3242a17bda88291ebc638f486e39a9ede78e92cb1e6",
+      "source_duration_ms": 1043360,
+      "clip_sha256": "2e15ba80a64d40a859b7a892a99968499747752be9fce2755142eb5ef7d66b03",
+      "annotation_members": ["words/ES2008a.A.words.xml", "words/ES2008a.B.words.xml", "words/ES2008a.C.words.xml", "words/ES2008a.D.words.xml"]
+    },
+    {
+      "meeting_id": "ES2009a",
+      "source_url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2009a/audio/ES2009a.Mix-Headset.wav",
+      "source_bytes": 44870700,
+      "source_sha256": "472adcae2cff535a251469bf5a9647ac9166de0f1bc049ce24504104cae9b1fc",
+      "source_duration_ms": 1402208,
+      "clip_sha256": "d2b5a8060281d77d763a0baf97376e816fc8dd7c43b69c1cc2a50ad827c4d761",
+      "annotation_members": ["words/ES2009a.A.words.xml", "words/ES2009a.B.words.xml", "words/ES2009a.C.words.xml", "words/ES2009a.D.words.xml"]
+    },
+    {
+      "meeting_id": "IS1008a",
+      "source_url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/IS1008a/audio/IS1008a.Mix-Headset.wav",
+      "source_bytes": 30204093,
+      "source_sha256": "75ae8796ca2177fa0c77055de2fe2f95325b412dc7152a9b32c76c9884a3d382",
+      "source_duration_ms": 943833,
+      "clip_sha256": "297568f3c6d42665929e3bb252c24532f7a119b974755e6d1043dcb14307ebfa",
+      "annotation_members": ["words/IS1008a.A.words.xml", "words/IS1008a.B.words.xml", "words/IS1008a.C.words.xml", "words/IS1008a.D.words.xml"]
+    },
+    {
+      "meeting_id": "IS1009a",
+      "source_url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/IS1009a/audio/IS1009a.Mix-Headset.wav",
+      "source_bytes": 26844093,
+      "source_sha256": "6eb5a0ede0d9e72794f976ce7bea5b78133eae969f99b4c5418b43c2468d25b1",
+      "source_duration_ms": 838833,
+      "clip_sha256": "60f57701505cc0866785fa49393e22ff267e10c31ae348ab9ffba614e21b236b",
+      "annotation_members": ["words/IS1009a.A.words.xml", "words/IS1009a.B.words.xml", "words/IS1009a.C.words.xml", "words/IS1009a.D.words.xml"]
+    },
+    {
+      "meeting_id": "TS3003a",
+      "source_url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/TS3003a/audio/TS3003a.Mix-Headset.wav",
+      "source_bytes": 48180608,
+      "source_sha256": "b6ce59ff735c234afdd94b13744aa26f6785af746170543fd03b33160e920a6d",
+      "source_duration_ms": 1505642,
+      "clip_sha256": "4db1ce993b738277e4f7a02d5c3febd38792dd5d3baccaf8d2c825a33db7e538",
+      "annotation_members": ["words/TS3003a.A.words.xml", "words/TS3003a.B.words.xml", "words/TS3003a.C.words.xml", "words/TS3003a.D.words.xml"]
+    },
+    {
+      "meeting_id": "TS3004a",
+      "source_url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/TS3004a/audio/TS3004a.Mix-Headset.wav",
+      "source_bytes": 43050368,
+      "source_sha256": "ca3bc00d6c85451918290b0a3dd137e322ad8b063fd26f71fe3bdaa42ad66719",
+      "source_duration_ms": 1345322,
+      "clip_sha256": "e75e550b4f93f46e7dc27060f8f939dc57fce004b4228791345d45cc30334aea",
+      "annotation_members": ["words/TS3004a.A.words.xml", "words/TS3004a.B.words.xml", "words/TS3004a.C.words.xml", "words/TS3004a.D.words.xml"]
+    }
+  ]
+}

@@ -9,10 +9,10 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 ## Already pushed / inspected — subtract from implementation
 
 - Existing push-only Android/model workflows, R8/JNI isolation, downloader verification/leases and acoustic pipeline are the base, not tasks to recreate.
-- At fetched `origin/main` `4b16e3a`, [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042) has a **successful build/validation job**. The overall run fails because two-hour inference inputs are missing. Do not assign generic build repair; repair the specific input bootstrap.
-- PR #2 already supplies study/scoring tools, frozen RU/English selections, host timing/int8 results, text-model hashes/licenses/contract and the segmenter/tests. Use these instead of a new performance harness or host-model search. Reference-export ASR outputs do not substitute for deployed-model speaker cache.
+- At fetched `origin/main` `4b16e3a`, historical [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042) has a **successful build/validation job**. The overall run failed because the since-removed two-hour inference inputs were missing; that failure is not a current CI gate.
+- PR #2 already supplies study/scoring tools, frozen RU/English selections, host timing/int8 results, text-model hashes/licenses/contract and the segmenter/tests. Use these instead of a new performance harness or host-model search. Reference-export ASR outputs do not substitute for deployed-model speaker measurements.
 - The pushed ASR report diagnoses the failed model export's expired upstream TLS certificate and unreachable deployed host. Verify a secure source/deployment repair; never bypass certificate validation. Packaging, ARM text runtime and final device cost are still open.
-- **Newly pushed `6a078e3`:** dedicated `dialog-inference` job, public-reference ASR + identical pinned speaker model, provenance-aware scoring and the scoped policy exception. Do not implement bootstrap again. [Run 42363045969](https://github.com/pmixay/Ascent/actions/runs/42363045969) was in progress when inspected; remaining work is complete-run/cache/provenance verification and diagnosed failure repair. Reference results are not deployed-pack measurements.
+- **Pushed `6a078e3`:** the user removed its long `dialog-inference` and `speech-evaluation` jobs on 7 November 2026 because they made push CI too slow. Keep the development evaluation tooling and opt-in scorer, but do not restore long inference, cache bootstrapping or scoring to CI. Reference results are not deployed-pack measurements.
 
 ## Ownership
 
@@ -26,7 +26,7 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 
 - [ ] Reuse inspected current run `42358746042`; check for any newer pushed result before integrating.
 - [ ] Use the pushed diagnosis for export run `42257595048`; confirm secure checkpoint access and model publication availability rather than restarting a generic investigation.
-- [ ] Inspect the pushed cache-producing run and its cache key/scope/provenance with Andrey; verify completed inference → scoring. Do not recreate its public-model bootstrap. Escalate actual missing access/data or failed inference by 12:00.
+- [ ] Inspect the current push CI after the job removal: confirm one bounded build job covers Python tooling, app/wear lint, unit tests, ARM64 APK inspection and x86_64 emulator checks, and that superseded runs cancel. Do not recreate long inference or a cache bootstrap.
 - [ ] Locate verified model artifacts and establish who has permissions for CI, model publication and signing.
 - [ ] Agree embedded-install readiness/lease contract with Pasha and expected status UI with Petya.
 - [ ] Identify available ARM phones with RAM/OS/ABI/storage information.
@@ -38,13 +38,13 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 ### T1. Repair specific failed checks; keep the working build path
 
 - [ ] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks.
-- [ ] Verify the pushed integrity-checked regeneration path from durable pinned public sources; do not rely only on a warm cache or implement this path again.
+- [ ] Verify the pushed integrity-checked model/export regeneration path from pinned public sources; do not rely only on a warm cache.
 - [ ] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope.
-- [ ] Keep two-hour scoring required; never turn absence into skip/success or reuse inputs for a different model silently.
-- [ ] Reconcile the documented CI-inference policy inconsistency explicitly: existing fixture/export validation runs inference while the written rule broadly forbids it. Do not remove validation to conceal the contradiction.
+- [ ] Keep the two-hour public-corpus evaluation on a development machine; never turn absence into skip/success or restore it as a push-CI gate.
+- [ ] Keep the narrowly scoped fixture and model-export speech checks while the long dialogue study stays off CI.
 - [ ] Preserve existing push triggers/workflow names, R8, native integrity and emulator checks.
 
-**Done:** applicable existing jobs pass on the intended revision, and the input-recovery path works without relying on a particular warm cache. If access prevents this, report the exact missing permission/artifact instead of asserting success.
+**Done:** applicable existing jobs pass on the intended revision, and the build path works without relying on a particular warm cache. If access prevents this, report the exact missing permission/artifact instead of asserting success.
 
 ## 11:20–15:00 in the same workstream — complete offline packaging
 
@@ -98,7 +98,7 @@ Full candidate target: **16:00**. Measure the same jobs as Andrey/Petya rather t
 
 ## 17:00–20:00 — final CI, exact artifact and submission
 
-Final APK-producing push by **17:00**. Workflow limits: **45 min** Android, **150 min inference + 45 min scoring** on a cold cache, **120 min** model export, plus queues/retries. Freeze cache-key inputs by **14:00** and model/export inputs by **15:00**. Since `6a078e3`, default-branch pushes no longer cancel the running workflow; other branches retain cancellation. Let the running cache job finish, batch pushes and avoid redundant queued runs. Do not weaken checks or triggers to recover time.
+Final APK-producing push by **17:00**. Workflow limits: **45 min** Android build/emulator and **120 min** model export, plus queues/retries. The former 150 min inference + 45 min scoring CI jobs are removed; two-hour evaluation runs on a development machine. Freeze model/export inputs by **15:00**. Superseded Android runs now cancel automatically; batch pushes and avoid redundant queued runs. Do not weaken checks or triggers to recover time.
 
 - **17:00–18:00:** inspect all applicable checks; target final APK 17:45, latest useful QA handoff 18:00. Supply APK/commit/model hashes and run links. Required model-export evidence must match pinned inputs; an earlier run cannot certify changed tooling/assets.
 - **18:00–19:00:** support Petya's cold offline exact-build rehearsal and capture final provenance/measurements. Do not substitute an untested APK.
@@ -131,11 +131,11 @@ Every session reads `AGENTS.md` and the same task contract. Three accounts do no
 - To Petya: installable candidate APK, clean-install instructions and exact versions for every test round.
 - To all: failing check/root-cause evidence, integration status and final release identity.
 
-If matching inference inputs, secure model export, native LLM operation or final CI cannot be recovered in time, deliver the implemented changes and explicit blocker record by 19:30. Do not skip checks, use reference-model outputs under deployed hashes or present a successful build job as a ready release.
+If matching secure model export, native LLM operation or final CI cannot be recovered in time, deliver the implemented changes and explicit blocker record by 19:30. Do not skip checks, use reference-model outputs under deployed hashes or present a successful build job as a ready release.
 
 ## Final personal checklist
 
-- [ ] Required checks are green and inputs recoverable on a cold cache.
+- [ ] Required checks are green on a cold run without relying on a warm cache.
 - [ ] Complete model set is embedded and verified offline.
 - [ ] Native runtimes actually infer on ARM after optimization.
 - [ ] Cold/warm time, memory and storage are measured.

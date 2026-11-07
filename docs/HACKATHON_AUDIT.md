@@ -100,7 +100,7 @@ ModelDownloadService + WorkManager
 GitHub model workflow -> verified model export -> SSH publisher -> Caddy static host
 ```
 
-There is one Android application module. There is no Wear OS app, watch transport, Rewind, local text LLM, sound classifier or application AI backend. `server/` distributes models; it does not perform recognition.
+At the audited revision there was one Android application module and no Wear OS app, watch transport, Rewind, local text LLM, sound classifier or application AI backend. The current branch now adds source-level audio import, jury JSON export and a Wear OS 6.0 companion preview; their CI/device evidence is still pending. `server/` distributes models; it does not perform recognition.
 
 ### Existing strengths to preserve
 
@@ -148,7 +148,7 @@ Public GitHub API results inspected on 6 November 2026:
 
 | Run | Commit | Observed result |
 | --- | --- | --- |
-| [42257595068 — Android CI](https://github.com/pmixay/Ascent/actions/runs/42257595068) | `d7759627` | Workflow **failure**. `Build and validate Android app` **success**, including Python checks, lint/JVM tests, ARM64 assembly/inspection and x86_64 instrumentation. `Score cached two-hour Russian speech evaluation` failed at `Require a completed local-improvement inference cache`. |
+| [42257595068 — Android CI](https://github.com/pmixay/Ascent/actions/runs/42257595068) | `d7759627` | Workflow **failure**. `Build and validate Android app` **success**, including Python checks, lint/JVM tests, ARM64 assembly/inspection and x86_64 instrumentation. `Score cached two-hour Russian speech evaluation` failed at `Require a completed local-improvement inference cache`. That long job was later removed; this is a historical snapshot. |
 | [42257595048 — Model Export](https://github.com/pmixay/Ascent/actions/runs/42257595048) | `d7759627` | **Failure** at `Export and validate downloadable models`; publication skipped. Public annotation only states exit code 1. Exact export failure requires full logs; no specific dependency/model cause is established. |
 | [40393180456 — Android CI](https://github.com/pmixay/Ascent/actions/runs/40393180456) | `cf0dec87` | Earlier branch workflow success. |
 | [40391014542 — Android CI](https://github.com/pmixay/Ascent/actions/runs/40391014542) | `409bb5f8` | Earlier build and cached-evaluation jobs both success. |
@@ -158,9 +158,9 @@ The current Android run published `debug-d7759627`, API-reported archive size **
 
 ### CI issues to address
 
-1. The two-hour job has restore-only inference data and intentionally fails on cache miss. GitHub caches are scoped and evictable; a clean branch/runner must have a documented, verified way to acquire the correct inputs. Current files do not provide a complete durable bootstrap path. Keep the evaluation required; fix input delivery rather than skipping the check.
-2. The hash key depends on pipeline/evaluator files. Legitimate edits invalidate it. Input regeneration must be planned alongside ASR/context changes, with model, source and pipeline provenance.
-3. `AGENTS.md` prohibits public-corpus inference in CI, while the Android workflow generates six-reader embeddings on cache miss and model-export validation runs real speech inference. The current branch did execute fixture generation. Reconcile the written policy explicitly; do not silently drop numerical/speaker checks. A narrow documented exception for export/fixture validation is one possible team decision; long evaluation inference remains on development machines unless policy changes.
+1. **Superseded.** The former two-hour job had restore-only inference data and failed on a cache miss. The user removed it, together with the inference job, on 7 November 2026 because the long path made push CI too slow. Run the two-hour evaluation on a development machine; do not restore it as a required CI gate.
+2. **Superseded.** The former evaluation cache key depended on pipeline/evaluator files, so legitimate edits invalidated it. Development-machine runs should still record model, source and pipeline provenance.
+3. **Resolved on 7 November 2026.** `AGENTS.md` now states that long public-corpus inference and scoring stay off CI, while the narrowly scoped six-reader fixture and model-export numerical/speech/speaker checks remain. Those validations are not permission to move the long dialogue study into CI.
 4. Model manifest parsers are rigid across Kotlin, Python, server validation and tests: exact model IDs and file sets. Adding a text LLM/VAD or a quantized revision requires coordinated contracts, not copying another file into an existing directory.
 5. Evaluation hard-codes the current ASR/speaker hashes. New models need separately versioned baselines and provenance, not modified expected scores that hide regressions.
 6. Keep existing workflows, push triggers, R8/native checks and no-local-build policy. Final publication must require all applicable jobs on the same revision. Public long-lived submission links must outlast the current 14-day Actions artifact retention.

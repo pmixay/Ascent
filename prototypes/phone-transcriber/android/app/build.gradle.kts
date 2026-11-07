@@ -31,6 +31,7 @@ android {
     // Built-in Kotlin follows compileOptions.targetCompatibility.
     // CI-only public speech and real embeddings: JVM resources never enter the phone APK.
     sourceSets.getByName("test").resources.srcDir(layout.buildDirectory.dir("generated/speaker-fixtures").get().asFile)
+    sourceSets.getByName("main").java.srcDir(rootProject.file("shared/src/main/kotlin"))
     buildFeatures { compose = true }
     lint { abortOnError = true }
     packaging {
@@ -74,7 +75,7 @@ dependencies {
 }
 
 // The long evaluation reads verified resources outside the regular JVM source set.
-// Always score them in its dedicated job; compile/dependency caches remain enabled.
+// Always score them when a development-machine run supplies inputs; compile/dependency caches remain enabled.
 if (providers.environmentVariable("ASCENT_DIALOG_EVALUATION").isPresent) {
     tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
         outputs.upToDateWhen { false }
