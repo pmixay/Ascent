@@ -27,6 +27,8 @@ remains separate from these host/code outputs.
   [text-punctuation.md](../interfaces/text-punctuation.md). T2's first internal
   baseline now packages these assets and passes CI; actual application-stage
   integration and ARM measurement remain open. See [T2 evidence](TIMOFEY_T2_STATUS.md).
+- **Report:** [model-report.md](../hackathon/model-report.md) holds models, licences, the
+  inspected CI two-hour scores and host results; its device table is still empty.
 - **P3 diarization:** no candidate measured; the short-reply hypothesis is blocked
   on the same cache.
   That historical cache blocker is now resolved by T1; it is not an assignment

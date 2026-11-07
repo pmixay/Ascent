@@ -96,8 +96,11 @@ application's text stage.
 The artifact's 14-day retention is for team handoff only, not durable submission
 publication. Final code `43c83cd` adds offline-only network-permission removal,
 real-asset corruption/paired-lease recovery and interrupted-promotion regression
-checks; its own complete CI result is pending. An earlier APK does not certify
-those subsequent changes.
+checks. Its compact/embedded jobs passed in run `42373911477`, but the overall
+run was cancelled with inference/scoring incomplete. The subsequent main merge
+also adds source-set isolation and mandatory non-skipped instrumentation XML
+checks: [merge review](TIMOFEY_MERGE_REVIEW.md). Earlier job success does not
+certify those stronger checks or the merged revision.
 
 ## Assigned cross-role blockers — kept open
 

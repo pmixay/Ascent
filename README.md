@@ -56,6 +56,11 @@ CI and ARM evidence remains open. Bundled text assets are not yet an integrated 
 Andrey approves model/runtime selection, and Petya now owns real Android/ARM
 validation **and server repair**. See [T2 status/handoffs](docs/roles/TIMOFEY_T2_STATUS.md).
 
+Main synchronization and merge-readiness findings are recorded in the
+[integration review](docs/roles/TIMOFEY_MERGE_REVIEW.md). Promotion requires the
+exact merged revision's complete CI, including non-skipped instrumentation cases;
+this does not close the application/ARM/server release handoffs.
+
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
 for review: listening stops into automatic local transcription, then the temporary

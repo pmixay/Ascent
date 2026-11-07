@@ -13,7 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
-/** Real asset extraction/selection, not model inference or ARM performance acceptance. */
+/** Offline source set only: real extraction/selection, not model inference or ARM acceptance. */
 @RunWith(AndroidJUnit4::class)
 class EmbeddedModelRuntimeTest {
     @Test fun coldBootstrapSelectsBothGroupsWithoutDownloadWork() = runBlocking {

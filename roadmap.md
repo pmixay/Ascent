@@ -59,6 +59,10 @@ for CI/artifact evidence; acceptance remains open. User-updated ownership:
 Petya — real Android/ARM validation and model-server repair; Pasha — job/text
 integration; Andrey — model/runtime approval; Timofey — assets/bootstrap/CI.
 
+The [merge review](docs/roles/TIMOFEY_MERGE_REVIEW.md) records main synchronization,
+test-source-set isolation and required instrumentation XML evidence. Baseline
+integration stays pending exact-revision CI; competition release gates stay open.
+
 The old “reserved validation” references below are historical: the original
 Dialogs recordings have since informed algorithm fixes and are diagnostic data.
 New generalization claims require a fresh holdout, as specified in the active plan.

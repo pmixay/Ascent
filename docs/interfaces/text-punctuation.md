@@ -93,11 +93,22 @@ output. Leaving every word lowercase gets 84.87% of capitals right.
 | Variant | Comma F1 | Sentence-end F1 | Question F1 | Capitals | Added RTF (host) |
 | --- | --- | --- | --- | --- | --- |
 | **0.5B int8 ONNX, one pass, 24-token blocks (Android setting)** | **0.322** | **0.456** | **0.182** | **88.98%** | **0.081** |
+| Qwen3.5 0.8B q4 ONNX, one pass, 24-token blocks | 0.235 | 0.007 | 0.000 | 86.19% | 0.096 |
+| Qwen3.5 0.8B int8 ONNX, one pass, 24-token blocks | 0.461 | 0.039 | 0.000 | 88.98% | 0.808 |
 | 0.5B int8 ONNX, one pass, one block per phrase | 0.153 | 0.519 | 0.182 | 90.07% | 0.035 |
 | 0.5B int8 ONNX, word-constrained greedy generation | 0.445 | 0.581 | 0.367 | 90.02% | 0.601 |
 | 0.5B Q4_K_M GGUF, grammar generation (earlier study) | 0.339 | 0.415 | 0.298 | 89.1% | 0.309 |
 | 1.5B Q4_K_M GGUF, grammar generation (earlier study) | 0.649 | 0.792 | 0.644 | 94.1% | 0.469 |
 
+- Qwen3.5 0.8B (`onnx-community/Qwen3.5-0.8B-Text-ONNX` at `25cdf33f386b487a25f3d743e86442517bdb77ff`,
+  Apache-2.0 base model, hybrid linear/full attention, 248k vocabulary) was measured with the
+  same instruction and the answer opened by an empty think block, as its non-thinking chat
+  template does. It almost never ends a sentence: its own free greedy output for a test phrase
+  was lowercase with one comma and no final mark, so this is model behaviour with this
+  instruction, not a cache error (24- and 512-token blocks gave identical q4 logits). The int8
+  export has the best comma score but is ten times slower than the Qwen2.5 stage; its files are
+  938 MB plus a 19 MB tokenizer. It is not adopted. Using it would also need the Kotlin
+   wrapper to carry fixed-size convolution and recurrent states and `num_logits_to_keep`.
 - The single-pass variant was chosen for speed: the brief scores RTF and experts use an ARM
   emulator. Its punctuation is clearly weaker than the 1.5B model's. This is a compliance stage
   with a modest presentation benefit, not a quality gain, and it does not change WER.

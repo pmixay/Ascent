@@ -49,6 +49,7 @@ android {
     sourceSets.getByName("test").resources.srcDir(layout.buildDirectory.dir("generated/speaker-fixtures").get().asFile)
     if (embeddedModels) {
         sourceSets.getByName("main").assets.srcDir(embeddedAssets)
+        sourceSets.getByName("androidTest").java.srcDir("src/offlineAndroidTest/java")
         sourceSets.getByName("debug").manifest.srcFile("src/offline/AndroidManifest.xml")
         sourceSets.getByName("release").manifest.srcFile("src/offline/AndroidManifest.xml")
     }

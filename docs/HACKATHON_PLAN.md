@@ -62,6 +62,11 @@ not a new corpus-inference job. Cross-role blockers are recorded unchecked in
 their role files and [T2 status](roles/TIMOFEY_T2_STATUS.md). An asset-only baseline
 is not a final LLM/offline-ARM-qualified release. Existing absolute handoffs remain.
 
+Main synchronization and branch-cleanup review: [TIMOFEY_MERGE_REVIEW.md](roles/TIMOFEY_MERGE_REVIEW.md).
+The merged baseline requires complete same-revision CI, with intended emulator
+cases proven executed rather than only a successful Gradle invocation. The review
+does not promote an internal APK to a compliant competition release.
+
 Deliver one clearly identified CI-built ARM64 APK containing every model needed for the default pipeline. On a clean supported phone with networking disabled before first launch, a judge can import an unfamiliar local recording, process it on the phone, inspect timestamped speaker turns and export the exact required JSON. Three successive files must work independently. Provide source, measured results, installation instructions, architecture, limitations and a video of the same release.
 
 Priority order:

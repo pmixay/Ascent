@@ -1,8 +1,9 @@
 # PcmWindowSource: how audio reaches the recognition engine
 
-Status: the interface and the engine overload are pushed in `7782992` and have only been
-reviewed statically. CI run 42365948389 had not finished when this was written, so nothing
-here is a verified build or test result.
+Status: the interface and the engine overload are in `9127e20`. Lint, the JVM unit tests and
+the APK build passed in [CI run 42366154116](https://github.com/pmixay/Ascent/actions/runs/42366154116),
+which ran on the same content before the commits were re-attributed (then `b058a1e`). No
+implementation other than `PcmWave` has been verified, and nothing here has run on a device.
 
 This is the engine side of plan item A2 ("Connect the existing engine to a bounded URI/WAV
 source"). Source files are in
