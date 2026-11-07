@@ -37,8 +37,8 @@
     "signing_mode": "unprotected-debug",
     "certificate_sha256": "d6cd89c07d2e4babaa6b082b8107214da4e1e1ea0a62ea0a94f2a127b0765575",
     "identity_source": "ASCENT_APK_IDENTITY from attempt 2 job 128554620245; CI SDK signature/package verification",
-    "durable_url": null,
-    "publication_handoff": "User will upload the verified local CI-built APK to Google Drive and supply a publicly accessible link; no upload or public link is claimed yet"
+    "durable_url": "https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing",
+    "publication_handoff": "User supplied Google Drive link; unauthenticated preview exposes ascent-offline-25ae8eee.apk; full remote download and hash verification pending"
   },
   "offline_artifact_zip": {
     "id": 13594571558,
@@ -93,7 +93,7 @@
   "remaining_gates": [
     "Exact-build offline ARM spoken-audio/local-LLM acceptance and actual model/runtime approval",
     "Owner-supplied stable signing and protected release configuration",
-    "Authorized durable complete-APK hosting and independent download/hash verification",
+    "Independent full download/hash verification of the user-published Google Drive APK",
     "Real demonstration video of the identified APK",
     "Final acceptance decision, accessible submission links and organizer receipt"
   ]

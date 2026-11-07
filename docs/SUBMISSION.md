@@ -5,8 +5,8 @@ Prepared 8 November 2026; latest user deadline **09:00 MSK**. Earlier four-perso
 existing measurements; no new model study, local build or invented device result.
 
 **Status: incomplete internal candidate.** Documents and inspected CI evidence
-are available, together with a supplied prototype recording. Durable APK publication,
-an offline-pipeline demonstration, final acceptance
+are available, together with a supplied prototype recording and Google Drive APK
+link. Independent remote-file hash verification, an offline-pipeline demonstration, final acceptance
 and organizer receipt are not. This document is not authorization to promote an
 unqualified build, replace a signing key or upload to an arbitrary server.
 
@@ -29,18 +29,19 @@ unqualified build, replace a signing key or upload to an arbitrary server.
 | Generated embedded bundle SHA-256 | `8b2ff5619d632f78d5c3473615026d2b032de156c381f3b99f3d77d164d0c792` |
 | Acoustic manifest SHA-256 | `f04b401ac91a240ce8e8dbee16ffaba6eea2f0fef0287feba79d8ecb69fe28d2` |
 | Expanded embedded payload | 2,147,012,171 bytes; not total installed/peak storage |
-| Durable APK URL | **Pending authorized operator** |
+| User-published APK URL | [Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing); unauthenticated preview exposes expected filename; remote full-file hash verification pending |
 | Prototype demonstration | [Supplied MP4](../artifacts/demo/ascent-prototype-2026-11-08.mp4), 26 s, no audio; text model unavailable; filmed APK unknown |
 | Offline candidate demonstration | **Pending**; do not assign this candidate's hash to the prototype video |
 | Submission receipt | **Not recorded** |
 
 **Latest user handoff:** prepare a verified local copy of this CI-built APK; the
-user will upload it to **Google Drive** and supply the public link for README.
+user uploaded it to **Google Drive** and supplied the link listed above.
 The user supplied a prototype video, now included with observed limitations in
 [the demo record](../artifacts/demo/README.md). It shows the compact path and a
 missing text model, not the offline candidate. Petya's offline-pipeline recording
-remains needed. Drive publication is not complete merely because an owner is
-assigned. No new local app build is needed.
+remains needed and is now being prepared by the assistant on an authorized ARM
+emulator. The Drive preview is reachable, but its full bytes have not been
+independently rehashed. No new local app build is needed.
 
 Source/API/log inspection was read-only. Identities above originated in CI's
 SDK-verified `ASCENT_APK_IDENTITY` and GitHub artifact API. The attempt-2 ZIP was

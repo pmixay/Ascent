@@ -40,7 +40,7 @@ shortened wait or edited cut onscreen; do not imply uninterrupted real-time spee
 | --- | --- |
 | Available prototype video | [Repository MP4](ascent-prototype-2026-11-08.mp4); not the offline candidate; exact filmed APK unknown |
 | Offline candidate demonstration URL | pending |
-| Durable APK URL | pending |
+| APK URL | [Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing); remote full-file hash verification pending |
 | Planned candidate source / raw APK SHA-256 (not yet filmed) | `25ae8eee`, CI attempt **2** / `5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d` |
 | Candidate embedded bundle SHA-256 | `8b2ff5619d632f78d5c3473615026d2b032de156c381f3b99f3d77d164d0c792` |
 | Device, Android version and ABI | pending |

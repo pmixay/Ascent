@@ -7,10 +7,13 @@ publication are in [SUBMISSION.md](SUBMISSION.md#candidate-identity).
 
 ## 1. Obtain the identified APK
 
-1. Open [offline-baseline-25ae8eee](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594571558)
+1. Download **[ascent-offline-25ae8eee.apk from Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing)**.
+   The public preview exposes the expected filename; the remote file has not yet
+   been independently downloaded/rehashed. Compare its raw hash below.
+   Alternatively, open [offline-baseline-25ae8eee](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594571558)
    from the [successful CI run](https://github.com/pmixay/Ascent/actions/runs/42420616552).
    GitHub sign-in/read access may be required. The ZIP expires **14 November 2026,
-   22:54:39 UTC**; a durable public download is still pending. This is attempt **2**;
+   22:54:39 UTC**; this expiry applies to CI backup, not the Drive link. This is attempt **2**;
    attempt 1's removed artifact and differently signed APK are not substituted.
 2. Extract `ascent-offline.apk`. The **raw APK** is **2,167,298,546 bytes**,
    SHA-256 `5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d`.

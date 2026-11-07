@@ -12,9 +12,10 @@ features or new model studies. [Submission checklist](docs/SUBMISSION.md),
   25 compact and four offline required cases actually executed without skips.
 - [x] Prepare current installation, architecture/model, limitations, results and
   defense documents, separating implementation from ARM acceptance.
-- [ ] Provide an authorized durable complete-APK download; current Actions access
-  is temporary and may require sign-in. Attempt 2 now contains both artifacts and
-  passed actual full evidence collection; attempt 1 URLs/hashes are superseded.
+- [x] Add the user-supplied Google Drive APK link to README and submission record;
+  its unauthenticated preview exposes the expected filename.
+- [ ] Independently download/rehash the remote Drive file. CI backup remains
+  temporary; attempt 2 passed actual full evidence collection.
 - [ ] Close existing exact-build ARM/offline/local-LLM and signing acceptance gates.
   No physical-phone-only report is a separate literal jury requirement; no result
   may be invented or inferred from x86_64 CI.

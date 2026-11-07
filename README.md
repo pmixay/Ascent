@@ -14,7 +14,7 @@ Documentation changes after this source pin do not identify a different tested A
 
 | Material | Location / status |
 | --- | --- |
-| Offline ARM64 APK with all models | [Download candidate ZIP](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594571558), extract `ascent-offline.apk`. GitHub sign-in/read access may be required. CI attempt **2**; temporary artifact expires **14 November 2026, 22:54:39 UTC**; durable public APK URL is still missing. |
+| Offline ARM64 APK with all models | **[Download APK — Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing)** (`ascent-offline-25ae8eee.apk`, 2.17 GB). User-published file; public preview exposes the expected filename. Remote full-file hash verification remains pending. [Temporary CI ZIP backup](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594571558). |
 | Exact APK identity | [Submission record](docs/SUBMISSION.md#candidate-identity) and [machine-readable manifest](artifacts/submission.json) |
 | Installation and use | [Offline quick start](docs/INSTALLATION.md) |
 | Source | [Pinned Android source](https://github.com/pmixay/Ascent/tree/25ae8eeeef2f96e9784c886a8c96ed4bce11c32e/prototypes/phone-transcriber/android), [source map](src/README.md) |
@@ -67,8 +67,9 @@ The latest user deadline is **09:00 MSK**; the earlier 7 November 20:00 schedule
 historical. Remaining delivery is APK access, offline-pipeline video, final evidence/limitations
 and submission. Existing CI/privacy/signing/ARM acceptance gates are not waived.
 See [the submission checklist](docs/SUBMISSION.md) for evidence and external blockers.
-The user will upload the verified local APK to Google Drive and supply its public
-link for this page; publication is not claimed until that actual link is available.
+The user supplied the Google Drive APK link above. Its public preview opens without
+credentials and exposes the expected filename; full-file download/hash verification
+of that remote copy remains pending. The local source APK was SHA-256 verified.
 
 <details>
 <summary>Historical competition implementation and CI notes (superseded by the handoff above)</summary>

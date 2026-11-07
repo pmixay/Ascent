@@ -2,6 +2,15 @@
 
 ## Latest submission handoff — 8 November 2026
 
+The user's subsequent explicit request authorizes installing an ARM64 Android
+emulator and its necessary runtime/management dependencies on the M1 Pro Mac,
+installing the existing CI-built APK and recording a real demo there. This is a
+scoped exception to the earlier no-local-SDK/setup rule, not permission for local
+Gradle, compilation, build, lint or automated application-test tasks. Run the app
+through its real UI and distinguish an ARM-emulator demo from a physical phone,
+constructed public demonstration input from natural/held-out dialogue, and
+observed completion from untested release gates. Never fabricate model execution.
+
 The user now requests execution of the remaining competition submission work,
 with the latest deadline **09:00 MSK**, prioritizing the literal jury requirements
 over optional development and expanded QA. The 7 November 20:00 schedule below

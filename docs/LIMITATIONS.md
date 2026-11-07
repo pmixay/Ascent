@@ -5,7 +5,8 @@ These are source-inspected prototype limits and unmeasured competition risks. De
 Current documented source: `25ae8eee`. [Submission identity](SUBMISSION.md) records
 actual green CI, raw APK/model hashes and the remaining handoff; documentation
 updates do not manufacture a new tested build. The candidate uses internal debug
-signing, has no approved durable APK/offline-demo link, and has no recorded full spoken
+signing, has a user-supplied Drive APK link pending remote hash verification, lacks
+an identified offline-demo video, and has no recorded full spoken
 ARM execution. CI attempt 2 now provides both temporary artifacts and passed the
 actual full evidence collector. Attempt 1's removed artifact is not the current
 download; ephemeral debug signing changed hashes despite the same source/version.
