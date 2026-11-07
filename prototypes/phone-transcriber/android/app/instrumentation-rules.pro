@@ -8,3 +8,4 @@
 -keep class androidx.test.** { *; }
 # This dependency can live in either APK after AGP runtime dependency de-duplication.
 -keep class androidx.tracing.Trace { *; }
+-keep class kotlin.jvm.internal.Lambda { *; }
