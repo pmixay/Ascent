@@ -37,12 +37,17 @@ REFERENCE = {
     "files": {
         "multilingual_ctc.onnx": {"bytes": 885388622,
                                   "sha256": "8bc803289f9cb5147ee95451fd9bdba219b1ecf1ddcd59a3651177c103c9eeec"},
+        "multilingual_ctc.int8.onnx": {"bytes": 224762204,
+                                       "sha256": "e08e27ae5669b39f0c378fae101bbbb9a80505f74f9b66719c309bf5b894a480"},
         "multilingual_vocab.txt": {"bytes": 393,
                                    "sha256": "4d130287892e1099fedfb3f93c4b4cf8a263151158801680b28977d1be4133f4"},
         "multilingual_ctc.yaml": {"bytes": 1172,
                                   "sha256": "b0235f72dc1ebee082162527d1576c6a6915647a22e5b0414d0c5bbc43c026ab"},
     },
 }
+
+
+VARIANTS = {"float32": "multilingual_ctc.onnx", "int8": "multilingual_ctc.int8.onnx"}
 
 
 def reference_url(name):

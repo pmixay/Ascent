@@ -24,7 +24,7 @@ import urllib.request
 
 from asr_metrics import analyze_errors, compare_runs, distance_function, score_blocks
 from evaluate_dialogs import FIXTURES, MANIFEST, RATE, assemble, blocks, checkpoint_digest, fetch, recognize, write_json
-from reference_asr import (REFERENCE, ReferenceSession, environment_fingerprint, load_tokens, reference_url,
+from reference_asr import (REFERENCE, VARIANTS, ReferenceSession, environment_fingerprint, load_tokens, reference_url,
                            verify_reference)
 
 STUDY = FIXTURES / "study_selection.json"
@@ -236,7 +236,8 @@ def infer(args):
     with (cache / "metadata.csv").open(encoding="utf-8", newline="") as source:
         metadata = {row["audio_path"]: row for row in csv.DictReader(source, delimiter="|")}
     tokens = load_tokens(model_dir / "multilingual_vocab.txt")
-    inner = ReferenceSession(model_dir / "multilingual_ctc.onnx", args.threads, ort, np)
+    model_file = VARIANTS[args.variant]
+    inner = ReferenceSession(model_dir / model_file, args.threads, ort, np)
     session = TimedSession(inner)
     environment = environment_fingerprint(ort, np, args.threads)
     fingerprint = code_fingerprint(study)
@@ -254,7 +255,8 @@ def infer(args):
                 existing = json.loads(path.read_text())
                 if existing.get("checkpoint_sha256") == checkpoint_digest(existing) and existing.get("code_fingerprint") == fingerprint \
                         and existing.get("threads") == args.threads and existing.get("condition") == args.condition \
-                        and existing.get("preprocess") == args.preprocess:
+                        and existing.get("preprocess") == args.preprocess \
+                        and existing.get("reference_model", {}).get("variant") == args.variant:
                     continue
             except (ValueError, KeyError):
                 pass
@@ -274,7 +276,7 @@ def infer(args):
         record = {"schema_version": 1, "kind": "asr-study-block", "id": block_id, "role": args.role,
                   "condition": args.condition, "preprocess": args.preprocess, "threads": args.threads,
                   "reference_model": {"repository": REFERENCE["repository"], "revision": REFERENCE["revision"],
-                                      "onnx_sha256": REFERENCE["files"]["multilingual_ctc.onnx"]["sha256"]},
+                                      "variant": args.variant, "onnx_sha256": REFERENCE["files"][model_file]["sha256"]},
                   "environment": environment, "code_fingerprint": fingerprint,
                   "audio_sha256": hashlib.sha256(pcm.tobytes()).hexdigest(), "duration_ms": len(pcm) // 16,
                   "asr_seconds": round(elapsed, 4), "model_seconds": round(session.seconds, 4),
@@ -346,6 +348,7 @@ def main():
     cmd.add_argument("--role", choices=["development", "validation"], required=True)
     cmd.add_argument("--threads", type=int, default=2, choices=[1, 2, 3, 4])
     cmd.add_argument("--condition", default="clean", choices=["clean", "gain035", "noise20db", "channel"])
+    cmd.add_argument("--variant", default="float32", choices=sorted(VARIANTS))
     cmd.add_argument("--preprocess", default="none", choices=sorted(PREPROCESSORS))
     cmd.add_argument("--max-blocks", type=int, default=0)
     cmd.add_argument("--force", action="store_true")

@@ -238,13 +238,43 @@ def seam_boundaries(block):
     return [window["core_start"] // 16 for window in block.get("asr_windows", [])[1:]]
 
 
-def analyze_errors(blocks, distance=None, seam_margin_ms=500):
+def hypothesis_tokens(assigned):
+    """Normalized hypothesis tokens with the time midpoint of the word each came from."""
+    tokens, times = [], []
+    for word in assigned:
+        for token in normalize_text(word["text"]).split():
+            tokens.append(token)
+            times.append((word["start_ms"] + word["end_ms"]) / 2)
+    return tokens, times
+
+
+def operation_times(operations, hypothesis_times, fallback):
+    """Time of each alignment operation; a deletion borrows the previous recognized word, else the next."""
+    direct = [None if hyp_index is None else hypothesis_times[hyp_index] for _, _, hyp_index in operations]
+    result, previous = [], None
+    for value in direct:
+        previous = value if value is not None else previous
+        result.append(previous)
+    following = None
+    for position in range(len(result) - 1, -1, -1):
+        if direct[position] is not None:
+            following = direct[position]
+        elif result[position] is None:
+            result[position] = following
+    return [fallback if value is None else value for value in result]
+
+
+SEAM_NEAR, SEAM_FAR = "within 1.5 s of a chunk seam", "elsewhere"
+
+
+def analyze_errors(blocks, distance=None, seam_margin_ms=1500):
     """Aggregate error taxonomy; reports counts and rates, never transcripts."""
     distance = distance or distance_function()
     classes = collections.Counter()
     by_position = {name: [0, 0] for name in ("first word", "last word", "interior")}
     by_length = {name: [0, 0] for name in ("1-3 letters", "4-6 letters", "7+ letters")}
-    by_seam = {"within 0.5 s of a chunk seam": [0, 0], "elsewhere": [0, 0]}
+    by_seam = {SEAM_NEAR: [0, 0], SEAM_FAR: [0, 0]}
+    by_seam_position = {f"{where}, {kind}": [0, 0] for where in (SEAM_NEAR, SEAM_FAR) for kind in ("clip edge word", "interior word")}
     by_clip_words = {name: [0, 0] for name in ("1-2 words", "3-5 words", "6-10 words", "11+ words")}
     substitutions = collections.Counter()
     reference_total = errors_total = 0
@@ -253,34 +283,41 @@ def analyze_errors(blocks, distance=None, seam_margin_ms=500):
         references = block["references"]
         for reference, assigned in zip(references, assign_words(references, block["words"])):
             expected = normalize_text(reference["text"]).split()
-            actual = normalize_text(" ".join(word["text"] for word in assigned)).split()
             if not expected:
                 continue
-            near_seam = any(reference["start_ms"] - seam_margin_ms <= seam <= reference["end_ms"] + seam_margin_ms
-                            for seam in seams)
-            seam_key = "within 0.5 s of a chunk seam" if near_seam else "elsewhere"
+            actual, actual_times = hypothesis_tokens(assigned)
+            operations = align(expected, actual)
             clip_key = ("1-2 words" if len(expected) <= 2 else "3-5 words" if len(expected) <= 5
                         else "6-10 words" if len(expected) <= 10 else "11+ words")
-            by_seam[seam_key][1] += len(expected)
             by_clip_words[clip_key][1] += len(expected)
             for index, word in enumerate(expected):
                 by_length[word_length_bucket(word)][1] += 1
                 by_position["first word" if index == 0 else "last word" if index == len(expected) - 1
                             else "interior"][1] += 1
             reference_total += len(expected)
-            for ref_indexes, hyp_indexes in error_runs(align(expected, actual)):
+            for (operation, ref_index, _), moment in zip(operations, operation_times(operations, actual_times,
+                                                                                    reference["start_ms"])):
+                key = SEAM_NEAR if any(abs(moment - seam) <= seam_margin_ms for seam in seams) else SEAM_FAR
+                kind = None
+                if ref_index is not None:
+                    by_seam[key][1] += 1
+                    kind = "clip edge word" if ref_index in (0, len(expected) - 1) else "interior word"
+                    by_seam_position[f"{key}, {kind}"][1] += 1
+                if operation != "ok":
+                    by_seam[key][0] += 1
+                    by_clip_words[clip_key][0] += 1
+                    errors_total += 1
+                    if kind is not None:  # insertions have no reference word and stay out of this cross-tab
+                        by_seam_position[f"{key}, {kind}"][0] += 1
+                if operation in ("sub", "del"):
+                    by_length[word_length_bucket(expected[ref_index])][0] += 1
+                    by_position["first word" if ref_index == 0 else "last word" if ref_index == len(expected) - 1
+                                else "interior"][0] += 1
+            for ref_indexes, hyp_indexes in error_runs(operations):
                 ref_words = [expected[item] for item in ref_indexes]
                 hyp_words = [actual[item] for item in hyp_indexes]
                 label = classify_run(ref_words, hyp_words, distance)
-                classes[label] += max(len(ref_words), len(hyp_words)) if label != "insertion" else len(hyp_words)
-                run_errors = max(len(ref_words), len(hyp_words))
-                errors_total += run_errors
-                by_seam[seam_key][0] += run_errors
-                by_clip_words[clip_key][0] += run_errors
-                for item in ref_indexes:
-                    by_length[word_length_bucket(expected[item])][0] += 1
-                    by_position["first word" if item == 0 else "last word" if item == len(expected) - 1
-                                else "interior"][0] += 1
+                classes[label] += max(len(ref_words), len(hyp_words))
                 if len(ref_words) == len(hyp_words) == 1:
                     substitutions[(ref_words[0], hyp_words[0])] += 1
     def table(mapping):
@@ -289,6 +326,7 @@ def analyze_errors(blocks, distance=None, seam_margin_ms=500):
     return {"reference_words": reference_total, "error_words": errors_total, "error_rate": rate(errors_total, reference_total),
             "classes": dict(classes.most_common()), "by_position": table(by_position),
             "by_reference_word_length": table(by_length), "by_chunk_seam": table(by_seam),
+            "by_seam_and_clip_edge": table(by_seam_position),
             "by_clip_words": table(by_clip_words),
             "repeated_single_word_substitutions": [{"count": count, "reference": pair[0], "hypothesis": pair[1]}
                                                     for pair, count in substitutions.most_common(15) if count > 1]}

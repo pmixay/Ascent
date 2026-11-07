@@ -50,6 +50,16 @@ gates at [run 40391014542](https://github.com/pmixay/Ascent/actions/runs/4039101
 Natural conversation and phone accuracy remain unmeasured. See the
 [speaker evaluation scope](prototypes/phone-transcriber/docs/speaker-diarization.md).
 
+A separate local study, the
+[reproducible ASR, timestamp and speed baseline](prototypes/phone-transcriber/docs/asr-baseline.md),
+used a public hash-pinned export of the same model family because the deployed
+model pack could not be reached. It measured 2.9074% WER (162/5,572) and RTF 0.069
+on a four-core server CPU for development, and 4.2972% WER (432/10,053) on new
+validation recordings that no earlier selection used. A phrase-start correction
+frozen on development failed validation and was rejected, and int8 weights matched
+float32 accuracy without a meaningful x86 speedup. These are not deployed-model,
+phone, diarization-error or natural-conversation results.
+
 Russian speech memory for Android and Wear OS.
 
 Documentation is in English. Interface labels and example prompts below are
