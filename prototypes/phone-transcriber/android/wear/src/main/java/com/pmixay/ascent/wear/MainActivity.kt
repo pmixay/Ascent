@@ -1,6 +1,7 @@
 package com.pmixay.ascent.wear
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.bluetooth.BluetoothClass
@@ -127,6 +128,7 @@ class MainActivity : Activity() {
         }
     }
 
+    @SuppressLint("MissingPermission") // requestCapture asks for BLUETOOTH_CONNECT before this call.
     private fun choosePhoneAndStart() {
         try {
             val manager = getSystemService(BluetoothManager::class.java)

@@ -1,6 +1,7 @@
 package com.pmixay.ascent.wear
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -118,6 +119,7 @@ class WatchCaptureService : Service() {
 
     private fun sessionActive(generation: Long) = active.get() && sessionGeneration.get() == generation
 
+    @SuppressLint("MissingPermission") // startSession checks BLUETOOTH_CONNECT before this thread starts.
     private fun connectAndListen(address: String, generation: Long) {
         val handshakeTimedOut = AtomicBoolean(false)
         try {
