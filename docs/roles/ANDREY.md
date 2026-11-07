@@ -21,10 +21,10 @@ Pushed and inspected. Host and CI evidence only; no Android device result exists
 - **Recognizer level (`AsrGain`):** per-window peak normalization, chosen on AMI ES2011a and
   measured once on EN2002a (headset WER 60.36% -> 54.65%, distant microphone 83.91% ->
   74.96%); Russian Dialogs within noise. In `TranscriptionEngine`; unmeasured on a device.
-- **Local text model:** provisional Qwen2.5 0.5B int8 ONNX word-preserving punctuation stage,
-  see [text-punctuation.md](../interfaces/text-punctuation.md); Qwen3.5 0.8B measured and
-  not chosen. Final choice follows the team's model comparison. Not packaged, not integrated
-  into the export, not run on ARM.
+- **Local text model:** Qwen2.5 0.5B int8 ONNX word-preserving punctuation stage, kept after
+  the 19:00 host comparison with Qwen2.5 1.5B, Qwen3 0.6B and Qwen3.5 0.8B, see
+  [text-punctuation.md](../interfaces/text-punctuation.md). Not packaged, not integrated into
+  the export, not run on ARM.
 - **Acoustic model decision open:** GigaAM Multilingual Large is better on Russian (validation
   3.20% vs 4.30%) and English but about three times slower and not packaged.
 - **Device scoring tool:** `tools/score_competition_json.py` is ready for exported JSON and
