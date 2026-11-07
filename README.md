@@ -3,12 +3,17 @@
 ## Current competition delivery plan — 7 November 2026
 
 **Latest Timofey review:** [remaining work and cross-role dependencies](docs/roles/TIMOFEY_REMAINING_STATUS.md).
+Latest tested source `91e2598` passed both jobs in [42417416875](https://github.com/pmixay/Ascent/actions/runs/42417416875).
+CI version/signature checks and real exact-run evidence collection now work;
+25 compact/two embedded required cases executed without skips. This is still an
+`unprotected-debug` internal candidate, not ARM/stable-signing/release approval.
+The linked register identifies its new hashes; older APK identities below are historical.
 Merged `42d4de9` passed both Android jobs in [42406537594](https://github.com/pmixay/Ascent/actions/runs/42406537594),
 including all 25 compact/two embedded required cases. Its raw offline APK is
 2,167,276,006 bytes; exact hashes, artifact expiry and separate emulator storage
 figures are recorded in that handoff. Source follow-up adds CI run/commit versions,
 actual signature/package verification and protected-signing preparation plus a
-read-only evidence collector; its own CI is still required. No team signing key,
+read-only evidence collector, now verified at `91e2598` as above. No team signing key,
 ARM acceptance or durable complete-APK host is available here. GitHub Releases'
 under-2-GiB file limit blocks hosting this APK there. See [release procedure](docs/RELEASE.md).
 

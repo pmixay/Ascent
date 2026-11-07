@@ -10,6 +10,11 @@ application mode/lifecycle acceptance, real ARM measurements and final freeze
 remain open. The >2 GiB APK needs an approved durable complete-file HTTPS host,
 not an impossible GitHub Releases asset or a model-packaging workaround.
 
+Subsequent source `91e2598` passed both jobs in `42417416875`, including the actual
+version/signature check and all 25/two required runtime cases. The real read-only
+evidence collector succeeded. Independent CI/provenance work is verified; actual
+owner-key signing, application/ARM/device/freeze/hosting/submission gates stay open.
+
 Execute [the four-person hackathon plan](docs/HACKATHON_PLAN.md), grounded in
 [the source-specification and current-CI audit](docs/HACKATHON_AUDIT.md), for the
 phone competition release. It prioritizes import, exact JSON, bundled usable

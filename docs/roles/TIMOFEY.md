@@ -3,10 +3,12 @@
 ## Mission
 
 **Current reconciliation:** [remaining work, exact candidate and cross-role blockers](TIMOFEY_REMAINING_STATUS.md).
-Both jobs passed on merged `42d4de9` in [42406537594](https://github.com/pmixay/Ascent/actions/runs/42406537594).
-Raw APK/bundle hashes and storage measurements have now been recovered. New
-version/signature/evidence tooling below needs its own CI; no ARM/signing/release
-acceptance is inferred. [Signing and publication procedure](../RELEASE.md).
+Latest tested source `91e2598` passed both jobs in [42417416875](https://github.com/pmixay/Ascent/actions/runs/42417416875),
+including version/signature identity and all 25/two required runtime cases.
+The real read-only evidence collector also succeeded. Raw APK/bundle/signature
+hashes and storage measurements are recorded; signing remains `unprotected-debug`,
+not stable key acceptance. ARM/final release gates remain open.
+[Signing and publication procedure](../RELEASE.md).
 
 Deliver a reproducibly checked APK with a complete embedded model set, prove offline first-run operation on ARM and own final artifact provenance. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H01/H04/H10/H12.
 
@@ -164,9 +166,10 @@ Final APK-producing push by **17:00**. Workflow limits: **45 min** Android build
 
 - [ ] Freeze source, model and configuration revisions with Pasha/Andrey.
 - [ ] Produce the final CI artifact with identifiable version and stable signing identity; protect signing credentials from source/APKs/logs.
-  - [ ] CI version/signature/protected-key preparation and exact-run collection source
-    added in this follow-up; verify its own run. Supplying the team-owned signing key,
-    cert pin and protected release ref still requires the key custodian/admin.
+  - [x] CI version/signature preparation, fail-closed synthetic signing checks and
+    real exact-run collection verified at `91e2598` / `42417416875`. Actual APKs use
+    `unprotected-debug`; the positive owner-key signing path remains unrun. Supplying
+    the team key/cert pin/protected environment still requires the custodian/admin.
 - [ ] Verify all applicable jobs for the exact commit, not an earlier branch baseline.
 - [ ] Give Petya the exact APK hash, model hash, run links, size figures and device benchmark table.
   - [x] The current merged internal candidate's exact APK/bundle hashes, run/artifact
