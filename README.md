@@ -10,6 +10,16 @@ references below. ARM trials, durable release and video remain open.
 
 ## Current competition delivery plan — 7 November 2026
 
+**Latest Timofey review:** [remaining work and cross-role dependencies](docs/roles/TIMOFEY_REMAINING_STATUS.md).
+Merged `42d4de9` passed both Android jobs in [42406537594](https://github.com/pmixay/Ascent/actions/runs/42406537594),
+including all 25 compact/two embedded required cases. Its raw offline APK is
+2,167,276,006 bytes; exact hashes, artifact expiry and separate emulator storage
+figures are recorded in that handoff. Source follow-up adds CI run/commit versions,
+actual signature/package verification and protected-signing preparation plus a
+read-only evidence collector; its own CI is still required. No team signing key,
+ARM acceptance or durable complete-APK host is available here. GitHub Releases'
+under-2-GiB file limit blocks hosting this APK there. See [release procedure](docs/RELEASE.md).
+
 The supplied Neuro-stenographer specification and organizer clarifications now
 define the phone competition release. See the [requirements/code/CI audit](docs/HACKATHON_AUDIT.md)
 and [four-person delivery plan](docs/HACKATHON_PLAN.md). Required work includes a
@@ -90,8 +100,8 @@ group and a required R8/emulator recognizer-creation smoke test. Schema-2 payloa
 budget is 2.2 GB; the acoustic/server schema and compact weight-absence rules stay
 unchanged. Both jobs for `dbbce95` passed in [CI 42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446),
 including enlarged-APK emulator installation and required minified Parakeet
-creation. Exact new artifact/hash metadata is not yet collected due to follow-up
-network errors. Default recognition is still GigaAM; mode selection, ARM quality/
+creation. Exact merged artifact/hash metadata is now in the latest review above.
+Default recognition is still GigaAM; mode selection, ARM quality/
 performance and final release validation remain separate.
 
 The product plan below remains the production target. The separate
