@@ -51,6 +51,12 @@
 -keep class com.pmixay.ascent.ParakeetFiles { public *; protected *; }
 -keep class com.pmixay.ascent.ParakeetFiles$Asset { public *; protected *; }
 -keep class com.pmixay.ascent.ModelPackImporterKt { public *; protected *; }
+-keep class com.pmixay.ascent.ConversationViewModel { public *; protected *; }
+-keep class com.pmixay.ascent.ConversationState { public *; protected *; }
+-keep class com.pmixay.ascent.ProcessingState { public *; protected *; }
+-keep class com.pmixay.ascent.JobError { public *; protected *; }
+-keep class com.pmixay.ascent.JobErrorCategory { public *; protected *; }
+-keep class com.pmixay.ascent.RecognitionMode { public *; protected *; }
 
 # work-testing calls the WorkManager library across the APK boundary, including
 # public implementation APIs. Preserve its binary API without keeping AndroidX
