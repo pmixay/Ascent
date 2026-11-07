@@ -183,6 +183,7 @@ class WatchCaptureService : Service() {
         }
     }
 
+    @SuppressLint("MissingPermission") // startSession checks RECORD_AUDIO before this call.
     private fun newRecorder(): AudioRecord {
         val format = AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT)
             .setSampleRate(CompanionWire.SAMPLE_RATE)
@@ -327,6 +328,7 @@ class WatchCaptureService : Service() {
         }
     }
 
+    @SuppressLint("MissingPermission") // The recorder exists only after startSession checks RECORD_AUDIO.
     private fun applyCommand(action: Int, commandId: Long, generation: Long = sessionGeneration.get()) {
         if (sessionGeneration.get() != generation) return
         if (action == CompanionWire.STOP) {
