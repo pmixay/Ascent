@@ -24,6 +24,24 @@ class IdentityCheckError(ValueError):
     """Only controlled content-free verification diagnostics, never SDK stderr."""
 
 
+def signer_certificate(signing: str) -> str:
+    # SDK apksigner prints either numbered signers or v3.1 SDK-range signers.
+    # A single certificate may occur in both v3/v3.1 ranges; key rotation to a
+    # different certificate is intentionally NOT accepted by this identity policy.
+    counts = re.findall(r"^Number of signers: ([0-9]+)\s*$", signing, re.M)
+    if counts != ["1"]:
+        raise IdentityCheckError("APK verbose verification must report exactly one signer")
+    label = (r"(?:#[1-9][0-9]*|\(minSdkVersion=[0-9]+(?: \(dev release=true\))?, "
+             r"maxSdkVersion=[0-9]+\))")
+    certificates = re.findall(r"^Signer " + label + r" certificate SHA-256 digest: ([0-9a-fA-F:]+)\s*$", signing, re.M)
+    digests = {certificate_digest(value) for value in certificates}
+    if len(digests) != 1:
+        digest_lines = sum("certificate SHA-256 digest:" in line for line in signing.splitlines())
+        raise IdentityCheckError(f"APK must have one verified certificate; parsed certificate count={len(certificates)}; "
+                                 f"distinct={len(digests)}; certificate digest lines={digest_lines}")
+    return digests.pop()
+
+
 def identity(apk: Path, kind: str, badging: str, signing: str, environment: dict[str, str]) -> dict:
     if environment.get("GITHUB_ACTIONS") != "true":
         raise IdentityCheckError("APK identity recording is CI-only")
@@ -51,10 +69,7 @@ def identity(apk: Path, kind: str, badging: str, signing: str, environment: dict
     native = re.search(r"^native-code: (.+)$", badging, re.M)
     if not native or native[1].strip() != "'arm64-v8a'":
         raise IdentityCheckError("Downloadable APK badging must be ARM64-only")
-    certificates = re.findall(r"^Signer #[0-9]+ certificate SHA-256 digest: ([0-9a-fA-F:]+)$", signing, re.M)
-    if len(certificates) != 1:
-        raise IdentityCheckError(f"APK must have one verified signer; parsed certificate count={len(certificates)}")
-    certificate = certificate_digest(certificates[0])
+    certificate = signer_certificate(signing)
     mode = environment.get("ASCENT_SIGNING_MODE")
     if mode == "protected-key":
         if certificate != certificate_digest(environment.get("ASCENT_EXPECTED_CERT_SHA256", "")):
