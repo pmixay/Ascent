@@ -56,3 +56,10 @@ Their original contents and the three untouched untracked files were preserved i
 `/home/ascent/.local/share/ascent-work-backups/20261107-before-timofey/`,
 with hashes in `manifest.json` (the original `/tmp` backup is also retained).
 They are excluded from the merge commit.
+
+The latest exact CI outcome and APK/bundle identities are maintained in
+[PR #4](https://github.com/pmixay/Ascent/pull/4). Use that inspected candidate for
+phone trials. Combined iteration `0f54ffb` exposed removed app/WorkManager binary
+APIs at instrumentation startup; the follow-up preserves the reviewed public
+test boundary in optimized debug builds and adds offline failure diagnostics.
+No instrumentation failure is replaced with a skip or an unchecked artifact.

@@ -379,3 +379,28 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+      - name: Print failed offline test details
+        if: failure()
+        working-directory: prototypes/phone-transcriber/android
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          roots = (Path('app/build/test-results'), Path('app/build/outputs/androidTest-results'))
+          count = 0
+          for root in roots:
+              for path in sorted(root.rglob('*.xml')):
+                  try:
+                      report = ET.parse(path)
+                  except ET.ParseError:
+                      continue
+                  for case in report.iter('testcase'):
+                      for issue in list(case.findall('failure')) + list(case.findall('error')):
+                          count += 1
+                          print(f"FAILED: {case.get('classname', '')}.{case.get('name', '')}")
+                          print((issue.get('message') or issue.text or 'No error details')[:4000])
+          if not count:
+              print('No failed testcase XML found; inspect the failed step above.')
+          PY

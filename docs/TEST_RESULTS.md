@@ -4,7 +4,8 @@ No fresh offline ARM install, three-file sequence, held-out quality run or demon
 
 | Evidence | Status | APK commit / SHA-256 | Model manifest / SHA-256 | Device / Android / ABI | Evidence link or failure |
 | --- | --- | --- | --- | --- | --- |
-| Current branch Android build and required checks | not run | — | — | GitHub CI | Inspect all applicable jobs on the final commit. |
+| Current combined branch Android checks / phone candidate | See linked PR checks | Candidate identities in PR | Candidate identities in PR | GitHub CI x86_64; ARM APK inspection | [PR #4](https://github.com/pmixay/Ascent/pull/4) records the latest inspected run and artifact identities. Both compact and embedded jobs must pass; no phone acceptance is implied. |
+| Combined optimized-instrumentation iteration | fail (before boundary fix) | `0f54ffb` | — | GitHub CI x86_64 | [Run 42382620664](https://github.com/pmixay/Ascent/actions/runs/42382620664), compact job `128433324084`: R8 removed AudioSources, a default transcript constructor and WorkManager APIs used across the APK boundary. Targeted debug/test API rules added; required execution gates retained. |
 | Acoustic model export and strict-SSH publication | pass | export `a83fdff` | `759890e4b6c3f6c640f117fc7b624a5dd8667a89284d991c0fd6681b76ec84c5` | GitHub CI + HTTPS server | [Attempt 2](https://github.com/pmixay/Ascent/actions/runs/42369233159/attempts/2), job `128424780303`; all 234 compressed chunks and six expanded payload hashes independently verified. [Evidence](roles/PETYA_SERVER_STATUS.md). |
 | Fresh first launch with all networks disabled | not run | — | — | ARM64 phone | Record model activation. |
 | Three unrelated imports and JSON exports | not run | — | — | ARM64 phone | Follow [QA_JUDGE_SCRIPT.md](QA_JUDGE_SCRIPT.md). |

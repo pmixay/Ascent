@@ -34,7 +34,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // JUnit discovers these entry points reflectively in the optimized test APK.
         // Test-only rules do not change shrinking/optimization of the application APK.
-        testProguardFiles("instrumentation-rules.pro")
+        testProguardFiles("instrumentation-rules.pro", "instrumented-api-rules.pro")
         proguardFiles("runtime-rules.pro")
         if (embeddedModels) {
             applicationIdSuffix = ".offline"
@@ -75,6 +75,7 @@ android {
         debug {
             // Retain debug signing for installation, with production-style R8 optimization.
             isDebuggable = false
+            proguardFiles("instrumented-api-rules.pro")
             optimization { enable = true }
         }
         release { optimization { enable = true } }
