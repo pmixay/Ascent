@@ -45,3 +45,8 @@
 # public implementation APIs. Preserve its binary API without keeping AndroidX
 # generally or disabling shrinking/optimization.
 -keep class androidx.work.** { public *; protected *; }
+
+# work-testing creates its coroutine scope through the shared coroutines module;
+# combined CI 42383364630 exposed a removed CoroutineContext factory method.
+# Keep this library's public/protected ABI on the debug/test boundary as well.
+-keep class kotlinx.coroutines.** { public *; protected *; }

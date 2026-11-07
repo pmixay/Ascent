@@ -7,6 +7,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import java.io.IOException
+import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.floor
 import kotlin.math.roundToLong
@@ -16,10 +17,11 @@ import kotlin.math.roundToLong
  * overlapping ASR reads; the decoder starts over when a read goes behind that ring. Decoder PTS
  * places samples on the original file's timeline, so leading silence and gaps are retained.
  */
-internal class CodecAudioWindowSource(context: Context, uri: Uri) : PcmWindowSource {
+internal class CodecAudioWindowSource(context: Context, uri: Uri, private val containerMime: String? = null) : PcmWindowSource {
     private val extractor = MediaExtractor()
     private lateinit var decoder: MediaCodec
     private var decoderStarted = false
+    private var extractedPcm: ByteBuffer? = null
     private var closed = false
     private var inputEos = false
     private var outputEos = false
@@ -49,7 +51,6 @@ internal class CodecAudioWindowSource(context: Context, uri: Uri) : PcmWindowSou
             val trackFormat = extractor.getTrackFormat(track)
             mime = trackFormat.getString(MediaFormat.KEY_MIME)
                 ?: throw IOException("Не удалось определить формат аудио")
-            require(mime != "audio/raw") { "Этот PCM-файл не поддерживается системой" }
             val durationUs = if (trackFormat.containsKey(MediaFormat.KEY_DURATION))
                 trackFormat.getLong(MediaFormat.KEY_DURATION) else -1L
             require(durationUs in 1..MAX_DURATION_US) {
@@ -59,10 +60,17 @@ internal class CodecAudioWindowSource(context: Context, uri: Uri) : PcmWindowSou
             durationMs = (durationUs + 999) / 1000
             sampleCount = (durationUs * OUTPUT_RATE + 999_999) / 1_000_000
             extractor.selectTrack(track)
-            decoder = MediaCodec.createDecoderByType(mime)
-            decoder.configure(trackFormat, null, null, 0)
-            decoder.start()
-            decoderStarted = true
+            if (mime == "audio/raw") {
+                // Android's FLAC extractor can decode to PCM itself. Feeding this output
+                // through another codec is unnecessary and may have no available decoder.
+                updateFormat(trackFormat)
+                extractedPcm = ByteBuffer.allocateDirect(MAX_OUTPUT_BUFFER_BYTES).order(ByteOrder.LITTLE_ENDIAN)
+            } else {
+                decoder = MediaCodec.createDecoderByType(mime)
+                decoder.configure(trackFormat, null, null, 0)
+                decoder.start()
+                decoderStarted = true
+            }
             var stalls = 0
             while ((sourceRate == 0 || !sawFrames) && !outputEos) {
                 if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
@@ -101,7 +109,7 @@ internal class CodecAudioWindowSource(context: Context, uri: Uri) : PcmWindowSou
 
     private fun rewind() {
         extractor.seekTo(0, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-        decoder.flush()
+        if (::decoder.isInitialized) decoder.flush()
         inputEos = false
         outputEos = false
         sawFrames = false
@@ -113,6 +121,7 @@ internal class CodecAudioWindowSource(context: Context, uri: Uri) : PcmWindowSou
 
     /** True when a packet, decoded buffer, or format transition made progress. */
     private fun pump(): Boolean {
+        extractedPcm?.let { return pumpExtractedPcm(it) }
         var progressed = false
         if (!inputEos) {
             val inputIndex = decoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
@@ -125,7 +134,9 @@ internal class CodecAudioWindowSource(context: Context, uri: Uri) : PcmWindowSou
                     inputEos = true
                 } else {
                     val timeUs = extractor.sampleTime
-                    require(timeUs >= 0) { "Некорректное время аудиодорожки" }
+                    // Container edit lists/encoder priming can put initial packets before
+                    // zero. Keep their PTS; consumePcm trims only samples before the origin.
+                    require(timeUs in -1_000_000L..MAX_DURATION_US + 1_000_000L) { "Некорректное время аудиодорожки" }
                     decoder.queueInputBuffer(inputIndex, 0, size, timeUs, 0)
                     extractor.advance()
                 }
@@ -171,54 +182,78 @@ internal class CodecAudioWindowSource(context: Context, uri: Uri) : PcmWindowSou
             channelCount = channels
             pcmEncoding = encoding
             resamplingKernel = PcmResamplingKernel.forRate(rate, OUTPUT_RATE)
-            formatDescription = "$mime, $rate Гц, $channels кан."
+            formatDescription = "${containerMime ?: mime}, $rate Гц, $channels кан."
         } else require(rate == sourceRate && channels == channelCount && encoding == pcmEncoding) {
             "Формат аудио изменился во время декодирования"
         }
     }
 
-    private fun consumeOutput(index: Int) {
-        val bytesPerSample = if (pcmEncoding == AudioFormat.ENCODING_PCM_FLOAT) 4 else 2
-        val frameBytes = channelCount * bytesPerSample
-        require(bufferInfo.size <= MAX_OUTPUT_BUFFER_BYTES && bufferInfo.size % frameBytes == 0) {
-            "Декодер выдал повреждённый PCM-буфер"
+    private fun pumpExtractedPcm(buffer: ByteBuffer): Boolean {
+        if (outputEos) return false
+        buffer.clear()
+        val size = extractor.readSampleData(buffer, 0)
+        if (size < 0) {
+            outputEos = true
+            require(sawFrames) { "В аудиофайле нет звука" }
+            finishWithSilence()
+        } else {
+            if (size > 0) {
+                consumePcm(buffer, 0, size, extractor.sampleTime)
+                sawFrames = true
+            }
+            extractor.advance()
         }
+        return true
+    }
+
+    private fun consumeOutput(index: Int) {
         val data = decoder.getOutputBuffer(index)?.duplicate()?.order(ByteOrder.LITTLE_ENDIAN)
             ?: throw IOException("Декодер не выдал аудиоданные")
-        data.position(bufferInfo.offset)
-        data.limit(bufferInfo.offset + bufferInfo.size)
-        val frames = bufferInfo.size / frameBytes
+        consumePcm(data, bufferInfo.offset, bufferInfo.size, bufferInfo.presentationTimeUs)
+    }
+
+    private fun consumePcm(data: ByteBuffer, offset: Int, size: Int, timeUs: Long) {
+        require(timeUs in -1_000_000L..MAX_DURATION_US + 1_000_000L) { "Некорректное время аудиодорожки" }
+        val bytesPerSample = if (pcmEncoding == AudioFormat.ENCODING_PCM_FLOAT) 4 else 2
+        val frameBytes = channelCount * bytesPerSample
+        require(size <= MAX_OUTPUT_BUFFER_BYTES && size % frameBytes == 0 &&
+            offset >= 0 && offset.toLong() + size <= data.capacity()) {
+            "Декодер выдал повреждённый PCM-буфер"
+        }
+        data.limit(offset + size)
+        data.position(offset)
+        val frames = size / frameBytes
         require(frames <= sourceRate * 2) { "Декодер выдал слишком длинный буфер" }
         val mono = FloatArray(frames)
         try {
-        val channelEnergy = DoubleArray(channelCount)
-        var mixedEnergy = 0.0
-        for (frame in 0 until frames) {
-            var sum = 0f
-            for (channel in 0 until channelCount) {
-                val value = if (pcmEncoding == AudioFormat.ENCODING_PCM_FLOAT) data.float
-                    else data.short / 32768f
-                require(value.isFinite()) { "Декодер выдал некорректные аудиоданные" }
-                channelEnergy[channel] += value * value
-                sum += value
-            }
-            mono[frame] = sum / channelCount
-            mixedEnergy += mono[frame] * mono[frame]
-        }
-        // Avoid losing speech when two recorded channels nearly cancel in a mono mix.
-        if (channelCount > 1 && mixedEnergy < channelEnergy.max() * 0.02) {
-            val selected = channelEnergy.indices.maxBy { channelEnergy[it] }
+            val channelEnergy = DoubleArray(channelCount)
+            var mixedEnergy = 0.0
             for (frame in 0 until frames) {
-                data.position(bufferInfo.offset + frame * frameBytes + selected * bytesPerSample)
-                mono[frame] = if (pcmEncoding == AudioFormat.ENCODING_PCM_FLOAT) data.float
-                    else data.short / 32768f
+                var sum = 0f
+                for (channel in 0 until channelCount) {
+                    val value = if (pcmEncoding == AudioFormat.ENCODING_PCM_FLOAT) data.float
+                        else data.short / 32768f
+                    require(value.isFinite()) { "Декодер выдал некорректные аудиоданные" }
+                    channelEnergy[channel] += value * value
+                    sum += value
+                }
+                mono[frame] = sum / channelCount
+                mixedEnergy += mono[frame] * mono[frame]
             }
-        }
-        val startFrame = (bufferInfo.presentationTimeUs * sourceRate / 1_000_000.0).roundToLong()
-        require(startFrame >= -sourceRate && startFrame <= MAX_DURATION_US * sourceRate / 1_000_000 + sourceRate) {
-            "Некорректное время аудиодорожки"
-        }
-        for (frame in mono.indices) if (startFrame + frame >= 0) appendSourceAt(startFrame + frame, mono[frame])
+            // Avoid losing speech when two recorded channels nearly cancel in a mono mix.
+            if (channelCount > 1 && mixedEnergy < channelEnergy.max() * 0.02) {
+                val selected = channelEnergy.indices.maxBy { channelEnergy[it] }
+                for (frame in 0 until frames) {
+                    data.position(offset + frame * frameBytes + selected * bytesPerSample)
+                    mono[frame] = if (pcmEncoding == AudioFormat.ENCODING_PCM_FLOAT) data.float
+                        else data.short / 32768f
+                }
+            }
+            val startFrame = (timeUs * sourceRate / 1_000_000.0).roundToLong()
+            require(startFrame >= -sourceRate && startFrame <= MAX_DURATION_US * sourceRate / 1_000_000 + sourceRate) {
+                "Некорректное время аудиодорожки"
+            }
+            for (frame in mono.indices) if (startFrame + frame >= 0) appendSourceAt(startFrame + frame, mono[frame])
         } finally { mono.fill(0f) }
     }
 
@@ -279,6 +314,11 @@ internal class CodecAudioWindowSource(context: Context, uri: Uri) : PcmWindowSou
             try { extractor.release() } finally {
                 outputRing.fill(0f)
                 sourceRing.fill(0f)
+                extractedPcm?.let { buffer ->
+                    buffer.clear()
+                    while (buffer.hasRemaining()) buffer.put(0.toByte())
+                }
+                extractedPcm = null
             }
         }
     }

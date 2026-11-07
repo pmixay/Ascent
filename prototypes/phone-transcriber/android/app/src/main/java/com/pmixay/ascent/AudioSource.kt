@@ -133,7 +133,8 @@ object AudioSources {
             // Keep the bounded codec ring and anti-phase handling already exercised by Petya's tests.
             // MediaExtractor opens the selected provider again; the header descriptor is no longer needed.
             input.close()
-            return try { CodecAudioWindowSource(context, uri) }
+            val container = if (count >= 4 && String(head, 0, 4, Charsets.US_ASCII) == "fLaC") "audio/flac" else null
+            return try { CodecAudioWindowSource(context, uri, container) }
             catch (error: Exception) {
                 val failure = if (error.message?.contains("30 минут") == true) ImportFailure.TOO_LONG else ImportFailure.UNSUPPORTED
                 throw AudioImportException(failure, error.message ?: "Формат аудио не поддерживается", error)

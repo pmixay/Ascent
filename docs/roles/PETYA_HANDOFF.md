@@ -63,3 +63,10 @@ phone trials. Combined iteration `0f54ffb` exposed removed app/WorkManager binar
 APIs at instrumentation startup; the follow-up preserves the reviewed public
 test boundary in optimized debug builds and adds offline failure diagnostics.
 No instrumentation failure is replaced with a skip or an unchecked artifact.
+
+The next executable iteration (`6f66cc2`) reached import behavior and exposed
+Android's FLAC-extractor PCM output and negative compressed priming timestamps.
+Both paths now share the bounded resampler/anti-phase logic without source copies;
+existing synthetic codec cases verify timing, overlapping reads and rewind.
+WorkManager testing also required the shared coroutine library's public ABI;
+that boundary is retained without disabling code/resource optimization.

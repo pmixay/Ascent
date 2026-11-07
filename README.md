@@ -43,8 +43,8 @@ job/text pipeline. The existing push-only Android workflow checks both compact
 contains pinned acoustic and Qwen ONNX text assets, verifies/extracts them locally,
 and removes Internet permission. Recognition and text formatting use one paired
 model lease; acoustic sessions close before the text model opens. Raw recognized
-words remain available for competition JSON export. Final merged-revision CI is
-pending; historical teammate CI does not verify this combination.
+words remain available for competition JSON export. See [PR #4](https://github.com/pmixay/Ascent/pull/4) for the latest exact-revision
+CI result and APK identities; historical teammate CI does not verify this combination.
 
 See [the embedded contract](docs/interfaces/embedded-models.md),
 [Timofey's historical T1/T2 evidence](docs/roles/TIMOFEY_T2_STATUS.md), and
@@ -125,8 +125,7 @@ with an embedded speech model, audio import from device storage and JSON export 
 the brief's schema, working offline with a local LLM, Russian first and English
 second. The current branch implements a bounded, seekable WAV path plus an
 in-memory Android codec path for platform-supported compressed audio, and a
-separate brief-schema serializer in source. Their behavior is unverified on
-Android on the final combined revision. Compact builds download acoustic models;
+separate brief-schema serializer in source. Their behavior requires exact-revision Android CI and phone evidence. Compact builds download acoustic models;
 the separate embedded baseline includes the provisional local text model. The
 [judge procedure](docs/QA_JUDGE_SCRIPT.md), [installation guide](docs/INSTALLATION.md)
 and [test ledger](docs/TEST_RESULTS.md) record the remaining evidence. See
