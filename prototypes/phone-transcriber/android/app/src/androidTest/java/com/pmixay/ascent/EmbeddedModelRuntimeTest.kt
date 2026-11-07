@@ -1,0 +1,36 @@
+package com.pmixay.ascent
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.File
+
+/** Real asset extraction/selection, not model inference or ARM performance acceptance. */
+@RunWith(AndroidJUnit4::class)
+class EmbeddedModelRuntimeTest {
+    @Test fun coldBootstrapSelectsBothGroupsWithoutDownloadWork() = runBlocking {
+        assertTrue(BuildConfig.EMBEDDED_MODELS)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertNull(ModelSelection.current(context))
+        ModelDownloads.schedule(context)
+        assertTrue(ModelDownloads.startFromVisible(context))
+        val state = withTimeout(240_000) {
+            EmbeddedModels.states.first { it.phase == ModelTransferPhase.READY || it.phase == ModelTransferPhase.ERROR }
+        }
+        assertEquals(state.message, ModelTransferPhase.READY, state.phase)
+        assertFalse(ModelDownloadService.running.value)
+        ModelSelection.acquire(context).use { lease ->
+            assertTrue(File(lease.directory, "asr.onnx").isFile)
+            val text = requireNotNull(lease.textDirectory)
+            assertEquals(TextModelFiles.MODEL_BYTES, File(text, TextModelFiles.MODEL).length())
+            assertEquals(TextModelFiles.TOKENIZER_BYTES, File(text, TextModelFiles.TOKENIZER).length())
+            assertEquals(ModelManifest.payloadNames + "manifest.json", lease.directory.list()!!.toSet())
+            assertEquals(lease.directory, ModelSelection.current(context))
+        }
+    }
+}

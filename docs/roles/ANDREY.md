@@ -63,6 +63,19 @@ Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/c
 
 ### Remaining acceptance checklist
 
+#### T2 model handoff from Timofey
+
+- [ ] Review the pinned acoustic export provenance/identical graph hashes in
+  [T1 evidence](TIMOFEY_T1_STATUS.md); packaging must not change acoustic weights,
+  thresholds or scorer pins.
+- [ ] Approve or reject the provisional ONNX Qwen 0.5B choice from
+  [text-punctuation.md](../interfaces/text-punctuation.md), using Petya's exact
+  APK real-ARM execution/time/memory evidence. Hand Timofey any changed immutable
+  asset/runtime contract; host scores and bundled bytes alone are not acceptance.
+- [ ] Review Pasha's actual text-stage integration, lexical/ID/time preservation,
+  raw/presentation export choice and real success/fallback counters. Packaging
+  leaves this meaningful-pipeline requirement open until implemented and tested.
+
 - [ ] Bounded source seam preserves original-media offsets, words and existing segmenter behavior.
 - [ ] Pushed grammar and independent validator actually run with the bundled text model on ARM; lexical content, numbers, negation, IDs and times stay unchanged. Record successful operation, fallbacks and incremental time.
 - [ ] Existing stricter regressions remain passing on compatible inputs; missing cache stays a blocker for Timofey, not a waived check.

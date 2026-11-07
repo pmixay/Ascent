@@ -6,6 +6,14 @@ plugins {
 // The downloadable APK targets phones. CI selects x86_64 only for emulator tests.
 val ascentAbi = providers.gradleProperty("ascentAbi").orElse("arm64-v8a").get()
 require(ascentAbi in setOf("arm64-v8a", "x86_64")) { "Unsupported Ascent ABI: $ascentAbi" }
+val embeddedModels = providers.gradleProperty("ascentEmbedded").orElse("false").get().toBooleanStrict()
+val embeddedAssets = layout.buildDirectory.dir("generated/offline-assets").get().asFile
+val embeddedManifest = embeddedAssets.resolve("models/bundle.json")
+val embeddedDigest = if (embeddedModels) {
+    require(embeddedManifest.isFile) { "CI must prepare the pinned offline model assets before building" }
+    java.security.MessageDigest.getInstance("SHA-256").digest(embeddedManifest.readBytes())
+        .joinToString("") { "%02x".format(it.toInt() and 255) }
+} else ""
 
 android {
     namespace = "com.pmixay.ascent"
@@ -22,6 +30,12 @@ android {
         versionCode = 1
         versionName = "0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        if (embeddedModels) {
+            applicationIdSuffix = ".offline"
+            versionNameSuffix = "-offline-baseline"
+        }
+        buildConfigField("boolean", "EMBEDDED_MODELS", embeddedModels.toString())
+        buildConfigField("String", "EMBEDDED_BUNDLE_SHA256", "\"$embeddedDigest\"")
         ndk { abiFilters += ascentAbi }
     }
     compileOptions {
@@ -31,7 +45,9 @@ android {
     // Built-in Kotlin follows compileOptions.targetCompatibility.
     // CI-only public speech and real embeddings: JVM resources never enter the phone APK.
     sourceSets.getByName("test").resources.srcDir(layout.buildDirectory.dir("generated/speaker-fixtures").get().asFile)
-    buildFeatures { compose = true }
+    if (embeddedModels) sourceSets.getByName("main").assets.srcDir(embeddedAssets)
+    buildFeatures { compose = true; buildConfig = true }
+    androidResources { noCompress += "onnx" }
     lint { abortOnError = true }
     packaging {
         // Smaller direct APK downloads; Android extracts native libraries on install.

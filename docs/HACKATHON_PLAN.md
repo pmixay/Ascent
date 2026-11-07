@@ -53,6 +53,15 @@ still fails strict SSH host-key verification and is excluded by the user. See
 [T1 evidence](roles/TIMOFEY_T1_STATUS.md). Frozen dialogue inputs/gates are unchanged;
 non-server T1 is verified, but full H01 and competition acceptance remain open.
 
+T2 ownership update: Petya owns **real Android/ARM tests and server repair**;
+Timofey implements pinned embedded preparation/bootstrap and the separately
+checked `offline-baseline-<sha>` artifact, preserving compact checks. Pasha owns
+job/text-stage integration; Andrey approves model/runtime choice. Reusing the
+same fixed export validation in Android's embedded job is explicitly authorized,
+not a new corpus-inference job. Cross-role blockers are recorded unchecked in
+their role files and [T2 status](roles/TIMOFEY_T2_STATUS.md). An asset-only baseline
+is not a final LLM/offline-ARM-qualified release. Existing absolute handoffs remain.
+
 Deliver one clearly identified CI-built ARM64 APK containing every model needed for the default pipeline. On a clean supported phone with networking disabled before first launch, a judge can import an unfamiliar local recording, process it on the phone, inspect timestamped speaker turns and export the exact required JSON. Three successive files must work independently. Provide source, measured results, installation instructions, architecture, limitations and a video of the same release.
 
 Priority order:

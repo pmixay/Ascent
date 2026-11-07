@@ -48,6 +48,13 @@ publication still fails changed SSH host-key verification and is excluded from
 this task; no competition/device readiness is claimed.
 See [T1 evidence and remaining blockers](docs/roles/TIMOFEY_T1_STATUS.md).
 
+T2 is implementing a separately checked `offline-baseline-<sha>` APK with pinned
+acoustic/provisional ONNX text assets and automatic local bootstrap; compact
+`debug-<sha>` stays unchanged. CI/device evidence is pending, and bundled text
+assets are not yet an integrated LLM pipeline. Pasha owns that integration,
+Andrey approves model/runtime selection, and Petya now owns real Android/ARM
+validation **and server repair**. See [T2 status/handoffs](docs/roles/TIMOFEY_T2_STATUS.md).
+
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
 for review: listening stops into automatic local transcription, then the temporary

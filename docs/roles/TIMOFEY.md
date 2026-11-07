@@ -57,6 +57,12 @@ These packaging and CI tasks share the same window, not additive effort estimate
 
 ### T2. Reuse existing model infrastructure; add embedded bootstrap
 
+Implementation branch/status: [TIMOFEY_T2_STATUS.md](TIMOFEY_T2_STATUS.md).
+User-updated ownership: Petya performs real Android/ARM validation and server
+repair; Timofey owns assets/bootstrap/CI, Pasha actual job/text integration and
+Andrey model/runtime approval. Cross-role blockers are assigned in their checklists,
+not claimed as completed work here.
+
 - [ ] Pin model manifest and build-time asset hashes; package current acoustic models first to unblock an internal baseline.
 - [ ] Replace the competition APK's weight-absence check with required-payload, integrity, ABI and provenance checks.
 - [ ] Include all necessary tokenizer/config/license files; add Andrey's selected text-model assets and runtime through a versioned contract. Provisional at 14:30, final after the team's model comparison: `model_int8.onnx` and `tokenizer.json` from `onnx-community/Qwen2.5-0.5B-Instruct` with the revision, sizes and hashes in [text-punctuation.md](../interfaces/text-punctuation.md) and `TextModelFiles`; it runs on the existing ONNX Runtime, so no new native library is needed.

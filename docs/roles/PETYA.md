@@ -12,6 +12,30 @@ At fetched `origin/main` `4b16e3a`, participant timeline/result UI and model-sta
 
 ## Ownership
 
+### Explicit T2 handoff from Timofey — user-assigned
+
+- [ ] **Own real Android/ARM validation**, including cold install with networking
+  disabled before first launch, extraction of both model groups, microphone and
+  imported-file inference, and the integrated text stage. Use the exact CI APK,
+  not a local build; record commit/APK/bundle hashes, OS/ABI/RAM/storage, cold/warm
+  RTF, PSS/RSS and all unrun cases. The CI x86_64 extraction check is not this gate.
+- [ ] Exercise corrupted/missing extracted files, low disk space, kill during
+  extraction, kill/reopen and three consecutive files. Confirm recovery never
+  deletes the imported source or claims readiness from a saved success flag.
+- [ ] **Own model-server repair:** inspect TLS/Caddy/catalog availability and
+  verify the actual SSH ED25519 host key from the server/provider console before
+  updating `ASCENT_MODEL_HOST_KEY`. T1 export passed; publication failed with a
+  changed host key. Do not disable TLS or strict SSH checking. Credentials belong
+  in protected environment/secrets, not docs/source/APKs. Re-run normal push CI
+  publication and record the result; source export success is not publication.
+- [ ] Review Russian embedded preparation/error UI and show local readiness
+  separately from transfer/version-check age. Offline baseline has automatic
+  network updates disabled; do not imply a fresh online catalog check.
+
+Evidence handoff: [T1 exact runs and identities](TIMOFEY_T1_STATUS.md).
+Timofey supplies T2 APK/bundle identities after inspected CI; this list is assigned
+work, not completed device/server evidence. Original 19:30 sign-off remains.
+
 Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
 
 - Own `MainActivity.kt`, `GlassUi.kt`, resources, new UI acceptance checks and judge-facing documentation/demo/results.

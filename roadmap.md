@@ -53,6 +53,12 @@ passed, including R8/native/emulator checks and 18 new regression tests.
 Publication fails strict SSH host-key checking and is excluded by the user. See
 [T1 evidence](docs/roles/TIMOFEY_T1_STATUS.md); full H01 remains open.
 
+T2 adds a separate internal offline-asset baseline and local checksum-verified
+bootstrap while preserving compact packaging. Follow [T2 status](docs/roles/TIMOFEY_T2_STATUS.md)
+for CI/artifact evidence; acceptance remains open. User-updated ownership:
+Petya — real Android/ARM validation and model-server repair; Pasha — job/text
+integration; Andrey — model/runtime approval; Timofey — assets/bootstrap/CI.
+
 The old “reserved validation” references below are historical: the original
 Dialogs recordings have since informed algorithm fixes and are diagnostic data.
 New generalization claims require a fresh holdout, as specified in the active plan.

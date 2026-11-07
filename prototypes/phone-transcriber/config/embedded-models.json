@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "acoustic_model_id": "gigaam-multilingual-ctc-220m-2026-06",
+  "acoustic_files": {
+    "asr.onnx": {"bytes": 885826856, "sha256": "9e423f2690bfaf3e0fbb81185a080bfff27c4ec5aacef5e615676fffbe2545ff"},
+    "speaker.onnx": {"bytes": 71441526, "sha256": "bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239"},
+    "tokens.json": {"bytes": 535, "sha256": "f3c52d56529a595c9de0c2b2f2fd95553ef8834861e6d2ee720a1626bcd01a8a"},
+    "LICENSE-asr.txt": {"bytes": 1070, "sha256": "f00de6715714c7a63d08639cdbfaa40224eefc407302614bd19f1a8b98c875aa"},
+    "LICENSE-speaker.txt": {"bytes": 11357, "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"}
+  },
+  "text_model": {
+    "repository": "onnx-community/Qwen2.5-0.5B-Instruct",
+    "revision": "22942cb7d7ba4cc81bb4673549ca4d4614469b5e",
+    "runtime": "onnxruntime-android",
+    "selection_status": "provisional-awaiting-ARM-acceptance",
+    "files": {
+      "model_int8.onnx": {"source": "onnx/model_int8.onnx", "bytes": 512096557, "sha256": "41834041ab1b29eff9fc592f1a29a1844133aea35832ea9fa91682be13016100"},
+      "tokenizer.json": {"source": "tokenizer.json", "bytes": 7031673, "sha256": "a8506e7111b80c6d8635951a02eab0f4e1a8e4e5772da83846579e97b16f61bf"},
+      "config.json": {"source": "config.json", "bytes": 678, "sha256": "777e01f0fbb3346eb229cb6fb278ed6533c1e4dcb9ebf4bed0f6e94ef17fa1b5"},
+      "tokenizer_config.json": {"source": "tokenizer_config.json", "bytes": 7849, "sha256": "6a14243f0ae04884e597b3f032c05e15de9f417318fdcac24ab4e2680e691430"},
+      "LICENSE-Qwen.txt": {"url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/resolve/7ae557604adf67be50417f59c2c2f167def9a775/LICENSE", "bytes": 11343, "sha256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e"}
+    }
+  }
+}

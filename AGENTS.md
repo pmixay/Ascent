@@ -38,6 +38,19 @@ them, and freeze cache-key inputs by 14:00 for the 150 + 45 minute cold path.
 Pushed host studies and a passing build job do not establish full CI/offline ARM
 acceptance. No deadline exception weakens checks, privacy or LLM requirements.
 
+T2 ownership update from the user: Petya owns real Android/ARM device validation
+and the model-server repair (TLS, authenticated SSH host-key verification and
+publication). Timofey owns embedded preparation/bootstrap and CI, Pasha the job/
+text-stage integration, and Andrey model/runtime approval. Record cross-role
+blockers in the corresponding role checklists, never as completed acceptance.
+The existing Android workflow may reuse the unchanged fixed model-export
+validation in its embedded-APK job; this is the same bounded export validation,
+not a new corpus/quality inference job. It may publish a separately named
+`offline-baseline-<8-character commit>` APK artifact in addition to the unchanged
+compact artifact. This internal baseline embeds acoustic and provisional text
+assets; it is not a compliant competition release until actual text-pipeline
+integration and Petya's exact-build ARM/offline evidence are complete.
+
 Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation. Write project documentation in English; the app's user-facing language remains Russian.
 
 ## Review prototype scope
@@ -137,7 +150,7 @@ feature, until an inspected CI run or device result says otherwise.
 - Inspect the repository's actual GitHub workflow files, triggers, commands, and required checks before using CI. Do not invent workflow names or assume a pipeline exists in a supplied document-only workspace.
 - Use the existing workflow. Do not create a replacement, weaken checks, bypass CI, or fall back to a local build unless the user explicitly changes this instruction.
 - Both workflows trigger only on pushes; do not add a separate pull-request or manual-dispatch trigger. Model export filters relevant model/export/server paths.
-- Ascent Android CI publishes only `debug-<8-character commit>.zip`, containing the compact ARM64 `ascent.apk`. Use R8 code/resource optimization and keep model weights outside this compact network APK; the separate verification APK that embeds weights is described in the Hackathon verification section and is not yet published by any workflow. The separately optimized x86_64 emulator variant must pass its checks but is not a download artifact. Keep test and lint diagnostics in the workflow console; do not upload report artifacts. Build dependency caches may reduce repeated work but must preserve verification and required checks.
+- Ascent Android CI preserves `debug-<8-character commit>.zip`, containing the compact ARM64 `ascent.apk`, with no model weights. T2 may additionally publish `offline-baseline-<8-character commit>.zip`, containing the separately checked ARM64 `ascent-offline.apk` with embedded assets; it is an internal baseline, not final local-LLM/device acceptance. Use R8 code/resource optimization in both. The separately optimized x86_64 emulator variants must pass their checks but are not download artifacts. Keep test and lint diagnostics in the workflow console; do not upload report artifacts or standalone weights. Build dependency caches may reduce repeated work but must preserve verification and required checks.
 - Report CI as not run or unverified unless an actual run and its result have been inspected. When available, identify the run and commit. Static review does not establish a successful build or passing tests.
 
 - The app automatically downloads models from `https://ascent.arbuz.lol/models/catalog.json` using a `dataSync` foreground service started while the activity is visible. Keep an ongoing progress notification, preserve transfer ownership when the activity closes, and reconnect promptly through validated-network callbacks and per-request retries. WorkManager remains the fallback for process recovery and approximate daily checks; background jobs must not attempt an unrestricted foreground-service start. Independent gzip chunks represent up to 4 MiB each of expanded data; verify compressed and expanded hashes, resume only verified prefixes, and verify complete files before activation. Check for compatible updates on open and through approximate daily background work. Keep the current revision usable until verification succeeds and protect revisions held by active inference leases. Show model status without install, reinstall, cancel, archive-import or server-selection controls; only the hackathon verification build may add removal of its embedded model. Internet permission for weights does not authorize audio uploads. Model CI may use a private archive solely as authenticated deployment transport.
