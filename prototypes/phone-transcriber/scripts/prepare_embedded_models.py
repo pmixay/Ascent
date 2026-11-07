@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from checkpoint_source import HttpsOnlyRedirect
 from model_pack import load_json, sha256_file, validate_directory, REQUIRED_FILES
+from export_provenance import load_receipt
 
 PIN = ROOT / "config/embedded-models.json"
 NOTICE = ("Qwen2.5 0.5B Instruct — Qwen Team / Alibaba Cloud. Apache-2.0.\n"
@@ -83,9 +84,10 @@ def verify_acoustic(directory, pin):
     return manifest
 
 
-def prepare(acoustic, output, cache, pin_path=PIN):
+def prepare(acoustic, output, cache, validation_receipt, pin_path=PIN):
     pin = load_json(pin_path.read_text())
     verify_acoustic(acoustic, pin)
+    receipt = load_receipt(validation_receipt, sha256_file(acoustic / "manifest.json"))
     if output.exists():
         raise FileExistsError("Refusing to replace an existing asset directory")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -104,6 +106,7 @@ def prepare(acoustic, output, cache, pin_path=PIN):
         (staging / "text-model" / "NOTICE.txt").write_bytes(NOTICE)
         files = {str(path.relative_to(staging)): record(path) for path in sorted(staging.rglob("*")) if path.is_file()}
         bundle = {"schema_version": 1, "source_pin_sha256": sha256_file(pin_path),
+                  "export_validation": receipt,
                   "acoustic_model_id": pin["acoustic_model_id"],
                   "text_repository": text["repository"], "text_revision": text["revision"],
                   "pipeline_status": "offline-assets-baseline-text-integration-and-ARM-acceptance-pending",
@@ -119,5 +122,6 @@ if __name__ == "__main__":
     parser.add_argument("--acoustic", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--cache", type=Path, required=True)
+    parser.add_argument("--validation-receipt", type=Path, required=True)
     args = parser.parse_args()
-    prepare(args.acoustic, args.output, args.cache)
+    prepare(args.acoustic, args.output, args.cache, args.validation_receipt)

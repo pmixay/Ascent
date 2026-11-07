@@ -261,9 +261,11 @@ jobs:
         id: export-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: prototypes/phone-transcriber/build/offline-export
+          path: |
+            prototypes/phone-transcriber/build/offline-export
+            prototypes/phone-transcriber/build/offline-export-provenance.json
           # No prefix restore: changed exporter/source/fixtures/dependencies must revalidate.
-          key: ${{ runner.os }}-${{ runner.arch }}-offline-export-py312-v1-${{ hashFiles('.github/workflows/android.yml', 'prototypes/phone-transcriber/tools/export_model_pack.py', 'prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tools/checkpoint_source.py', 'prototypes/phone-transcriber/tools/evaluate_speech.py', 'prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tools/requirements-export.txt', 'prototypes/phone-transcriber/tools/requirements-gigaam.txt', 'prototypes/phone-transcriber/tools/fixtures/speakers/**', 'prototypes/phone-transcriber/config/embedded-models.json', 'prototypes/phone-transcriber/scripts/prepare_embedded_models.py') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-offline-export-py312-v2-${{ hashFiles('.github/workflows/android.yml', 'prototypes/phone-transcriber/tools/export_model_pack.py', 'prototypes/phone-transcriber/tools/model_pack.py', 'prototypes/phone-transcriber/tools/checkpoint_source.py', 'prototypes/phone-transcriber/tools/evaluate_speech.py', 'prototypes/phone-transcriber/tools/generate_speaker_fixtures.py', 'prototypes/phone-transcriber/tools/requirements-export.txt', 'prototypes/phone-transcriber/tools/requirements-gigaam.txt', 'prototypes/phone-transcriber/tools/fixtures/speakers/**', 'prototypes/phone-transcriber/config/embedded-models.json', 'prototypes/phone-transcriber/scripts/prepare_embedded_models.py', 'prototypes/phone-transcriber/scripts/export_provenance.py') }}
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -322,15 +324,23 @@ jobs:
           --speaker-sha256 "$ASCENT_SPEAKER_SHA256"
           --speaker-license build/models/LICENSE-3D-Speaker --speaker-source "$ASCENT_SPEAKER_SOURCE"
           --smoke-wav build/models/smoke-16k.wav
+      - name: Record successful acoustic export validation inputs
+        if: steps.export-cache.outputs.cache-hit != 'true'
+        run: >-
+          python3 scripts/export_provenance.py --acoustic build/offline-export
+          --output build/offline-export-provenance.json
       - name: Prepare pinned acoustic and text APK assets
         run: >-
           python3 scripts/prepare_embedded_models.py --acoustic build/offline-export
+          --validation-receipt build/offline-export-provenance.json
           --output android/app/build/generated/offline-assets/models --cache build/offline-source-cache
       - name: Save validated acoustic export
         if: steps.export-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: prototypes/phone-transcriber/build/offline-export
+          path: |
+            prototypes/phone-transcriber/build/offline-export
+            prototypes/phone-transcriber/build/offline-export-provenance.json
           key: ${{ steps.export-cache.outputs.cache-primary-key }}
       - name: Save verified text asset downloads
         if: steps.text-cache.outputs.cache-hit != 'true'

@@ -57,6 +57,14 @@ failure recorded in the historical T1 handoff is now resolved as linked above.
 The user will perform phone tests later. Exact-build offline ARM inference,
 text-model speed/memory and competition acceptance remain open.
 
+Current main evidence: at `f04aaa7`, [Android CI 42393688728](https://github.com/pmixay/Ascent/actions/runs/42393688728)
+and [Model Export 42393688781](https://github.com/pmixay/Ascent/actions/runs/42393688781)
+both completed successfully. Timofey's [ordered plan review](docs/roles/TIMOFEY_PLAN_REVIEW.md)
+separates already implemented packaging/integration from missing access, device,
+measurement and release work. Its first follow-up adds cached-export validation
+receipts bound to source/dependency/fixture hashes and the producer CI run;
+those new branch checks have not run and are not certified by main's result.
+
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
 for review: listening stops into automatic local transcription, then the temporary

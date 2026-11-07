@@ -8,6 +8,12 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 
 ## Already pushed / inspected — subtract from implementation
 
+**Current main reconciliation:** [ordered review and first remaining T1 slice](TIMOFEY_PLAN_REVIEW.md).
+At `f04aaa7`, both Android jobs in run `42393688728` and Model Export/publication
+in run `42393688781` passed. Embedded packaging and real sequential text integration
+are already in source. The new validation-input receipt changes in
+`timofey/plan-next-incomplete` still need their own CI; ARM/release acceptance stays open.
+
 - Existing push-only Android/model workflows, R8/JNI isolation, downloader verification/leases and acoustic pipeline are the base, not tasks to recreate.
 - At fetched `origin/main` `4b16e3a`, historical [run 42358746042](https://github.com/pmixay/Ascent/actions/runs/42358746042) has a **successful build/validation job**. The overall run failed because the since-removed two-hour inference inputs were missing; that failure is not a current CI gate.
 - PR #2 already supplies study/scoring tools, frozen RU/English selections, host timing/int8 results, text-model hashes/licenses/contract and the segmenter/tests. Use these instead of a new performance harness or host-model search. Reference-export ASR outputs do not substitute for deployed-model speaker measurements.
@@ -25,8 +31,8 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 ## 11:00–12:00 — confirm access and the specific red paths
 
 - [x] Reuse inspected current run `42358746042`; check for any newer pushed result before integrating. See the [13:55 MSK diagnosis/access handoff](TIMOFEY_H01_STATUS.md): newer build success, cancelled first inference attempt and active second attempt; full H01 remains open.
-- [ ] Use the pushed diagnosis for export run `42257595048`; confirm secure checkpoint access and model publication availability rather than restarting a generic investigation.
-- [ ] Inspect the current push CI after the job removal: confirm bounded compact and embedded jobs cover Python tooling, app/wear lint, unit tests, ARM64 APK inspection and x86_64 emulator checks, and that superseded runs cancel. Do not recreate long inference or a cache bootstrap.
+- [x] Use the pushed diagnosis for export run `42257595048`; confirm secure checkpoint access and model publication availability rather than restarting a generic investigation. Current exact-main Model Export `42393688781` passed; live metadata/pins verified in the current review.
+- [x] Inspect the current push CI after the job removal: confirm bounded compact and embedded jobs cover Python tooling, app/wear lint, unit tests, ARM64 APK inspection and x86_64 emulator checks, and that superseded runs cancel. Both jobs passed at `f04aaa7` in `42393688728`; long corpus jobs remain absent.
 - [ ] Locate verified model artifacts and establish who has permissions for CI, model publication and signing.
 - [ ] Agree embedded-install readiness/lease contract with Pasha and expected status UI with Petya.
 - [ ] Identify available ARM phones with RAM/OS/ABI/storage information.
@@ -37,9 +43,9 @@ Deliver a reproducibly checked APK with a complete embedded model set, prove off
 
 ### T1. Repair specific failed checks; keep the working build path
 
-- [ ] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks.
+- [x] Fix the diagnosed export/validation failure while preserving numerical, integrity and speaker checks. Existing recovery and current exact-main publication verified in `42393688781`; no new exporter repair is needed.
 - [ ] Verify the pushed integrity-checked model/export regeneration path from pinned public sources; do not rely only on a warm cache.
-- [ ] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope.
+- [ ] Bind inputs to source/model/pipeline hashes; verify behavior on cache miss and in the intended branch scope. Independent cached-export receipt added in the current T1 slice; new cold/warm branch CI is pending. See the current review above.
 - [ ] Keep the two-hour public-corpus evaluation on a development machine; never turn absence into skip/success or restore it as a push-CI gate.
 - [ ] Keep the narrowly scoped fixture and model-export speech checks while the long dialogue study stays off CI.
 - [ ] Preserve existing push triggers/workflow names, R8, native integrity and emulator checks.

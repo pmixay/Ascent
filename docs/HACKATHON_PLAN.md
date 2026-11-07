@@ -76,6 +76,15 @@ The merged baseline requires complete same-revision CI, with intended emulator
 cases proven executed rather than only a successful Gradle invocation. The review
 does not promote an internal APK to a compliant competition release.
 
+Current main reconciliation at `f04aaa7`: [Android CI 42393688728](https://github.com/pmixay/Ascent/actions/runs/42393688728)
+and [Model Export 42393688781](https://github.com/pmixay/Ascent/actions/runs/42393688781)
+completed successfully, including publication and required instrumentation gates.
+See [Timofey's ordered review](roles/TIMOFEY_PLAN_REVIEW.md) before reassigning
+already implemented bootstrap/text integration. The first follow-up adds independent
+cached-export input/producer receipts; that branch still needs its own CI. Signing
+access, ARM/device measurements and final release acceptance remain open. This
+status reconciliation does not change the schedule or relax any gate.
+
 Deliver one clearly identified CI-built ARM64 APK containing every model needed for the default pipeline. On a clean supported phone with networking disabled before first launch, a judge can import an unfamiliar local recording, process it on the phone, inspect timestamped speaker turns and export the exact required JSON. Three successive files must work independently. Provide source, measured results, installation instructions, architecture, limitations and a video of the same release.
 
 Priority order:

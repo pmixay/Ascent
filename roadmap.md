@@ -44,11 +44,15 @@ specific commit's completed compact and offline jobs.
 Reference-export provenance must remain explicit in development reports.
 
 Timofey's embedded assets/bootstrap and Pasha's job/text-stage work are now
-integrated on `claude/improve-app-peter`. The existing workflow retains compact
+merged to main at `f04aaa7`. The existing workflow retains compact
 checks and adds a separate embedded build with strict non-skipped instrumentation
 evidence. Both model groups remain leased across the sequential acoustic/text
-pipeline. Exact merged-revision CI remains pending; phone acceptance is deferred
-at the user's request. Historical teammate runs are in
+pipeline. Exact-main [Android CI 42393688728](https://github.com/pmixay/Ascent/actions/runs/42393688728)
+and [Model Export 42393688781](https://github.com/pmixay/Ascent/actions/runs/42393688781)
+passed; phone acceptance is deferred at the user's request. The
+[ordered Timofey review](docs/roles/TIMOFEY_PLAN_REVIEW.md) records the remaining
+access, ARM, measurement and release gaps. Its new cached-export validation receipt
+checks are source changes only, awaiting branch CI. Historical teammate runs are in
 [T2 status](docs/roles/TIMOFEY_T2_STATUS.md).
 
 Model publication is repaired and independently verified; see

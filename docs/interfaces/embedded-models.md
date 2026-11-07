@@ -19,6 +19,12 @@ completed Android/LLM acceptance claim.
 - `models/acoustic/` contains the **unchanged** exact acoustic wire-format file
   set. `models/text-model/` contains Qwen's ONNX graph, tokenizer/config and
   licence/notice. Text files are not inserted into the acoustic manifest.
+- The receipt-aware preparer requires `--validation-receipt` from the same
+  validated export. `bundle.json.export_validation` records source/dependency/
+  fixture fingerprints, the acoustic manifest hash and producer CI commit/run/
+  attempt. Preparation and APK inspection reject mismatched provenance. This is
+  envelope metadata, not a new acoustic payload or server schema. Its current
+  branch implementation is pending CI; see the [ordered review](../roles/TIMOFEY_PLAN_REVIEW.md).
 
 ## Application API
 

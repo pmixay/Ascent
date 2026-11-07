@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import prepare_embedded_models as prepare
 from check_apk import verify_embedded
+from export_provenance import describe
 
 
 class EmbeddedPackagingTests(unittest.TestCase):
@@ -28,6 +29,8 @@ class EmbeddedPackagingTests(unittest.TestCase):
         pin_path.write_text(json.dumps(pin))
         bundle = {"schema_version": 1, "acoustic_model_id": "frozen", "text_repository": "fixture", "text_revision": "pinned",
                   "source_pin_sha256": hashlib.sha256(pin_path.read_bytes()).hexdigest(), "files": {k: rec(v) for k, v in data.items()}}
+        bundle["export_validation"] = describe(
+            rec(data["acoustic/manifest.json"])["sha256"], {"commit": "a" * 40, "run_id": "123", "run_attempt": "1"})
         (root / "bundle.json").write_text(json.dumps(bundle))
         archive = root / "fixture.apk"
         with zipfile.ZipFile(archive, "w") as apk:
@@ -62,6 +65,29 @@ class EmbeddedPackagingTests(unittest.TestCase):
             pin.write_text(pin.read_text() + " ")
             with zipfile.ZipFile(archive) as apk, self.assertRaisesRegex(ValueError, "source pin"):
                 verify_embedded(apk, root, pin)
+
+    def test_apk_inspection_rejects_missing_stale_or_unrelated_export_provenance(self):
+        for change in ("missing", "inputs", "manifest"):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                archive, pin = self.fixture(root)
+                with zipfile.ZipFile(archive) as apk:
+                    entries = {item.filename: apk.read(item) for item in apk.infolist()}
+                bundle = json.loads(entries["assets/models/bundle.json"])
+                if change == "missing":
+                    del bundle["export_validation"]
+                elif change == "inputs":
+                    bundle["export_validation"]["inputs_sha256"] = "0" * 64
+                else:
+                    bundle["export_validation"]["manifest_sha256"] = "0" * 64
+                content = json.dumps(bundle).encode()
+                (root / "bundle.json").write_bytes(content)
+                entries["assets/models/bundle.json"] = content
+                with zipfile.ZipFile(archive, "w") as apk:
+                    for name, value in entries.items():
+                        apk.writestr(name, value)
+                with zipfile.ZipFile(archive) as apk, self.assertRaises(ValueError):
+                    verify_embedded(apk, root, pin)
 
     def test_pinned_text_contract_matches_kotlin(self):
         pin = json.loads(prepare.PIN.read_text())["text_model"]

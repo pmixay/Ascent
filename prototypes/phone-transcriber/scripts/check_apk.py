@@ -13,6 +13,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from prepare_embedded_models import PIN
+from export_provenance import verify_receipt
 
 
 def verify_embedded(archive, assets: Path, pin_path: Path = PIN):
@@ -34,6 +35,10 @@ def verify_embedded(archive, assets: Path, pin_path: Path = PIN):
     required = set(expected) | {"acoustic/manifest.json", "acoustic/smoke-report.json", "text-model/NOTICE.txt"}
     if set(bundle["files"]) != required:
         raise ValueError("Embedded bundle missing required payloads or contains extras")
+    receipt = bundle.get("export_validation")
+    if not isinstance(receipt, dict):
+        raise ValueError("APK is missing export validation provenance")
+    verify_receipt(receipt, bundle["files"]["acoustic/manifest.json"]["sha256"])
     for name, item in expected.items():
         if bundle["files"].get(name) != item:
             raise ValueError("Embedded model hashes do not match the source pin")
