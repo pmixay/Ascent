@@ -53,9 +53,10 @@ class TextStageTest {
         val model = ScriptedModel { call, tokens, wanted ->
             if (call == 1) throw IllegalStateException("model failed") else endsWithPeriod(tokens, wanted)
         }
-        // The test tokenizer is a subset of the real vocabulary; these words use only letters it covers.
-        val outcome = TextStages.present(listOf(segment("первая строка"), segment("вторая строка")), stage(model))
-        assertEquals(listOf("первая строка.", "вторая строка"), outcome.segments.map { it.text })
+        // The test tokenizer is a subset of the real vocabulary: every word and its capitalized form must
+        // be encodable, or the phrase would fail before reaching the model and prove nothing.
+        val outcome = TextStages.present(listOf(segment("привет мир"), segment("как дела")), stage(model))
+        assertEquals(listOf("привет мир.", "как дела"), outcome.segments.map { it.text })
         assertNull(outcome.segments[1].rawText)
         assertEquals(2, outcome.report.phrases)
         assertEquals(1, outcome.report.fallbacks)
@@ -64,7 +65,7 @@ class TextStageTest {
 
     @Test fun aStageThatFailsEveryPhraseIsReportedAsFailedNotAsSuccess() {
         val model = ScriptedModel { _, _, _ -> throw IllegalStateException("model failed") }
-        val input = listOf(segment("раз два"), segment("три четыре"))
+        val input = listOf(segment("раз два"), segment("как дела"))
         val outcome = TextStages.present(input, stage(model))
         assertEquals(input, outcome.segments)
         assertEquals(TextStageStatus.FAILED, outcome.report.status)
