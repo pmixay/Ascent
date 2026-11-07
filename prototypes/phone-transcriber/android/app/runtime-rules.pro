@@ -4,25 +4,17 @@
 # Do not disable application shrinking/resource optimization or keep all AndroidX.
 -keep class androidx.tracing.Trace { *; }
 
-# AndroidX Test's TestDirCalculator contains a subclass of Lambda in the test
-# APK. R8 cannot see that subclass while optimizing the app, and otherwise
-# rewrites/removes Lambda(int), causing a runner startup NoSuchMethodError.
--keep class kotlin.jvm.internal.Lambda { *; }
+# Kotlin stdlib is shared with the separately compiled instrumentation APK.
+# Its consumers include AndroidX Test and our Kotlin test code; retaining just
+# Lambda moved the startup failure to LazyKt. Keep the public/protected stdlib
+# binary API (including file facades and constructors) consistently for both
+# APKs. Application/Compose/WorkManager/coroutine implementation code still uses
+# R8 optimization. This is not a package-wide keep for application code.
+-keep class kotlin.** {
+    public *;
+    protected *;
+}
 
-# AndroidX Test's output-directory delegate calls the shared lazy facade even
-# when app optimization has inlined its own calls and would remove that facade.
--keep class kotlin.LazyKt** { *; }
--keep interface kotlin.Lazy { *; }
--keep class kotlin.LazyThreadSafetyMode { *; }
-
-# These shared Kotlin facade families are called from the separately optimized
-# instrumentation APK (CI 42381554380: copyInto$default, listOf, MapsKt and
-# deleteRecursively). Keep their public bridges on both sides of that boundary.
-# Other Kotlin packages and application classes remain optimized.
--keep class kotlin.collections.ArraysKt** { public static *** *(...); }
--keep class kotlin.collections.CollectionsKt** { public static *** *(...); }
--keep class kotlin.collections.MapsKt** { public static *** *(...); }
--keep class kotlin.io.FilesKt** { public static *** *(...); }
-
-# The test APK installs a transfer fake implementing this application interface.
+# Instrumentation installs a fake implementing this application-owned interface;
+# preserve that cross-APK seam as well as the shared Kotlin binary API.
 -keep interface com.pmixay.ascent.ModelTransferRunner { *; }

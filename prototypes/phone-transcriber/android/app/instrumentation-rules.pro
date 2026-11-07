@@ -8,19 +8,11 @@
 -keep class androidx.test.** { *; }
 # This dependency can live in either APK after AGP runtime dependency de-duplication.
 -keep class androidx.tracing.Trace { *; }
--keep class kotlin.jvm.internal.Lambda { *; }
--keep class kotlin.LazyKt** { *; }
--keep interface kotlin.Lazy { *; }
--keep class kotlin.LazyThreadSafetyMode { *; }
+-keep class kotlin.** {
+    public *;
+    protected *;
+}
 
-# These shared Kotlin facade families are called from the separately optimized
-# instrumentation APK (CI 42381554380: copyInto$default, listOf, MapsKt and
-# deleteRecursively). Keep their public bridges on both sides of that boundary.
-# Other Kotlin packages and application classes remain optimized.
--keep class kotlin.collections.ArraysKt** { public static *** *(...); }
--keep class kotlin.collections.CollectionsKt** { public static *** *(...); }
--keep class kotlin.collections.MapsKt** { public static *** *(...); }
--keep class kotlin.io.FilesKt** { public static *** *(...); }
-
-# The test APK installs a transfer fake implementing this application interface.
+# Instrumentation installs a fake implementing this application-owned interface;
+# preserve that cross-APK seam as well as the shared Kotlin binary API.
 -keep interface com.pmixay.ascent.ModelTransferRunner { *; }
