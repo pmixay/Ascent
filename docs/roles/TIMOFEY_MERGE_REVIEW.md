@@ -99,6 +99,20 @@ classes or all AndroidX. R8 and resource optimization stay enabled; the APK
 inspection and every test gate remain mandatory. Size/DEX changes will be visible
 in the existing packaging output. No successful emulator execution is claimed yet.
 
+Run [42381902354](https://github.com/pmixay/Ascent/actions/runs/42381902354)
+at `793a081` finally executed test cases. It exposed the same cross-APK problem
+for application constructors/interfaces and WorkManager, not only stdlib:
+`TranscriptSegment`'s default constructor, `ModelTransferRunner`, `WorkManager`
+and `Configuration.Builder` were unavailable to separately compiled tests.
+The structural correction compiles instrumentation first and generates explicit
+R8 entry-point rules from its classfile constant pools and descriptors, before
+optimizing either ARM64 application variant. This includes constructor-only
+descriptor references and keeps only named referenced application types, not a
+whole-application package wildcard. WorkManager's runtime is retained because its
+separate testing library also calls internal APIs. CI fixture tests cover the
+generator; absent compiled classes fail closed. The same generated rules remain
+in force when the x86_64 test variant is built. No existing test is removed.
+
 ## Can it merge?
 
 **Pending exact merged-revision CI.** Static review and conflict resolution alone

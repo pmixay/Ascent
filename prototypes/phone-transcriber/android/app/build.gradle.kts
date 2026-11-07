@@ -36,6 +36,7 @@ android {
         // Test-only rules do not change shrinking/optimization of the application APK.
         testProguardFiles("instrumentation-rules.pro")
         proguardFiles("runtime-rules.pro")
+        proguardFiles(layout.buildDirectory.file("generated/instrumentation-abi.pro").get().asFile)
         if (embeddedModels) {
             applicationIdSuffix = ".offline"
             versionNameSuffix = "-offline-baseline"
