@@ -32,6 +32,8 @@ import java.util.UUID
 
 internal const val UNKNOWN_SPEAKER = "speaker_unknown"
 internal const val PROCESSING_AUDIO_STATUS = "Обработка аудио…"
+internal const val IMPORT_INTERRUPTED_STATUS =
+    "Приложение закрылось во время обработки файла. Проверьте историю или выберите файл ещё раз."
 
 data class ConversationState(
     val busy: Boolean = false,
@@ -65,6 +67,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     val state = mutableState.asStateFlow()
     private val history = ConversationStore(app.filesDir)
     private val voices = VoiceProfileStore(app.filesDir)
+    private val pendingImports = PendingImportStore(app.filesDir)
     private val historyMutex = AudioWork.history
     private var recorder: AudioRecorder? = null
     private var pendingAudio: File? = null
@@ -113,13 +116,14 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 withContext(Dispatchers.IO) {
                     // A process death cannot run a finally block. Remove abandoned audio on the next launch.
                     clearAbandonedAudio()
+                    val interruptedImport = pendingImports.consumeInterrupted()
                     historyMutex.withLock {
                         val conversations = history.load()
                         voices.prune(conversations.map { conversation -> conversation.id }.toSet())
                         historyReady = true
                         mutableState.update { it.copy(busy = false, historyReady = true, conversations = conversations,
                             expandedConversationIds = conversations.firstOrNull()?.let { setOf(it.id) }.orEmpty(),
-                            status = "Готово к разговору") }
+                            status = if (interruptedImport) IMPORT_INTERRUPTED_STATUS else "Готово к разговору") }
                     }
                 }
             } catch (_: OutOfMemoryError) { reportMemoryError() }
@@ -253,6 +257,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         }
         // Reprocessing the same provider URI replaces its transcript without renewing retention.
         val id = "import-${UUID.nameUUIDFromBytes(uri.toString().toByteArray(Charsets.UTF_8))}"
+        val operationId = UUID.randomUUID().toString()
         val importedAtMs = System.currentTimeMillis()
         val startedAtMs = importRetentionStart(
             mutableState.value.conversations.firstOrNull { it.id == id }, importedAtMs)
@@ -260,6 +265,9 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null) }
         processingJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             try {
+                // Commit the marker before touching the provider. No source URI or audio is persisted.
+                withContext(NonCancellable + Dispatchers.IO) { pendingImports.begin(operationId) }
+                currentCoroutineContext().ensureActive()
                 val (result, durationMs) = AudioWork.inference.withLock { runInterruptible(Dispatchers.Default) {
                     val displayName = try {
                         app.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
@@ -298,8 +306,14 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 if (error is CancellationException) mutableState.update { it.copy(status = "Обработка отменена") }
                 else reportError(error)
             } finally {
-                mutableState.update { it.copy(busy = false, processingAudio = false) }
-                processingJob = null
+                try {
+                    withContext(NonCancellable + Dispatchers.IO) { pendingImports.complete(operationId) }
+                } catch (error: Exception) {
+                    reportError(error)
+                } finally {
+                    mutableState.update { it.copy(busy = false, processingAudio = false) }
+                    processingJob = null
+                }
             }
         }
     }

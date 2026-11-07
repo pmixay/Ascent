@@ -14,6 +14,24 @@ Prepared on 7 November 2026: the [three-file offline judge script](../QA_JUDGE_S
 
 ## Ownership
 
+### Continued local work — 7 November, 14:00 UTC
+
+The import path now commits a content-free random operation marker before opening
+the provider and removes it after success, failure or cancellation. On the next
+launch an interrupted import is reported once; saved history remains available
+and the user reselects the source. No source URI, filename, audio or transcript is
+stored in the marker. Focused JVM regression cases are submitted to the existing
+Android CI; process-kill/device acceptance remains unrun.
+
+Recent handoffs on Timofey's `timofey/t2-embedded-bootstrap` assign model-server
+repair and exact-build ARM/offline measurements to Petya. Prioritize authenticated
+publication repair, then ARM/offline/lifecycle evidence and embedded-readiness
+copy. His latest packaging revision `082113c` fails instrumentation execution
+gates in run 42378802074 and is not a release candidate. Pasha's
+`claude/pasha-work-lh3bs1` supplies the job API in `docs/interfaces/app-pipeline.md`;
+UI integration must preserve the existing source-safe import, watch coordination
+and retention behavior. No real ARM device is currently connected to this host.
+
 Main source directory: `prototypes/phone-transcriber/android/app/src/main/java/com/pmixay/ascent/`.
 
 - Own `MainActivity.kt`, `GlassUi.kt`, resources, new UI acceptance checks and judge-facing documentation/demo/results.

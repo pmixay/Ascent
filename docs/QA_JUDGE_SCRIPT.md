@@ -43,6 +43,13 @@ Run each applicable case independently; record `pass`, `fail`, `blocked` or `not
 
 For a reproducible failure, record the case ID, build/model hashes, device, source hash, exact steps, expected versus observed behavior, content-free error text, owner, fix commit and retest build. If a held-out result is used to tune the model, retire that set from final validation and reserve a fresh set.
 
+For N11 during an imported-file job, force-stop the process after source reading
+has begun, reopen and require an interrupted-file notice. Previously committed
+history must remain accessible; reselect the original file to start again. Reopen
+once more and check that the notice does not repeat. Repeat after a successful
+job and after cancellation: neither should report an interrupted import. This
+procedure is prepared; it is not a recorded device result.
+
 ## Watch companion matrix
 
 Use a CI-built watch APK on Galaxy Watch7 SM-L305F (Wear OS 6.0) and its matching phone APK on Samsung Android 17. Record **both** APK hashes and installed model revision. Pair devices through Bluetooth and enable the phone receiver from a visible activity. Never substitute a phone microphone recording for a watch-capture pass.
