@@ -1,5 +1,99 @@
 # Timofey — remaining-work reconciliation
 
+The combined `codex/petya-open-work` branch now includes main `77dd372`, Pasha
+through `3429c4c` and Timofey through `481dc8d`. It retains protected cancellation
+cleanup, actual certificate-byte identity checks and all **25 compact / four
+embedded** required cases. [PR #5](https://github.com/pmixay/Ascent/pull/5) tracks
+its exact-head CI and APK identities. The `91e2598` evidence below is historical
+and cannot substitute for this combined head or user-deferred ARM acceptance.
+
+## PR integration with current main
+
+PR [#8](https://github.com/pmixay/Ascent/pull/8) was opened against main. During
+creation, main advanced again to `77dd372` (PR #7). That revision was also merged
+without conflicts: it adds a per-job text-stage budget, real ViewModel job-path
+instrumentation and cancellation-cleanup correction. These are no longer missing
+source tasks in this PR; prior open-work tables below are historical snapshots.
+The offline workflow retains the two existing required cases and additionally
+requires both new application-path cases (four embedded cases in total). New merged-head CI/device acceptance is
+still required; neither teammate source presence nor older green runs prove it.
+
+Fetched main `18c3599` (PR #6) and merged it into Timofey's branch for review.
+Pasha/Petya's language-mode API/UI, triple-lease wiring, actual-used-mode result
+and timing presentation are now included in source. Their code merged without
+conflicts. Four documentation files required manual reconciliation; both sides'
+evidence and new instructions were retained. No model pins, required CI gates,
+signing policy or application defaults were overridden: app selection defaults to
+AUTO, while the low-level engine's omitted mode still defaults to GigaAM.
+
+The mode-wiring row below describes the earlier `91e2598` evidence and is no
+longer missing implementation on the merged branch. Mode operation/ARM/lifecycle
+acceptance and the text elapsed-work cap remain unverified. The new combined
+revision needs its own CI; `91e2598` hashes/results remain historical and do not
+certify this merge. A review PR is not permission to promote or merge a release.
+
+## Historical verified candidate — 91e2598
+
+The CI identity failure is fixed. Source
+`91e2598eb93ca445358c3d6633db70cba6e01576` passed both jobs in
+[42417416875](https://github.com/pmixay/Ascent/actions/runs/42417416875), attempt 1:
+compact `128538402762`, embedded `128538402937`. All **25 compact / two embedded**
+required cases actually executed without skips. The actual package/version/ABI,
+non-debuggable and SDK signature checks passed, as did shared tooling/JVM/lint,
+payload/native verification and optimized emulator runtime checks.
+
+The unchanged read-only `collect_ci_evidence.py` was then run against the real
+GitHub API/logs for this exact SHA and **succeeded**. It collected actual APK/
+certificate/bundle identity, artifact expiry and two matching x86_64 storage
+records; this was metadata/log inspection only, not local tests/builds/inference.
+No failed iteration's APK or older candidate identity is reused below.
+
+| ARM64 candidate | Raw APK bytes | Raw APK SHA-256 | Artifact |
+| --- | ---: | --- | --- |
+| Compact | 25,296,865 | `1d9fd2fc11b7663efd4d647545cd028187ef5d6a80934fc813c7796b15e04012` | [debug-91e2598e / 13592087326](https://github.com/pmixay/Ascent/actions/runs/42417416875/artifacts/13592087326) |
+| Offline | 2,167,275,970 | `05f7f46be043669cd70a72b339841ccf40cad107e8e7a567c7fe526cbf5884c6` | [offline-baseline-91e2598e / 13592820325](https://github.com/pmixay/Ascent/actions/runs/42417416875/artifacts/13592820325) |
+
+- `versionCode=144`; compact `0.1.144-91e2598e`, offline
+  `0.1.144-91e2598e-offline-baseline`. Packages remain `com.pmixay.ascent` and
+  `com.pmixay.ascent.offline`.
+- Both signing modes are **`unprotected-debug`**. Their independently generated
+  certificates differ: compact
+  `5f16df0ae68ffb3af473e54301a8c03b1cbaa1ef9524cfa9be0ee25e0e14a3aa`,
+  offline `430c8a652e962dbbeab707730f0afd10fe96e9fd418085c34384b16d9675866d`.
+  This is correctly allowed only for internal debug baselines, not stable signing.
+  No actual protected-key execution, key custody or update compatibility is claimed.
+- Bundle `a21ab274dfa969d8019eb9e6aabe7d139c891399473fcc203ebadc9bc5fd42d6`;
+  source pin `13bc4a70941a0349a9fcd5c12b7d7b3b071682cb18de44f98f1b47e6d09cd9f1`;
+  expanded payload **2,147,012,171 bytes**. Acoustic weights remain unchanged;
+  regenerated manifest/report metadata have new hashes. Manifest:
+  `2628b91632d1e7dd876109f1ee38dbcc6cd2168350fdd72968807713ff1fe00b`.
+- Export receipt retains real producer `198a8d1`, run `42415925712`, attempt 1,
+  input fingerprint `1eb3161050f8b420b8f6e9a6a15dff63410127ab72a84c2f90b84a9d9b9c9961`.
+  Export validation succeeded there before that run's unrelated APK-identity failure;
+  the receipt is successful export provenance, not a claim that its whole run passed.
+- Actual artifact expiry: **14 November 2026, 21:46:07 UTC**. Compact ZIP:
+  **25,296,999 bytes**, SHA-256
+  `6619f0e10a22ad055411deeda4996bf3236e4a73b30abdea7a89932fa6362a6e`.
+  Offline ZIP: **2,167,276,120 bytes**, SHA-256
+  `10e7f5b8712de10bba460bbe7e0dfe0541e2eba629ec1767edb26444092a3e61`.
+  ZIP digests are not raw APK hashes; these remain temporary, not durable links.
+
+Actual **x86_64/API 36**, not ARM: installed APK lengths **2,170,587,719 bytes**,
+app/code statistic **2,248,024,064 bytes**; fresh extraction **9,457 ms**, logical
+payload/root peak **2,147,012,171 bytes**, **38 successful / zero failed samples**.
+Leased-triple recovery: **23,215 ms**, sampled logical model-root peak
+**4,294,024,023 bytes**, **64 successful / zero failed samples**. Fresh payload plus
+reserve budget **2,180,566,603 bytes** is not observed physical peak storage.
+No ARM speed/RTF/memory/quality or full application lifecycle acceptance follows.
+
+Independent CI implementation, failure repair, real evidence collection and exact
+candidate handoff are now verified. The cross-role table below remains open:
+team-owned signing credentials/protected environment, application mode/time-cap/
+lifecycle work, real ARM evidence/model approval, final freeze, durable >2 GiB
+hosting and exact-build submission/video. No final-release gate is waived.
+Any later documentation commit records this tested source; it is not this APK's
+source identity and does not silently move acceptance to a newer artifact.
+
 This supersedes pending-CI/network notes for the candidate below, not the original
 schedule. The user requested a full project review and completion of all independent
 Timofey tasks. Review covered the product/audit/role requirements, both actual

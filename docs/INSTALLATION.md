@@ -42,8 +42,8 @@ its APK/bundle identities in the candidate record before installing.
 
 1. Use a fresh offline-package install/data state. Disable Wi-Fi/mobile data before
    first launch; no model predownload is needed. Record available storage, including
-   space for the >2.16 GB APK, Android's install copies and **2,147,012,159 bytes**
-   of expanded model payloads in the inspected dependency baseline. This is a payload
+   space for the >2.16 GB APK, Android's install copies and **2,147,012,171 bytes**
+   of expanded model payloads in the inspected `91e2598` baseline. This is a payload
    lower bound, not a measured peak storage need; use the current candidate's identity
    for exact bytes.
 2. Wait for local verification/extraction of all three model groups (acoustic, text

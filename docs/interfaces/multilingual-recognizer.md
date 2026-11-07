@@ -5,14 +5,16 @@ Status: model choice of the team, 7 November 2026, from host measurements in
 The embedded Parakeet payload and optimized emulator creation probe passed at
 `dbbce95` / `42404340446`; combined AUTO/timing source `42d4de9` passed
 [CI 42406537594](https://github.com/pmixay/Ascent/actions/runs/42406537594). Actual ARM inference remains open.
-Andrey's `50a5d90` AUTO path is integrated with the timing hooks; Petya's further
-mode UI/job integration requires its own exact-revision CI.
+Andrey's `50a5d90` AUTO path is integrated with the timing hooks. Main `77dd372`
+includes Pasha/Petya's mode UI, triple lease, actual-used label, soft text budget
+and ViewModel regressions. The combined signing/cleanup follow-up requires its
+own exact-revision CI, tracked in [PR #5](https://github.com/pmixay/Ascent/pull/5).
 
 Timofey's explicit packaging follow-up merges this engine path and adds a
 schema-2 embedded `multilingual-asr/` group with unchanged four file pins,
 CC-BY-4.0 attribution, uncompressed APK entries, triple-revision leases and a
 required minified-emulator recognizer-creation test. [Implementation and evidence
-status](../roles/TIMOFEY_PARAKEET_STATUS.md). Petya's `codex/petya-open-work` integrates Pasha's mode API, the triple lease and
+status](../roles/TIMOFEY_PARAKEET_STATUS.md) and [current release handoff](../roles/TIMOFEY_REMAINING_STATUS.md). Petya's `codex/petya-open-work` integrates Pasha's mode API, the triple lease and
 UI control; its own combined CI is recorded in [TEST_RESULTS.md](../TEST_RESULTS.md).
 
 ## Decision

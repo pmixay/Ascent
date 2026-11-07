@@ -1,8 +1,8 @@
 # Ascent roadmap
 
 
-Petya follow-up: `codex/petya-open-work` starts from main `2133dfa` and integrates
-Timofey `42d4de9` / Pasha `00bb1ab`. Language selection and the actual-used label
+Petya follow-up: `codex/petya-open-work` started from main `2133dfa` and now includes
+main `77dd372`, Timofey `481dc8d` and Pasha `3429c4c`. Language selection and the actual-used label
 now connect to triple-leased Parakeet assets; the last-job timing panel has a
 summary and expandable exclusive stages. [Current handoff](docs/roles/PETYA_HANDOFF.md)
 and [exact candidate results](docs/TEST_RESULTS.md) supersede older pending-CI
@@ -13,10 +13,17 @@ references below. ARM trials, durable release and video remain open.
 Latest [Timofey reconciliation](docs/roles/TIMOFEY_REMAINING_STATUS.md): combined
 `42d4de9` passed both Android jobs in `42406537594`; APK/bundle identities and actual
 emulator storage figures are recovered. New CI version/signature/protected-signing
-support and evidence collection require their own run; stable key custody,
+support and evidence collection were subsequently verified at `91e2598` below; stable key custody,
 application mode/lifecycle acceptance, real ARM measurements and final freeze
 remain open. The >2 GiB APK needs an approved durable complete-file HTTPS host,
 not an impossible GitHub Releases asset or a model-packaging workaround.
+
+Timofey's preceding identity candidate `91e2598` passed both jobs in `42417416875`, including the actual
+version/signature check and all 25/two required runtime cases. The real read-only
+evidence collector succeeded. Independent CI/provenance work is verified; actual
+owner-key signing, application/ARM/device/freeze/hosting/submission gates stay open.
+The current combined branch requires 25 compact and four embedded executed cases and its own exact-head
+evidence in [PR #5](https://github.com/pmixay/Ascent/pull/5).
 
 Execute [the four-person hackathon plan](docs/HACKATHON_PLAN.md), grounded in
 [the source-specification and current-CI audit](docs/HACKATHON_AUDIT.md), for the

@@ -1,8 +1,8 @@
 # Ascent
 
 
-Petya follow-up: `codex/petya-open-work` starts from main `2133dfa` and integrates
-Timofey `42d4de9` / Pasha `00bb1ab`. Language selection and the actual-used label
+Petya follow-up: `codex/petya-open-work` started from main `2133dfa` and now includes
+main `77dd372`, Timofey `481dc8d` and Pasha `3429c4c`. Language selection and the actual-used label
 now connect to triple-leased Parakeet assets; the last-job timing panel has a
 summary and expandable exclusive stages. [Current handoff](docs/roles/PETYA_HANDOFF.md)
 and [exact candidate results](docs/TEST_RESULTS.md) supersede older pending-CI
@@ -11,12 +11,19 @@ references below. ARM trials, durable release and video remain open.
 ## Current competition delivery plan — 7 November 2026
 
 **Latest Timofey review:** [remaining work and cross-role dependencies](docs/roles/TIMOFEY_REMAINING_STATUS.md).
+Timofey's preceding identity candidate `91e2598` passed both jobs in [42417416875](https://github.com/pmixay/Ascent/actions/runs/42417416875).
+CI version/signature checks and real exact-run evidence collection now work;
+25 compact/two embedded required cases executed without skips. This is still an
+`unprotected-debug` internal candidate, not ARM/stable-signing/release approval.
+The linked register identifies its hashes. The combined branch requires 25 compact and four embedded
+executed cases; [PR #5](https://github.com/pmixay/Ascent/pull/5) records its own
+exact-head results. All older APK identities below remain historical.
 Merged `42d4de9` passed both Android jobs in [42406537594](https://github.com/pmixay/Ascent/actions/runs/42406537594),
 including all 25 compact/two embedded required cases. Its raw offline APK is
 2,167,276,006 bytes; exact hashes, artifact expiry and separate emulator storage
 figures are recorded in that handoff. Source follow-up adds CI run/commit versions,
 actual signature/package verification and protected-signing preparation plus a
-read-only evidence collector; its own CI is still required. No team signing key,
+read-only evidence collector, now verified at `91e2598` as above. No team signing key,
 ARM acceptance or durable complete-APK host is available here. GitHub Releases'
 under-2-GiB file limit blocks hosting this APK there. See [release procedure](docs/RELEASE.md).
 

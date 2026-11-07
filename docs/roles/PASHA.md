@@ -16,6 +16,8 @@ passed both jobs at `42d4de9` / `42406537594`; this is not ARM acceptance.
   Pasha's worker and Petya's remembered selector/actual-used label are integrated.
   The UI passed compact CI at `16932d34` ([42411299817](https://github.com/pmixay/Ascent/actions/runs/42411299817));
   actual Auto/Multilingual audio inference on ARM remains open.
+- [ ] Validate all three modes on the final exact ARM build, including missing-file
+  refusal. App selection defaults to Auto; the engine's omitted mode stays GigaAM.
 - [ ] Qualify the new per-job text budget on ARM. `dba08d9` adds a soft budget after
   model loading: `max(30 s, 50% of media duration)`, checked between phrases, with
   unchanged words and reported timeout fallbacks. It is source-level policy, not
