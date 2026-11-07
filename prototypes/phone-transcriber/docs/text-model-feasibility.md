@@ -1,5 +1,11 @@
 # Local text model feasibility (plan H07 / P2)
 
+> **Superseded on 7 November 2026, 14:30 MSK.** No Android llama.cpp runtime existed, so the
+> provisional stage (final model after the team's comparison) is Qwen2.5 0.5B int8 ONNX on the ONNX Runtime the app already ships, with a
+> single word-preserving pass instead of grammar generation. Decision, measurements and the
+> integration contract: [text-punctuation.md](../../../docs/interfaces/text-punctuation.md).
+> The study below remains the record of the GGUF shortlist.
+
 The brief requires a local LLM. This is the speech lead's first feasibility pass:
 a shortlist, a host measurement on public data, and the edit contract that the
 integration must enforce. **No model is integrated, packaged or run on Android

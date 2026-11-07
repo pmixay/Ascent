@@ -20,7 +20,10 @@ remains separate from these host/code outputs.
   CI scorer's inference cache is missing (needs Timofey).
 - **P2 local text model:** host feasibility study and edit contract in
   [text-model feasibility](../../prototypes/phone-transcriber/docs/text-model-feasibility.md).
-  No model is integrated, packaged or measured on ARM.
+  **Provisional choice at 14:30 (final after the team's model comparison):** Qwen2.5 0.5B int8 ONNX, single word-preserving pass on the existing
+  ONNX Runtime, with Kotlin stage, tokenizer and JVM tests pushed; see
+  [text-punctuation.md](../interfaces/text-punctuation.md). Not yet packaged, integrated or
+  measured on ARM; CI has not yet run the new tests.
 - **P3 diarization:** no candidate measured; the short-reply hypothesis is blocked
   on the same cache.
 - **CI bootstrap update (`6a078e3`):** dedicated public inference/cache generation and a two-provenance scorer are now pushed. Their first inspected run was in progress, not accepted. Help Timofey verify results/provenance instead of implementing bootstrap again; public-reference scores do not measure the deployed pack.
