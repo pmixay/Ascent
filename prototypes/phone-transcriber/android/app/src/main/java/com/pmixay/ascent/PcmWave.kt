@@ -1,15 +1,14 @@
 package com.pmixay.ascent
 
-import java.io.Closeable
 import java.io.File
 import java.io.RandomAccessFile
 
 /** Reads windows from disk so a long recording never becomes one giant FloatArray. */
-class PcmWave(file: File) : Closeable {
+class PcmWave(file: File) : PcmWindowSource {
     private val input = RandomAccessFile(file, "r")
     private var dataOffset = 0L
-    val sampleCount: Long
-    val durationMs: Long get() = sampleCount * 1000 / 16000
+    override val sampleCount: Long
+    override val durationMs: Long get() = sampleCount * 1000 / 16000
 
     init {
         try {
@@ -52,7 +51,7 @@ class PcmWave(file: File) : Closeable {
         }
     }
 
-    fun read(start: Long, count: Int): FloatArray {
+    override fun read(start: Long, count: Int): FloatArray {
         require(start >= 0 && count >= 0 && start + count <= sampleCount)
         val bytes = ByteArray(count * 2)
         input.seek(dataOffset + start * 2)
