@@ -36,8 +36,8 @@ Everything runs on the phone, offline, one stage after another:
 - **GigaAM for Russian and CIS languages:** the best open Russian model family we could run
   on ONNX Runtime; it also covers Kazakh, Kyrgyz and Uzbek; MIT licence; CTC keeps decoding
   simple and gives word times.
-- **Why recognition is split between two models (proposed modes: Russian + CIS with GigaAM,
-  multilingual with Parakeet TDT 0.6B v3):** among open models small enough for a phone we
+- **Why recognition is split between two models (chosen modes: Russian and CIS languages
+  with GigaAM, multilingual with Parakeet TDT 0.6B v3):** among open models small enough for a phone we
   found none that is good at both Russian and English. On the same data GigaAM makes 36-39%
   fewer Russian errors than the multilingual Parakeet v3 (validation 4.30% vs 6.73%), while
   Parakeet v3 makes 2.9 times fewer English errors on meeting headsets (18.57% vs 54.65%).

@@ -29,6 +29,7 @@ All stages run on the phone, one after another, so only one model family is load
 | --- | --- | --- | --- | --- |
 | ASR | GigaAM Multilingual CTC, about 220M parameters | Deployed pack exported from `salute-developers/GigaAM` `7447938d791c4f3e643386ee22c33777004293a5`; measurements below used the public conversion `istupakov/gigaam-multilingual-ctc-onnx` `458860e1983aef670dd9795fb6af603c82767d5d` | 885 MB float32, 225 MB int8 (host study) | MIT |
 | Speaker embeddings | 3D-Speaker ERes2NetV2 (`3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx`) | `csukuangfj/speaker-embedding-models`, SHA-256 `bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239` | 71,441,526 bytes | Apache-2.0 |
+| Multilingual ASR (chosen, not integrated) | NVIDIA Parakeet TDT 0.6B v3, int8 | `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` `ed5d745623472f97cfc2e6c2916ee248798fc5a8`; hashes in [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md) | 670,576,784 bytes | CC-BY-4.0 |
 | Text model | Qwen2.5 0.5B Instruct, int8 ONNX | `onnx-community/Qwen2.5-0.5B-Instruct` `22942cb7d7ba4cc81bb4673549ca4d4614469b5e`, SHA-256 `41834041ab1b29eff9fc592f1a29a1844133aea35832ea9fa91682be13016100` | 512,096,557 bytes plus 7,031,673-byte tokenizer | Apache-2.0 |
 
 Runtimes: ONNX Runtime Android 1.31.0 (ASR and text model) and sherpa-onnx 2.0.0 with its
@@ -161,9 +162,11 @@ without retraining. GigaAM Multilingual Large is the only stronger model of the 
 
 ## Second recognizer: English and multilingual candidates (host)
 
-Proposed design, not implemented: three recognition modes. **Russian** and **Russian + CIS
-languages** use GigaAM Multilingual (its card covers Russian, Kazakh, Kyrgyz and Uzbek);
-**multilingual** (English and other European languages) uses a second model. The candidates
+**Team decision, 7 November:** two recognition modes. **Russian and CIS languages** (default)
+keep GigaAM Multilingual (its card covers Russian, Kazakh, Kyrgyz and Uzbek); **multilingual**
+(English and other European languages) uses NVIDIA Parakeet TDT 0.6B v3. Not integrated yet;
+files, hashes and the engine contract are in
+[multilingual-recognizer.md](../interfaces/multilingual-recognizer.md). The candidates
 below all run on sherpa-onnx 2.0.0, which the app already ships for speaker embeddings, so no
 new native library is needed. Same container, 2 threads (runs shared the 4 cores, so RTF is
 indicative), int8 exports from `csukuangfj/sherpa-onnx-*`, measured once with
@@ -209,8 +212,8 @@ Findings:
   its licence (FunASR model licence) was not reviewed.
 - Caveats: AMI is utterance-level recognition only, English diarization is unmeasured, and
   Parakeet ran on clips one by one while GigaAM ran on assembled windows. Parakeet is not
-  integrated into the app: it needs a mode switch, the sherpa-onnx recognizer path producing
-  timed words, and about 670 MB more in the embedded APK.
+  integrated into the app yet: it needs a mode control, the sherpa-onnx recognizer path
+  producing timed words, and about 670 MB more in the embedded APK.
 
 ## Worst case: software ARM emulation on an x86 host
 
