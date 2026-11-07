@@ -43,7 +43,7 @@ its APK/bundle identities in the candidate record before installing.
    processed/fallback counts and time. Missing/failed text processing is an open
    acceptance failure, even when an acoustic transcript is preserved.
 4. Record cold/warm RTF, peak memory and the extraction/lifecycle negative cases.
-   CI's x86_64 asset-extraction test does not perform ARM model inference.
+   CI's bounded x86_64 extraction/text check does not perform ARM model inference.
 
 ## Target device and package
 

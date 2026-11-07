@@ -13,7 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
-/** Offline source set only: real extraction/selection, not model inference or ARM acceptance. */
+/** Offline-only extraction/recovery and one synthetic text-stage invocation; no ARM acceptance. */
 @RunWith(AndroidJUnit4::class)
 class EmbeddedModelRuntimeTest {
     @Test fun coldBootstrapSelectsBothGroupsWithoutDownloadWork() = runBlocking {
@@ -38,6 +38,20 @@ class EmbeddedModelRuntimeTest {
             assertEquals(TextModelFiles.TOKENIZER_BYTES, File(text, TextModelFiles.TOKENIZER).length())
             assertEquals(ModelManifest.payloadNames + "manifest.json", lease.directory.list()!!.toSet())
             assertEquals(lease.directory, ModelSelection.current(context))
+
+            // A bounded application integration check, not a quality/corpus benchmark.
+            // Bundled bytes must be callable through the exact paired pipeline API.
+            val input = listOf(TranscriptSegment("speaker_1", 100, 900, "привет мир", speakerInferred = true))
+            val presented = TextStages.run(text, input)
+            assertEquals(TextStageStatus.COMPLETED, presented.report.status)
+            assertEquals(1, presented.report.phrases)
+            assertEquals(0, presented.report.fallbacks)
+            val phrase = presented.segments.single()
+            assertEquals(input.single().recognizedText, phrase.recognizedText)
+            assertEquals(input.single().speakerId, phrase.speakerId)
+            assertEquals(input.single().speakerInferred, phrase.speakerInferred)
+            assertEquals(input.single().startMs, phrase.startMs)
+            assertEquals(input.single().endMs, phrase.endMs)
         }
 
         // Deliberate model-file corruption, never application audio. A replacement

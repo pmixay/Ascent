@@ -41,10 +41,11 @@ export to mark the merged application, ARM inference or the final package passin
 
 ## Full teammate branch integration
 
-The merge includes Pasha through `574497e` and Timofey through `a989b2e`, with
+The merge includes Pasha through `574497e` and Timofey through `793a081`, with
 conflicts resolved against the newer no-long-corpus-CI policy. The compact job's
 25 required instrumentation methods remain enforced; the new embedded job
-requires actual first-launch extraction/paired-recovery execution. Shared watch
+requires actual first-launch extraction/paired-recovery execution and a synthetic
+text-stage call that preserves recognized words, speaker IDs and times. Shared watch
 sources, resumable model transport and narrow runner ABI fixes are retained.
 The processing worker holds one acoustic/text lease, closes its source after
 recognition, then opens the paired text model. Compact builds truthfully report
@@ -52,5 +53,6 @@ that the text model is unavailable.
 
 Two unrelated untracked cache-tool files collided with tracked teammate files.
 Their original contents and the three untouched untracked files were preserved in
-`/tmp/ascent-before-timofey-20261107T1430/`, with hashes in `manifest.json`.
+`/home/ascent/.local/share/ascent-work-backups/20261107-before-timofey/`,
+with hashes in `manifest.json` (the original `/tmp` backup is also retained).
 They are excluded from the merge commit.

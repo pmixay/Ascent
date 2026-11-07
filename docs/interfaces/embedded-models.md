@@ -78,4 +78,5 @@ remove immutable APK asset bytes. Petya measures actual devices/storage failures
 The merged ViewModel connects the sequential text stage and job/export flow.
 Combined CI and real model execution evidence remain required. Andrey
 approves provisional model/runtime semantics and pins; Petya runs real ARM
-offline inference, memory/time and interrupted-install checks, and retains the [completed server repair evidence](../roles/PETYA_SERVER_STATUS.md). The x86_64 CI bootstrap check validates asset installation only.
+offline inference, memory/time and interrupted-install checks, and retains the [completed server repair evidence](../roles/PETYA_SERVER_STATUS.md). The merged x86_64 CI check validates extraction/recovery and one synthetic
+text-stage call through the paired API; it is not an ARM or quality measurement.
