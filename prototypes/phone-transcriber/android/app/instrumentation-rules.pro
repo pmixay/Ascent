@@ -9,3 +9,6 @@
 # This dependency can live in either APK after AGP runtime dependency de-duplication.
 -keep class androidx.tracing.Trace { *; }
 -keep class kotlin.jvm.internal.Lambda { *; }
+-keep class kotlin.LazyKt** { *; }
+-keep interface kotlin.Lazy { *; }
+-keep class kotlin.LazyThreadSafetyMode { *; }

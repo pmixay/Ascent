@@ -8,3 +8,9 @@
 # APK. R8 cannot see that subclass while optimizing the app, and otherwise
 # rewrites/removes Lambda(int), causing a runner startup NoSuchMethodError.
 -keep class kotlin.jvm.internal.Lambda { *; }
+
+# AndroidX Test's output-directory delegate calls the shared lazy facade even
+# when app optimization has inlined its own calls and would remove that facade.
+-keep class kotlin.LazyKt** { *; }
+-keep interface kotlin.Lazy { *; }
+-keep class kotlin.LazyThreadSafetyMode { *; }
