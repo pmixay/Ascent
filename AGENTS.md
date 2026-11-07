@@ -1,5 +1,28 @@
 # Ascent engineering contract
 
+## Current task and scoped precedence — 6 November 2026
+
+The current user supplied the Neuro-stenographer competition specification and
+requested an audit and four-person delivery plan. Read
+[docs/HACKATHON_AUDIT.md](docs/HACKATHON_AUDIT.md) and
+[docs/HACKATHON_PLAN.md](docs/HACKATHON_PLAN.md) for this work. The competition APK
+must contain the complete usable offline model set, expose audio import and export
+the exact `transcript` / `speaker_id` / `start_ms` / `end_ms` / `text` JSON contract.
+Resolve the explicit local-LLM requirement; ASR alone must not be relabeled as a
+text LLM without organizer clarification. All application processing, including
+text processing, stays on Android for the competition release.
+
+For that scope these newer requirements take precedence over older instructions
+below forbidding APK model weights, exposing only microphone capture, or putting
+watch delivery first. The older optional remote-AI plan is outside this release.
+The no-local-build rule, existing workflow/check integrity, encrypted storage and
+honest evidence reporting remain in force. Imported user-owned audio is a source
+to read, not permission for an app recording archive or deletion of the source.
+No additional app-owned audio-persistence exception is introduced by this plan.
+The older watch-first production requirements remain a separate future track.
+The plan is not implementation evidence. Reconcile its identified CI-inference
+policy inconsistency explicitly before changing inference behavior or checks.
+
 Read [README.md](README.md) for the product and [roadmap.md](roadmap.md) for delivery order. Follow the latest user requirements and keep all three documents consistent when changing the plan. Planned capabilities are not completed implementation. Write project documentation in English; the app's user-facing language remains Russian.
 
 ## Review prototype scope
@@ -23,6 +46,68 @@ Keep source selection, model weights and existing six-reader regression gates
 fixed; report development and validation results separately. Do not enroll the
 benchmark actors into application voice memory.
 
+## Hackathon verification build
+
+The jury's [task brief](docs/hackathon/hackathon-brief-2026-11.pdf) and
+[written clarifications](docs/hackathon/jury-clarifications.md) define a separate
+deliverable: an Android APK that experts install and score automatically. It
+applies to the phone application only. The scoped precedence at the top of this file
+and the [delivery plan](docs/HACKATHON_PLAN.md) govern which older rules it
+overrides; this section states the jury-specific requirements and the exceptions
+below. Outside this scope sections 1 to 6 are unchanged. It does not make any
+production milestone complete and does not extend the prototype's temporary-audio
+exception to production. Everything below is a requirement, not an implemented
+feature, until an inspected CI run or device result says otherwise.
+
+- **Embedded model.** The verification APK contains the speech models so that
+  verification needs no network. Source the weights from verified model-export
+  output and check their hashes at build time. The compact network APK keeps weights
+  outside the APK. The jury accepts either two APKs or one APK whose built-in model
+  the user can delete. Downloading a model from the fixed catalog is only a UX
+  extra and is not needed for verification. Deleting an extracted embedded model does
+  not shrink the installed APK's immutable assets, so do not promise reclaimed space;
+  a second lightweight APK is the way to offer a smaller install. Deleting an embedded model is the one
+  model control this build may add; archive import, reinstall and server selection
+  stay prohibited. Publishing a verification APK means extending the existing
+  **Ascent Android CI** workflow with every current check kept, push-only triggers
+  unchanged and an inspected run; do not create a replacement workflow.
+- **Audio import.** Besides recording from the interface, the app imports a recording
+  from device storage for analysis. Read the user-selected content stream and decode
+  it in memory. Do not copy the file into app storage, caches or temporary directories,
+  and add no playback, save-clip or audio-export action. Import is a prototype and
+  hackathon exception to the listening-only interface and is not a production feature.
+  Expect recordings that resemble both real-time calls and meetings. The jury says
+  test cases differ between these scenarios, so both are a direct scoring criterion.
+- **JSON export.** Export an explicit user-managed file whose structure matches the
+  brief: a `transcript` array of objects with string `speaker_id`, integer `start_ms`
+  and `end_ms` in milliseconds, and string `text`. Every phrase carries a participant
+  label. The brief defines no provenance field, so keep inferred attribution internal
+  and add no extra keys until the jury confirms that additional fields are tolerated.
+  CTC-derived times remain approximate.
+- **Offline local processing.** Recognition, diarization and text processing run on
+  the device and the core task works without Internet. Do not use cloud APIs, remote
+  servers or prepared transcripts, and do not call the application backend or
+  OpenRouter from this build. Internet permission stays limited to model catalog
+  downloads.
+- **Local LLM.** The brief requires a local LLM. None is selected or implemented. Choose
+  it from measured on-device evidence, give it a real task in the processing pipeline,
+  and never present a placeholder or remote call as satisfying this requirement.
+- **Languages.** Russian is the first priority and English the second for speech input.
+  English quality is unmeasured; report it separately and keep every Russian gate.
+  The interface remains Russian.
+- **Target and scoring.** Experts use an ARM emulator, and the delivered APK is ARM64.
+  The existing x86_64 variant stays a CI check only; ARM-emulator behavior is
+  unverified until observed. The jury scores WER against reference transcripts and
+  processing time as real-time factor (RTF), with weights: transcription 40,
+  diarization 25, timestamps 10, speed 10, usability 10, defense 5. It does not
+  measure device load, though load may be discussed in the defense.
+- **Report material.** Provide the APK, source, installation and usage instructions,
+  architecture and model description, limitations, the team's own test results and a
+  demonstration video in a repository that follows
+  `https://github.com/grigorevmp/hacathon_template`. That template has not been
+  inspected. Report WER and RTF measured on our own data separately from the
+  constructed Dialogs evaluation and never state an expected jury score.
+
 ## 1. Build only through GitHub CI
 
 - **Do not build on the local machine.** GitHub CI performs builds. The requested initial workflows are **Ascent Android CI** (`.github/workflows/android.yml`, job **Build and validate Android app**) and **Ascent Model Export** (`.github/workflows/model-pack.yml`, job **Export and validate offline models**); the fetched base repository had no workflows.
@@ -31,10 +116,10 @@ benchmark actors into application voice memory.
 - Inspect the repository's actual GitHub workflow files, triggers, commands, and required checks before using CI. Do not invent workflow names or assume a pipeline exists in a supplied document-only workspace.
 - Use the existing workflow. Do not create a replacement, weaken checks, bypass CI, or fall back to a local build unless the user explicitly changes this instruction.
 - Both workflows trigger only on pushes; do not add a separate pull-request or manual-dispatch trigger. Model export filters relevant model/export/server paths.
-- Ascent Android CI publishes only `debug-<8-character commit>.zip`, containing the compact ARM64 `ascent.apk`. Use R8 code/resource optimization and keep model weights outside the APK. The separately optimized x86_64 emulator variant must pass its checks but is not a download artifact. Keep test and lint diagnostics in the workflow console; do not upload report artifacts. Build dependency caches may reduce repeated work but must preserve verification and required checks.
+- Ascent Android CI publishes only `debug-<8-character commit>.zip`, containing the compact ARM64 `ascent.apk`. Use R8 code/resource optimization and keep model weights outside this compact network APK; the separate verification APK that embeds weights is described in the Hackathon verification section and is not yet published by any workflow. The separately optimized x86_64 emulator variant must pass its checks but is not a download artifact. Keep test and lint diagnostics in the workflow console; do not upload report artifacts. Build dependency caches may reduce repeated work but must preserve verification and required checks.
 - Report CI as not run or unverified unless an actual run and its result have been inspected. When available, identify the run and commit. Static review does not establish a successful build or passing tests.
 
-- The app automatically downloads models from `https://ascent.arbuz.lol/models/catalog.json` using a `dataSync` foreground service started while the activity is visible. Keep an ongoing progress notification, preserve transfer ownership when the activity closes, and reconnect promptly through validated-network callbacks and per-request retries. WorkManager remains the fallback for process recovery and approximate daily checks; background jobs must not attempt an unrestricted foreground-service start. Independent gzip chunks represent up to 4 MiB each of expanded data; verify compressed and expanded hashes, resume only verified prefixes, and verify complete files before activation. Check for compatible updates on open and through approximate daily background work. Keep the current revision usable until verification succeeds and protect revisions held by active inference leases. Show model status without install, reinstall, cancel, archive-import or server-selection controls. Internet permission for weights does not authorize audio uploads. Model CI may use a private archive solely as authenticated deployment transport.
+- The app automatically downloads models from `https://ascent.arbuz.lol/models/catalog.json` using a `dataSync` foreground service started while the activity is visible. Keep an ongoing progress notification, preserve transfer ownership when the activity closes, and reconnect promptly through validated-network callbacks and per-request retries. WorkManager remains the fallback for process recovery and approximate daily checks; background jobs must not attempt an unrestricted foreground-service start. Independent gzip chunks represent up to 4 MiB each of expanded data; verify compressed and expanded hashes, resume only verified prefixes, and verify complete files before activation. Check for compatible updates on open and through approximate daily background work. Keep the current revision usable until verification succeeds and protect revisions held by active inference leases. Show model status without install, reinstall, cancel, archive-import or server-selection controls; only the hackathon verification build may add removal of its embedded model. Internet permission for weights does not authorize audio uploads. Model CI may use a private archive solely as authenticated deployment transport.
 
 ## 2. Preserve the product architecture
 
@@ -54,13 +139,13 @@ enrollment evidence; absence of an unidentified-speaker label is not confidence.
 
 - Support Android 12+ phones and Wear OS 6.0 watches. Keep minimum OS support separate from release-time target SDK requirements.
 - Continuous background listening through the watch microphone belongs in the first release and first capture milestone. The user explicitly enables a visible listening session; pause, stop, interruptions, and connection state must be accurate.
-- The phone performs Russian speech recognition, conversation diarization, speech enhancement, and sound classification locally. The watch captures, timestamps, transfers, and displays phone-produced results. Do not replace primary watch capture with a remote-control-only design or silently switch microphones.
+- The phone performs speech recognition (Russian first priority, English second), conversation diarization, speech enhancement, and sound classification locally. The watch captures, timestamps, transfers, and displays phone-produced results. Do not replace primary watch capture with a remote-control-only design or silently switch microphones.
 - Prioritize reliable live capture and early conversation speaker separation. Default to the Russian-language `Day` experience with a chronological history.
 
 ## 3. Never persist audio
 
 - Never save raw, encoded, encrypted, enhanced, or otherwise processed audio on either device, a backend, or a provider. This includes files, databases, temporary directories, caches, logs, diagnostics, backups, and retry queues. Encryption does not make audio persistence acceptable.
-- Provide listening controls, not audio recording, save-clip, replay, download, or export features. Source inspection opens retained text, never an audio recording.
+- Provide listening controls, not audio recording, save-clip, replay, download, or export features. Source inspection opens retained text, never an audio recording. The only exception is the prototype and hackathon audio import described above, which decodes a user-selected file in memory without copying it into application storage.
 - Use only short-lived volatile audio frames with explicit duration, byte, and lifetime limits. Encrypt application-owned queued buffers and authenticate and encrypt watch-to-phone transport. Keep cleartext exposure to the brief capture and local inference operations that require it.
 - Ordinary local recognition requires cleartext samples during processing. Do not claim recognition directly over ciphertext, universal control of OS/driver buffers, or guaranteed erasure of every memory copy. Minimize copies and lifetimes and document actual protections.
 - Choose transport without durable audio queues or remote audio routing. Never send audio to OpenRouter, the application backend, or cloud speech/sound services.
@@ -80,6 +165,7 @@ enrollment evidence; absence of an unidentified-speaker label is not confidence.
 
 - Use `https://ascent.arbuz.lol` as the fixed production application backend. Do not add server selection, editable backend URLs, or custom/self-hosted-server connection settings to either app. Watch AI requests go through the phone, and the phone uses this backend.
 - Keep OpenRouter credentials, model selection, approved provider routing, and retention policy server-side. Do not add direct client-to-OpenRouter calls or in-app provider/server configuration. User controls may enable or disable server AI and select text scope. If the backend is unavailable, report that state without switching application servers.
+- The hackathon verification build has no remote AI path; its text processing is local.
 - Remote AI through OpenRouter requires transparent user opt-in. Explain what selected text leaves the device. Local transcription, diarization, and sound classification remain local.
 - Keep provider API keys out of source control, client configuration, and APKs. Use a minimal authenticated backend with server-held secrets and no content logging or persistence. Reject audio payloads. Verify TLS on both network legs.
 - Pin a reviewed model ID, require `provider.zdr: true` and `provider.data_collection: "deny"`, and restrict approved provider endpoints through `provider.only`. Do not allow an unapproved model, provider, route, or retention downgrade as a fallback.
@@ -92,6 +178,7 @@ Check current official [ZDR](https://openrouter.ai/docs/guides/features/zdr), [r
 ## 6. Evidence, interface, and completion reporting
 
 - The requested speaker-attribution target is strictly above 75% overall accuracy. Count unknown and missing attribution as errors, use a one-to-one mapping of anonymous labels to reference speakers, and report the evaluation denominator and per-speaker/condition results. Keep development regressions separate from evaluation speakers. A constructed audiobook score cannot establish natural-conversation accuracy or replace device validation; do not weaken existing stricter checks to meet the new target.
+- Hackathon measurements (WER, RTF, diarization, timestamps, English) are reported with their denominators and conditions, separately from production acceptance and from constructed Dialogs results. Keep their tasks unchecked until an inspected run or device trial supports them.
 - Link people facts and summaries to retained transcript evidence. Preserve uncertainty and attribution. A mentioned name is not speaker identity; do not invent facts.
 - Show contextual locations only with sufficient evidence. Otherwise omit the location field. Conversation topics alone do not prove physical location.
 - Use warm yellow accents and translucent glass surfaces inspired by Apple Intelligence, readable high-contrast text, and accessible controls. Render the in-app wordmark as `Ascent.` with a square period. The phone prototype has a separate status element and collapsible conversation timelines with connected dots, names and timestamps. Consecutive phrases attributed to the same known speaker share one timeline element, including across pauses; retain phrase boundaries for timer-icon pause durations and show elapsed seconds. Mark CTC-derived times as approximate. Stopping listening triggers processing without a separate transcribe or audio-delete action. No small gray text or U+00B7 separators. Keep watch views concise and Rewind free of speaker division.

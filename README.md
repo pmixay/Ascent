@@ -1,5 +1,23 @@
 # Ascent
 
+## Current competition delivery plan — 6 November 2026
+
+The supplied Neuro-stenographer specification and organizer clarifications now
+define the phone competition release. See the [requirements/code/CI audit](docs/HACKATHON_AUDIT.md)
+and [four-person delivery plan](docs/HACKATHON_PLAN.md). Required work includes a
+usable embedded model set, reachable audio import, the exact competition JSON
+schema, resolved local-LLM compliance and clean-install offline ARM validation.
+These are planned changes, not implemented capabilities. For this competition
+scope, the new requirements supersede the older no-weights/capture-only packaging
+direction and exclude remote text processing. The watch-first product target
+below remains a separate future track. Builds and executable application checks
+remain CI-only.
+
+At audited commit `d7759627`, the Android build job passed, but the overall
+workflow failed because the two-hour evaluation inputs were unavailable; model
+export also failed before publication. Historical green runs below do not establish
+a fully verified current release. See the audit for inspected run links and scope.
+
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
 for review: listening stops into automatic local transcription, then the temporary
@@ -60,6 +78,13 @@ frozen on development failed validation and was rejected, and int8 weights match
 float32 accuracy without a meaningful x86 speedup. These are not deployed-model,
 phone, diarization-error or natural-conversation results.
 
+The hackathon jury ([brief](docs/hackathon/hackathon-brief-2026-11.pdf),
+[clarifications](docs/hackathon/jury-clarifications.md)) requires a verification APK
+with an embedded speech model, audio import from device storage and JSON export in
+the brief's schema, working offline with a local LLM, Russian first and English
+second. None of this is implemented yet; the current prototype downloads its
+models and has no import or brief-schema export. See [Hackathon verification build](#12-hackathon-verification-build).
+
 Russian speech memory for Android and Wear OS.
 
 Documentation is in English. Interface labels and example prompts below are
@@ -69,9 +94,9 @@ English descriptions of the planned Russian-language app.
 
 Ascent turns everyday speech and relevant sounds into a searchable seven-day history. It provides a text view of the last 30 seconds, conversation summaries, a day timeline, and editable information about people and familiar places.
 
-Specification version: 0.5
+Specification version: 0.6
 
-Updated: 26 October 2026
+Updated: 7 November 2026
 
 Status: product and implementation plan. These are requirements, not claims that the software or its protections are already implemented.
 
@@ -88,7 +113,8 @@ See [roadmap.md](roadmap.md) for task checkboxes and acceptance criteria. Contri
 | Local processing | The phone performs Russian speech-to-text, conversation speaker separation, speech enhancement, and sound classification on device. |
 | Server AI | OpenRouter may process text for recap, conversation and day summaries, people summaries, and questions about a selected fragment. |
 | Application backend | Fixed production endpoint: `https://ascent.arbuz.lol`. Neither the phone nor the watch app offers server selection or a custom server URL. |
-| Language | Russian speech, transcripts, summaries, and AI answers. Russian is the initial interface language. |
+| Language | Russian speech first, English speech second; Russian transcripts, summaries, and AI answers. Russian is the initial interface language. English recognition quality is unmeasured. |
+| Hackathon verification build | A separate phone APK with an embedded model, audio import, JSON export in the brief's schema, offline local processing and a local LLM. Requirements only; see Section 12. |
 | First engineering priority | Reliable encrypted watch-to-phone audio transport, local transcription, and speaker separation for stored conversations. |
 | Default mode | `Day`. |
 | Default retention | Rolling seven days for encrypted transcripts, summaries, sound-event records, and source-linked derived information. |
@@ -143,7 +169,7 @@ Android documents microphone foreground-service requirements and startup restric
 
 ### 3.2 Russian speech-to-text on device
 
-The phone produces chronological Russian text with punctuation and timestamps. Evaluate names, abbreviations, numbers, dates, negation, noise, and Russian speech containing English terms.
+The phone produces chronological text with punctuation and timestamps. Russian is the first language priority and English the second; evaluate English separately and do not claim parity. Evaluate names, abbreviations, numbers, dates, negation, noise, and Russian speech containing English terms.
 
 Use a local model that accepts live frames without writing audio to a temporary file. Separate provisional text from finalized text. Corrections update affected summaries and indexes without silently rewriting a fragment already frozen for a question.
 
@@ -459,6 +485,32 @@ Later ideas include personal vocabulary, source-linked commitment tracking, conv
 
 ## 11. Remaining engineering choices
 
-Implementation still needs measured device pairs, battery and latency budgets, strict volatile-frame limits, local model selection, transport validation, speaker thresholds, and a verified OpenRouter model/endpoint configuration.
+Implementation still needs measured device pairs, battery and latency budgets, strict volatile-frame limits, local model selection, transport validation, speaker thresholds, and a verified OpenRouter model/endpoint configuration. The hackathon track adds the choice between two APKs and a deletable embedded model, the local LLM, and two open questions for the jury (extra JSON keys, live streaming versus call-like recordings).
 
 These choices do not reopen continuous watch input, on-device STT, zero audio persistence, simple full-text rewind, seven-day text history, or the CI-only build rule.
+
+## 12. Hackathon verification build
+
+The jury's [task brief](docs/hackathon/hackathon-brief-2026-11.pdf) and
+[clarifications](docs/hackathon/jury-clarifications.md) define an APK that experts
+install on an ARM emulator, import three recordings into, transcribe and export,
+then score against reference transcripts. This is a separate deliverable on the
+phone only. It does not change the production plan above, and every item here is a
+requirement, not an implemented feature. Owners and ordering are in the
+[four-person delivery plan](docs/HACKATHON_PLAN.md) and the [audit](docs/HACKATHON_AUDIT.md).
+
+| Requirement | Plan |
+| --- | --- |
+| Model | The verification APK embeds the speech models, with hashes verified at build time. The compact network APK keeps weights outside. The jury accepts two APKs or one APK with a deletable embedded model; downloading is a UX extra. |
+| Input | Record in the app or import a file from device storage. Imported audio is decoded in memory from the selected stream, never copied into application storage, and has no playback or audio export. |
+| Output | An exported JSON file: a `transcript` array of objects with `speaker_id`, `start_ms`, `end_ms` and `text`. Every phrase has a participant label. Inferred provenance stays internal. |
+| Processing | Offline and on device: recognition, diarization and a local LLM. No cloud API, remote server, prepared transcript, application backend or OpenRouter call. |
+| Languages | Russian first, English second. English is unmeasured. |
+| Scenarios | Recordings resembling real-time calls and meetings; test cases differ and both are scored. |
+| Scoring | Transcription 40, diarization 25, timestamps 10, speed 10, usability 10, defense 5. WER and real-time factor (RTF) are measured by the jury; device load is not. |
+| Report | APK, source, instructions, architecture and models, limitations, our own test results and a demonstration video, in the jury's template repository (not yet inspected). |
+
+The local LLM, the APK packaging choice and the ARM-emulator behavior are open.
+Report WER and RTF on our own data separately from the constructed Dialogs
+evaluation and never state an expected jury score. See the hackathon track in
+[roadmap.md](roadmap.md) and the contract in [AGENTS.md](AGENTS.md).
