@@ -9,7 +9,8 @@ No local Android build, SDK preparation or test command is needed for this proce
 ## Identify each CI-produced APK
 
 The existing push-only **Ascent Android CI** keeps both required jobs, optimization,
-payload/native checks, the 25 compact runtime cases and two offline runtime cases.
+payload/native checks, the 25 compact runtime cases and four offline runtime cases (bootstrap, Parakeet
+creation and two synthetic ViewModel lifecycle/import/export checks).
 Only `ascent.apk` and `ascent-offline.apk` remain downloadable artifacts. Tests,
 corpus, standalone models, signing material and diagnostic reports are not uploaded.
 

@@ -253,7 +253,8 @@ class CollectorTests(unittest.TestCase):
 
     def test_missing_failed_stale_skipped_duplicate_or_expired_evidence_fails_closed(self):
         for mutation in ("failed-run", "wrong-sha", "missing-job", "skipped-job", "missing-identity",
-                         "duplicate-identity", "wrong-identity", "missing-execution", "expired", "wrong-artifact", "wrong-storage"):
+                         "duplicate-identity", "wrong-identity", "missing-execution", "old-offline-count",
+                         "expired", "wrong-artifact", "wrong-storage"):
             with self.subTest(mutation=mutation):
                 client, sha, run, jobs, artifacts, logs = self.fixture()
                 if mutation == "failed-run": run["conclusion"] = "failure"
@@ -264,6 +265,8 @@ class CollectorTests(unittest.TestCase):
                 if mutation == "duplicate-identity": logs[1] += logs[1]
                 if mutation == "wrong-identity": logs[1] = logs[1].replace(sha, "f" * 40)
                 if mutation == "missing-execution": logs[1] = logs[1].replace("without skips", "skipped")
+                if mutation == "old-offline-count":
+                    logs[2] = logs[2].replace("4 distinct executed cases; 4 required cases", "2 distinct executed cases; 2 required cases")
                 if mutation == "expired": artifacts[0]["expired"] = True
                 if mutation == "wrong-artifact": artifacts[0]["workflow_run"]["head_sha"] = "f" * 40
                 if mutation == "wrong-storage": logs[2] = logs[2].replace('"apk_abi": "x86_64"', '"apk_abi": "arm64-v8a"')

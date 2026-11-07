@@ -16,10 +16,13 @@ passed both jobs at `42d4de9` / `42406537594`; this is not ARM acceptance.
   Pasha's worker and Petya's remembered selector/actual-used label are integrated.
   The UI passed compact CI at `16932d34` ([42411299817](https://github.com/pmixay/Ascent/actions/runs/42411299817));
   actual Auto/Multilingual audio inference on ARM remains open.
-- [ ] Add/review a per-job elapsed-work cap for the text stage with truthful fallback/
-  cancellation and native-resource cleanup; the current context cap is not a deadline.
-- [ ] Supply full ViewModel lifecycle evidence (cancel→new job, rotation, background,
-  kill/reopen) and final application/source/export freeze. [Exact-build handoff and
+- [ ] Qualify the new per-job text budget on ARM. `dba08d9` adds a soft budget after
+  model loading: `max(30 s, 50% of media duration)`, checked between phrases, with
+  unchanged words and reported timeout fallbacks. It is source-level policy, not
+  a strict native-call deadline or measured ARM acceptance.
+- [ ] Supply full ViewModel lifecycle evidence and final application/source/export
+  freeze. `570e9c7` adds required synthetic import/export and cancel→new job/double-tap/
+  background checks in the embedded CI job. Rotation, kill/reopen and ARM remain open. [Exact-build handoff and
   cross-role blockers](TIMOFEY_REMAINING_STATUS.md). Timofey imported the documentation-only
   sign-off commit `f3e4386` without replacing these newer assignments; no app code was missing.
 
