@@ -95,6 +95,7 @@ class NativeRuntimeTest {
             waitForUiIdle()
             for ((label, stored) in listOf("Русский" to "RUSSIAN_CIS", "Другие языки" to "MULTILINGUAL")) {
                 clickText(if (stored == "RUSSIAN_CIS") "Язык: Авто" else "Язык: Русский")
+                assertTrue("Language dialog is visible", uiHasText("Язык распознавания"))
                 clickText(label)
                 assertEquals(stored, preferences.getString("recognitionMode", null))
                 assertTrue(uiHasText("Язык: $label"))
@@ -108,6 +109,7 @@ class NativeRuntimeTest {
             waitForUiIdle()
             assertTrue("The selected language survives ViewModel/activity recreation", uiHasText("Язык: Другие языки"))
             clickText("Язык: Другие языки")
+            assertTrue("Language dialog is visible after recreation", uiHasText("Язык распознавания"))
             clickText("Авто")
             assertEquals("AUTO", preferences.getString("recognitionMode", null))
         } finally {
@@ -128,7 +130,9 @@ class NativeRuntimeTest {
 
     private fun uiHasText(text: String): Boolean = findUiLabel(text) != null
 
-    private fun findUiLabel(text: String): AccessibilityNodeInfo? {
+    private fun findUiLabel(text: String): AccessibilityNodeInfo? = findUiNode { hasExactLabel(it, text) }
+
+    private fun findUiNode(matches: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
         val root = InstrumentationRegistry.getInstrumentation().uiAutomation.rootInActiveWindow ?: return null
         // Compose exposes virtual children but does not implement the provider's text-search API.
         // Walk that real accessibility tree, as an accessibility service does.
@@ -136,7 +140,7 @@ class NativeRuntimeTest {
         pending.add(root)
         while (pending.isNotEmpty()) {
             val node = pending.removeFirst()
-            if (hasExactLabel(node, text)) return node
+            if (matches(node)) return node
             for (index in 0 until node.childCount) node.getChild(index)?.let { pending.add(it) }
         }
         return null
@@ -148,6 +152,20 @@ class NativeRuntimeTest {
     private fun clickText(text: String) {
         // Match whole labels: "Русский" must not match a sentence in Auto's subtitle.
         var node = findUiLabel(text)
+        var scrolls = 0
+        while (node == null && scrolls++ < 4) {
+            // The third choice can be below the dialog viewport on the CI phone.
+            // Move the real scroll container; off-screen virtual nodes are intentionally pruned.
+            val scrollable = findUiNode { it.isScrollable } ?: break
+            if (!scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) break
+            waitForUiIdle()
+            node = findUiLabel(text)
+        }
+        if (node == null) {
+            // Only fixed test labels, never arbitrary screen/transcript text.
+            println("Visible language labels: " + listOf("Язык распознавания", "Авто", "Русский", "Другие языки")
+                .filter(::uiHasText))
+        }
         while (node != null && !node.isClickable) node = node.parent
         assertNotNull("Missing accessible control: $text", node)
         assertTrue("Disabled control: $text", node!!.isEnabled)
