@@ -19,6 +19,13 @@ enum class RecognitionMode {
 
     /** NVIDIA Parakeet TDT 0.6B v3 through sherpa-onnx: English and other European languages. */
     MULTILINGUAL,
+
+    /**
+     * Starts with GigaAM and switches the whole recording to [MULTILINGUAL] when Latin letters
+     * dominate its first windows ([LanguageProbe]). Without installed Parakeet files it is
+     * [RUSSIAN_CIS]. Never reported as a mode used: results carry the mode actually applied.
+     */
+    AUTO,
 }
 
 /** Pinned Parakeet TDT 0.6B v3 int8 files for the multilingual mode (CC-BY-4.0). */

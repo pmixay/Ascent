@@ -1,5 +1,20 @@
 # Timofey T5 — current-main integration review
 
+## Latest synchronization requested by the user
+
+Andrey's changes were already published directly to `origin/main`, latest
+`50a5d90` (AUTO/LanguageProbe). There was no open PR to merge. Local `main` was
+fast-forwarded to that revision and fetched again. The task branch then merged
+that main. Git found one real conflict in `TranscriptionEngine` orchestration;
+manual resolution preserves all three recognition modes, the exact incoming
+probe/restart logic and actual-mode result metadata, together with exclusive
+validation/ASR/diarization/load timers. AUTO's initial probe and restarted pass
+both contribute to total ASR time. No model hashes, thresholds, packaging or
+source cleanup rules changed during this reconciliation. Required new combined
+CI is pending; historical Parakeet success does not certify AUTO execution.
+Main already contains Andrey's code; the task branch is not silently promoted
+to main as part of this synchronization.
+
 **Superseding user handoff:** the user now explicitly requested Parakeet embedding,
 R8/JNI safety and emulator creation smoke. Main was merged in `1f5dbe2`, preserving
 both constructors' seams and timing behavior. [Current implementation/status](TIMOFEY_PARAKEET_STATUS.md).

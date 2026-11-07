@@ -34,7 +34,8 @@ Pushed and inspected. Host and CI evidence only; no Android device result exists
   tiny/base/small/distil-small, Moonshine and SenseVoice were measured and are behind; see the
   report. `TranscriptionEngine(..., RecognitionMode.MULTILINGUAL, directory)` runs it
   (`MultilingualRecognizer.kt`, JVM tests); host mirror of the windowed path: Russian
-  validation 6.98%. Packaging and the mode control are handed off in
+  validation 6.98%. `RecognitionMode.AUTO` (`LanguageProbe.kt`) decided correctly for 27/27
+  Russian and 122/123 English host blocks. Packaging and the mode control are handed off in
   [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md#handoff).
 - **Device scoring tool:** `tools/score_competition_json.py` is ready for exported JSON and
   hand-made references.

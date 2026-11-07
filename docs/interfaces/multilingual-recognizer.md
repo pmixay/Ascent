@@ -2,15 +2,16 @@
 
 Status: model choice of the team, 7 November 2026, from host measurements in
 [model-report.md](../hackathon/model-report.md#second-recognizer-english-and-multilingual-candidates-host).
-**Engine path written, not yet integrated:** the engine can run Parakeet (JVM-tested logic,
-host-mirrored), but no APK contains the files, no UI selects the mode, and nothing here has
-run on Android or ARM.
+The embedded Parakeet payload and optimized emulator creation probe passed at
+`dbbce95` / `42404340446`; actual ARM inference and mode selection UI remain open.
+Andrey's later `50a5d90` AUTO path is now integrated with the task branch's timers
+in source and requires its own merged-revision CI.
 
 Timofey's explicit packaging follow-up merges this engine path and adds a
 schema-2 embedded `multilingual-asr/` group with unchanged four file pins,
 CC-BY-4.0 attribution, uncompressed APK entries, triple-revision leases and a
 required minified-emulator recognizer-creation test. [Implementation and evidence
-status](../roles/TIMOFEY_PARAKEET_STATUS.md). New CI is pending; normal app mode
+status](../roles/TIMOFEY_PARAKEET_STATUS.md). New combined AUTO/timing CI is pending; normal app mode
 selection and actual ARM acceptance remain Pasha/Petya handoffs.
 
 ## Decision
@@ -20,9 +21,52 @@ selection and actual ARM acceptance remain Pasha/Petya handoffs.
 | Russian and CIS languages (default) | GigaAM Multilingual CTC 220M, already shipped | ru, kk, ky, uz (+ weak en) | Best measured Russian: validation WER 4.30% vs 6.73% for Parakeet v3 |
 | Multilingual | NVIDIA Parakeet TDT 0.6B v3, int8 | 25 European languages incl. en, ru, uk | Best measured English among phone-sized models: AMI headsets 18.57% vs 54.65% for GigaAM, distant microphone 44.74% vs 74.96% |
 
-Russian is the brief's first priority, so the default stays GigaAM. The user chooses the mode;
-there is no automatic language identification, and a wrong mode is a user-visible choice, not
-a silent fallback.
+Russian is the brief's first priority. Besides the two fixed modes there is an automatic one,
+described below; a fixed mode never falls back silently to the other model.
+
+## Automatic mode (`RecognitionMode.AUTO`)
+
+GigaAM starts on the recording. After each window `LanguageProbe` counts Latin (a-z) and other
+letters in the words owned so far; once 30 letters are seen, or the probed audio reaches 60 s,
+a Latin majority restarts the whole recording with Parakeet and discards GigaAM's words;
+anything else, a tie, silence or an undecided end keeps GigaAM, which simply continues, so a
+Russian recording costs nothing extra. Without installed Parakeet files the mode is plain
+GigaAM. `TranscriptionResult.recognitionMode` reports the mode actually used.
+
+Host check, rule fixed before running (`tools/language_probe_study.py`, GigaAM with `AsrGain`):
+
+| Samples | Correct decisions | Decision after (median / max) |
+| --- | --- | --- |
+| Russian Dialogs blocks, development + validation (constructed, 3 actors) | 27 / 27 Russian | 19.2-19.9 s / 20.0 s |
+| English AMI EN2002a headsets, blocks of at least 60 s (constructed) | 53 / 53 multilingual | 19.5 s / 39.0 s |
+| English AMI EN2002a distant microphone | 52 / 53 multilingual | 19.7 s / 39.8 s |
+| English AMI ES2011a headsets | 17 / 17 multilingual | 19.6 s / 20.0 s |
+| 30 s of silence | Russian | 30 s |
+
+Not measured: Russian with many English terms, mixed-language conversations, a recording that
+changes language after the first minute (it keeps the first decision), other European
+languages, and real calls or meetings. A wrong switch on Russian would cost about 2.7 points
+of WER (validation 4.30% to 6.98%); a missed switch on English costs about 36 points (AMI
+headsets 54.65% vs 18.57%).
+
+## Positioning in the app
+
+Name modes by language, not by model, and put the control where recording or import starts:
+
+| Control | Mode | Subtitle |
+| --- | --- | --- |
+| **Авто** (recommended default) | `AUTO` | «Язык определяется сам по первым секундам записи» |
+| **Русский** | `RUSSIAN_CIS` | «Русский и языки СНГ: казахский, киргизский, узбекский» |
+| **Другие языки** | `MULTILINGUAL` | «Английский и европейские языки» |
+
+- Remember the choice; show the mode actually used next to the result ("Распознано: русский" /
+  "Распознано: другие языки") from `TranscriptionResult.recognitionMode`.
+- Model names, versions, sizes and licences belong on an "О моделях" screen; Parakeet's
+  CC-BY-4.0 requires the attribution "NVIDIA Parakeet TDT 0.6B v3".
+- Do not promise "any language" (only Russian and English are measured) or mixed-language
+  support (unmeasured).
+- Judge instructions should still say which mode to pick for English if the default is not
+  `AUTO`.
 
 ## Files
 
@@ -45,7 +89,7 @@ hash at build time.
 `MultilingualRecognizer.kt` and `TranscriptionEngine.kt`:
 
 ```kotlin
-enum class RecognitionMode { RUSSIAN_CIS, MULTILINGUAL }          // RUSSIAN_CIS is the default
+enum class RecognitionMode { RUSSIAN_CIS, MULTILINGUAL, AUTO }    // current engine default: RUSSIAN_CIS
 
 object ParakeetFiles {                                              // pinned files above
     const val DIRECTORY = "multilingual-asr"
@@ -87,8 +131,11 @@ TranscriptionEngine(
   recognizer, add a keep rule for `com.k2fsa.sherpa.onnx.Offline*` and `FeatureConfig`. Add an
   instrumented smoke test that creates `ParakeetRecognizer` on the emulator. APK size grows by
   about 670 MB.
-- **Application lead (Pasha):** a mode control (Russian and CIS languages / multilingual,
-  Russian default) and pass it with the installed directory to `TranscriptionEngine`; show the
-  "not installed" error instead of switching modes silently.
+- **Application lead (Pasha):** the three-way mode control from "Positioning in the app"
+  (`AUTO` recommended as default), passed with the installed Parakeet directory to
+  `TranscriptionEngine`; show the mode actually used from `TranscriptionResult.recognitionMode`;
+  in a fixed multilingual mode show the "not installed" error instead of switching silently.
+- **QA and submission (Petya):** in the judge instructions, name the default mode and how to
+  pick "Другие языки" for English; include an English and a mixed recording in device checks.
 - **Speech lead:** measure both modes on the device with `tools/score_competition_json.py`
   once an APK contains the files.
