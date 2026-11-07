@@ -76,6 +76,8 @@ data class ConversationState(
      * or null while a job runs and after a failed or cancelled one. Show this beside the result.
      */
     val recognizedMode: RecognitionMode? = null,
+    /** Last finished phone job only; volatile counters, never written into transcript/export/history. */
+    val measurements: ProcessingMeasurementReport? = null,
 )
 
 /** The data a job processes. The job closes [source] on every path. */
@@ -188,7 +190,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         if (mutableState.value.modelDirectory == null) return
         if (!foreground || !historyReady || mutableState.value.busy || recorder != null || WatchCompanion.state.value.enabled) return
         // Refuse before listening starts, so a recording is never lost to a mode that cannot run.
-        if (RecognitionSettings.blocked(mutableState.value.recognitionMode, multilingualDirectory())) {
+        if (RecognitionSettings.blocked(mutableState.value.recognitionMode, multilingualDirectory(mutableState.value.modelDirectory))) {
             mutableState.update { it.copy(status = RecognitionSettings.MULTILINGUAL_MISSING) }
             return
         }
@@ -203,7 +205,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             val started = SystemClock.elapsedRealtime()
             mutableState.update { it.copy(recording = true, elapsedMs = 0, level = 0f,
                 waveform = List(52) { 0f }, status = "Слушаю разговор", jobError = null,
-                sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null) }
+                sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null, measurements = null) }
             meterJob = viewModelScope.launch {
                 while (isActive) {
                     mutableState.update { it.copy(elapsedMs = SystemClock.elapsedRealtime() - started,
@@ -251,7 +253,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             return
         }
         if (!historyReady || current.busy || current.recording || recorder != null || WatchCompanion.state.value.enabled) return
-        if (RecognitionSettings.blocked(current.recognitionMode, multilingualDirectory())) {
+        if (RecognitionSettings.blocked(current.recognitionMode, multilingualDirectory(current.modelDirectory))) {
             mutableState.update { it.copy(status = RecognitionSettings.MULTILINGUAL_MISSING) }
             return
         }
@@ -280,12 +282,12 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /**
-     * Directory holding every [ParakeetFiles.ALL] file, or null. **Nothing installs these files yet**: the
-     * release lead must package them (with build-time hash checks) and expose them through the paired model
-     * lease, which also protects them from cleanup during a job. Until then AUTO runs GigaAM only and a fixed
-     * multilingual mode refuses to start, rather than guessing a path or switching models silently.
+     * The installed Parakeet directory for the selected acoustic revision, or null. Only the offline build
+     * installs it (the compact network build has none), and the job itself reads it from the model lease
+     * instead, which protects the files from cleanup. This lookup only lets a start-time check refuse early.
      */
-    private fun multilingualDirectory(): File? = null
+    private fun multilingualDirectory(acoustic: File?): File? =
+        if (BuildConfig.EMBEDDED_MODELS && acoustic != null) EmbeddedModels.multilingualDirectory(acoustic) else null
 
     /** Requests cancellation of the running job. A native recognition call finishes before it takes effect. */
     fun cancelProcessing() {
@@ -309,10 +311,12 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         cleanup: () -> String? = { null },
     ) {
         check(jobs.begin(id)) { "Обработка уже идёт" }
+        val timings = ProcessingTimings()
+        var measuredMediaDurationMs: Long? = null
         mutableState.update { it.copy(busy = true, processingAudio = true, recording = false, level = 0f,
             status = PROCESSING_AUDIO_STATUS, jobId = id, jobSource = null, processingState = ProcessingState.ReadingInput,
             jobProgress = null, jobError = null, textStage = null, recognizedMode = null, cancellingProcessing = false,
-            sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null) }
+            sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null, measurements = null) }
         // The mode is fixed when the job starts, so a later selection cannot change work in progress.
         val mode = mutableState.value.recognitionMode
         // Enter the try/finally immediately so clearing the ViewModel cannot skip cleanup.
@@ -328,22 +332,25 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 withContext(NonCancellable + Dispatchers.IO) { pendingImports.begin(id) }
                 // Acquire, use and close native/source handles in the same worker. No open descriptor
                 // crosses a cancellable dispatcher return, where its value could otherwise be discarded.
-                val processed = AudioWork.inference.withLock {
+                val queued = timings.enter(ProcessingMetricStage.QUEUE)
+                val processed = try { AudioWork.inference.withLock {
+                    queued.close()
                     runInterruptible(Dispatchers.Default) {
                         // Pin the acoustic/text pair across both stages, including cancellation.
-                        ModelSelection.acquire(app).use { lease ->
-                            // Checked again here because the files could disappear after the start-time check.
-                            // Fails before the source is opened; cleanup still releases a recorder and its file.
-                            val multilingual = multilingualDirectory()
-                            check(!RecognitionSettings.blocked(mode, multilingual)) { RecognitionSettings.MULTILINGUAL_MISSING }
-                            val opened = prepare()
-                            val (recognized, mediaDurationMs) = opened.source.use { source ->
+                        timings.measure(ProcessingMetricStage.MODEL_VALIDATION) { ModelSelection.acquire(app) }.use { lease ->
+                            // Decided from the leased files, which cannot change during the job. Fails before the
+                            // source is opened; cleanup still releases a recorder and deletes its temporary file.
+                            check(!RecognitionSettings.blocked(mode, lease.multilingualDirectory)) { RecognitionSettings.MULTILINGUAL_MISSING }
+                            val opened = timings.measure(ProcessingMetricStage.SOURCE_OPEN) { prepare() }
+                            val (recognized, mediaDurationMs) = MeasuredPcmWindowSource(opened.source, timings).use { source ->
                                 if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
                                 val duration = source.durationMs
+                                measuredMediaDurationMs = duration
                                 jobs.whileCurrent(id) { mutableState.update { it.copy(jobSource = opened.name,
                                     sourceDisplayName = opened.name, sourceDurationMs = duration,
                                     sourceFormat = source.formatDescription) } }
-                                val result = TranscriptionEngine(lease.directory, mode, multilingual).transcribeWithSpeakers(source) { message ->
+                                val result = TranscriptionEngine(lease.directory, mode, lease.multilingualDirectory, timings)
+                                    .transcribeWithSpeakers(source) { message ->
                                     reportProgress(id, message)
                                 }
                                 result to duration
@@ -352,11 +359,13 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                             if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
                             stage = ProcessingState.Formatting
                             jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Formatting, jobProgress = null) } }
-                            val presented = TextStages.run(lease.textDirectory, recognized.segments)
+                            val presented = timings.measure(ProcessingMetricStage.TEXT) {
+                                TextStages.run(lease.textDirectory, recognized.segments, timings)
+                            }
                             ProcessedAudio(recognized, presented, mediaDurationMs, opened.name)
                         }
                     }
-                }
+                } } finally { queued.close() }
                 val result = processed.recognition
                 val presented = processed.presentation
                 val durationMs = processed.durationMs
@@ -368,7 +377,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 stage = ProcessingState.Saving
                 jobs.whileCurrent(id) { mutableState.update { it.copy(processingState = ProcessingState.Saving, jobProgress = null) } }
                 // Once saving starts it finishes: the atomic file replacement is never cut in half.
-                withContext(NonCancellable + Dispatchers.IO) {
+                timings.enter(ProcessingMetricStage.SAVING).use { withContext(NonCancellable + Dispatchers.IO) {
                     val names = presented.segments.map { it.speakerId }.distinct().filter { it != UNKNOWN_SPEAKER }
                         .mapIndexed { index, speakerId -> speakerId to "Участник ${index + 1}" }.toMap()
                     historyMutex.withLock {
@@ -383,7 +392,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                             voices.prune(retained.map { it.id }.toSet())
                         }
                     }
-                }
+                } }
                 finalState = ProcessingState.Completed
             } catch (_: OutOfMemoryError) {
                 if (!saved) failure = JobError(JobErrorCategory.OutOfMemory, MEMORY_MESSAGE)
@@ -399,12 +408,12 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             } finally {
                 var warning: String? = null
                 try {
-                    withContext(NonCancellable + Dispatchers.IO) {
+                    timings.enter(ProcessingMetricStage.CLEANUP).use { withContext(NonCancellable + Dispatchers.IO) {
                         try {
                             if (!saved && !imported) voices.discard(conversationId)
                             warning = cleanup()
                         } finally { pendingImports.complete(id) }
-                    }
+                    } }
                 } catch (_: Exception) {
                     warning = "Не удалось завершить очистку состояния. Проверьте историю после перезапуска."
                 } finally {
@@ -416,10 +425,16 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                         ProcessingState.Cancelled -> "Обработка отменена"
                         else -> failure?.message ?: "Ошибка: операция не завершена"
                     }
+                    val measurement = timings.finish(when (finalState) {
+                        ProcessingState.Completed -> ProcessingMeasurementOutcome.COMPLETED
+                        ProcessingState.Cancelled -> ProcessingMeasurementOutcome.CANCELLED
+                        else -> ProcessingMeasurementOutcome.FAILED
+                    }, measuredMediaDurationMs)
                     jobs.finish(id) {
                         mutableState.update { it.copy(busy = false, processingAudio = false, recording = false, level = 0f,
                             waveform = List(52) { 0f }, processingState = finalState, jobProgress = null,
-                            jobError = failure, textStage = report, recognizedMode = if (saved) usedMode else null,
+                            jobError = failure, textStage = report, measurements = measurement,
+                            recognizedMode = if (saved) usedMode else null,
                             cancellingProcessing = false, status = warning?.let { w -> "$message. $w" } ?: message) }
                     }
                 }

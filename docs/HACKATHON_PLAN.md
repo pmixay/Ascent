@@ -76,6 +76,42 @@ The merged baseline requires complete same-revision CI, with intended emulator
 cases proven executed rather than only a successful Gradle invocation. The review
 does not promote an internal APK to a compliant competition release.
 
+Current main reconciliation at `f04aaa7`: [Android CI 42393688728](https://github.com/pmixay/Ascent/actions/runs/42393688728)
+and [Model Export 42393688781](https://github.com/pmixay/Ascent/actions/runs/42393688781)
+completed successfully, including publication and required instrumentation gates.
+See [Timofey's ordered review](roles/TIMOFEY_PLAN_REVIEW.md) before reassigning
+already implemented bootstrap/text integration. The first follow-up adds independent
+cached-export input/producer receipts; pushed `2270a40` has [CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
+successful for both jobs and actual cold export/receipt generation; warm reuse
+passed at `d9776cd` / [42400311459](https://github.com/pmixay/Ascent/actions/runs/42400311459).
+[T3 storage instrumentation](roles/TIMOFEY_T3_STATUS.md) at `62fbe3f`
+passed both jobs in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795),
+without substituting sampled logical bytes for physical-device evidence. The
+raw-APK identity follow-up also passed at `d9776cd`. The next
+[T4 measurement hooks](roles/TIMOFEY_T4_STATUS.md) add exclusive job timing/RTF
+without new corpus CI or model/algorithm changes; their own CI and actual ARM
+table remain required. Signing
+access, ARM/device measurements and final release acceptance remain open. This
+status reconciliation does not change the schedule or relax any gate.
+
+Latest explicit user assignment: Timofey now embeds the four pinned Parakeet TDT
+files under `multilingual-asr/`, uncompressed, with CC-BY-4.0 attribution and a
+required optimized-emulator recognizer-creation smoke test. The
+[packaging status](roles/TIMOFEY_PARAKEET_STATUS.md) records the schema-2 three-group
+lease contract and 2.2 GB embedded payload budget; acoustic/server limits and all
+existing checks stay intact. No additional corpus inference is added. This
+extends the earlier frozen scope only as explicitly requested; mode selection,
+large-APK installation, ARM/model acceptance and final release remain unverified
+until their own evidence exists. T4 source `68487f1` passed both CI jobs in
+`42402862397`, which does not certify these later packaging changes.
+
+The subsequent Parakeet implementation `dbbce95` passed both Android jobs in
+[42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446), including
+the enlarged APK's emulator installation and required minified native creation.
+Exact new artifact/hash metadata could not be retrieved after follow-up network
+errors. Mode chooser, physical ARM operation/quality/performance, stable signing
+and final release acceptance are still open; see the packaging status above.
+
 Deliver one clearly identified CI-built ARM64 APK containing every model needed for the default pipeline. On a clean supported phone with networking disabled before first launch, a judge can import an unfamiliar local recording, process it on the phone, inspect timestamped speaker turns and export the exact required JSON. Three successive files must work independently. Provide source, measured results, installation instructions, architecture, limitations and a video of the same release.
 
 Priority order:

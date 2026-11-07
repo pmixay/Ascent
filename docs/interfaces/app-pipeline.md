@@ -11,7 +11,7 @@ Source files are in `prototypes/phone-transcriber/android/app/src/main/java/com/
 picker (Petya) -> ConversationViewModel.importAudio(uri)
   -> job (one at a time, own ID) -> AudioSources.open: content:// descriptor, read in place
   -> PcmWindowSource (16 kHz mono windows)  -> TranscriptionEngine (Andrey), model lease
-  -> lease released -> TextStages.run (local text model) -> encrypted history save
+  -> acoustic sessions/source closed -> TextStages.run (same paired lease) -> encrypted history save
   -> exportTranscript(id, uri, json = true) -> CompetitionJsonExporter -> user-chosen file
 ```
 
@@ -48,9 +48,13 @@ All are on `ConversationViewModel`. None needs the microphone permission.
   (for `AUTO`, the probe's choice), `null` while a job runs and after a failed or cancelled one. Show it beside the result.
   A fixed `MULTILINGUAL` choice without installed Parakeet files is refused before recording starts or a file is
   opened (status `RecognitionSettings.MULTILINGUAL_MISSING`, and `ModelsUnavailable` if it surfaces in a job); it never
-  falls back to GigaAM silently. **Nothing installs the Parakeet files yet**, so today `multilingualDirectory()` in the
-  ViewModel returns `null`: `AUTO` behaves as GigaAM only and `MULTILINGUAL` is always refused. Replace that one function
-  with the paired lease's directory when packaging lands.
+  falls back to GigaAM silently. The job reads the Parakeet directory from `ModelLease.multilingualDirectory`, so the
+  files are protected for the whole job; only the offline build installs them, so in the compact network build `AUTO`
+  runs GigaAM only and `MULTILINGUAL` is refused.
+- `measurements`: volatile last-finished phone job counters and outcome, total/media
+  duration and completed-only RTF. The T4 follow-up shows exclusive stage timings
+  without persistence/logging/export changes; [exact measurement boundaries and
+  pending verification](../roles/TIMOFEY_T4_STATUS.md). It is cleared for a new job.
 
 ### Picker wiring (Petya; `MainActivity.kt` and `GlassUi.kt` are not edited by this change)
 
@@ -141,9 +145,10 @@ file empty.
 
 ## Local text model (Timofey: packaging; Andrey: behaviour)
 
-`TextStages.run` runs after the acoustic lease is released. It reads the files from
-`filesDir/models/text-model/` (`TextModelFiles.MODEL`, `TextModelFiles.TOKENIZER`), checks only their
-sizes, and expects the packaging step to have verified the hashes at extraction. Every outcome is
+`TextStages.run` runs after the acoustic sessions and source close, **while retaining
+the same paired lease**. It reads that lease's immutable `textDirectory`
+(`TextModelFiles.MODEL`, `TextModelFiles.TOKENIZER`), checks their sizes, and expects
+packaging/bootstrap to have verified hashes before readiness. Every outcome is
 reported in `textStage` and appended to the finished status line:
 
 | Status | Meaning |
@@ -153,8 +158,10 @@ reported in `textStage` and appended to the finished status line:
 | `FAILED` | The model failed to load, or failed for every phrase. Recognized words are shown |
 | `SKIPPED` | No speech |
 
-**Open on this integration (blocker for the local-LLM requirement):** nothing extracts the files yet, so on a CI-built APK the
-status will read `UNAVAILABLE` until packaging lands. The stage has not run on Android or ARM.
+Embedded extraction and sequential text integration are now merged; the required
+single synthetic text phrase passed x86_64 CI at `d9776cd` / `42400311459`.
+Compact acoustic-only builds still report `UNAVAILABLE`. Actual full-pipeline ARM
+text execution/performance and Andrey's model/runtime approval remain open.
 
 ## Lifecycle outcomes to test (Petya)
 

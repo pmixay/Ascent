@@ -57,6 +57,35 @@ failure recorded in the historical T1 handoff is now resolved as linked above.
 The user will perform phone tests later. Exact-build offline ARM inference,
 text-model speed/memory and competition acceptance remain open.
 
+Current main evidence: at `f04aaa7`, [Android CI 42393688728](https://github.com/pmixay/Ascent/actions/runs/42393688728)
+and [Model Export 42393688781](https://github.com/pmixay/Ascent/actions/runs/42393688781)
+both completed successfully. Timofey's [ordered plan review](docs/roles/TIMOFEY_PLAN_REVIEW.md)
+separates already implemented packaging/integration from missing access, device,
+measurement and release work. Its first follow-up adds cached-export validation
+receipts bound to source/dependency/fixture hashes and the producer CI run;
+those branch changes are pushed as `2270a40`, with [CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
+completed successfully for both jobs, including cold export/receipt generation.
+Warm receipt reuse passed at `d9776cd` in [run 42400311459](https://github.com/pmixay/Ascent/actions/runs/42400311459),
+preserving the real cold producer identity and revalidating payloads. [T3 storage tooling](docs/roles/TIMOFEY_T3_STATUS.md)
+at `62fbe3f` passed both jobs in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795).
+Its measured table separates ARM64 archive inspection from installed x86_64
+package/model sizes; it is not ARM or physical peak-storage acceptance. The raw-APK
+digest follow-up passed both jobs at `d9776cd`. The next [T4 instrumentation](docs/roles/TIMOFEY_T4_STATUS.md)
+adds exclusive stage timings/total RTF to the last-job UI state without logging or
+persisting job metrics. It passed both CI jobs at `68487f1` / [42402862397](https://github.com/pmixay/Ascent/actions/runs/42402862397);
+real full-pipeline ARM measurements remain open.
+
+The user now explicitly requested [Parakeet embedded packaging](docs/roles/TIMOFEY_PARAKEET_STATUS.md).
+The task branch merges main's multilingual engine and adds its four pinned files
+under `multilingual-asr/`, uncompressed, with CC-BY-4.0 attribution, a third leased
+group and a required R8/emulator recognizer-creation smoke test. Schema-2 payload
+budget is 2.2 GB; the acoustic/server schema and compact weight-absence rules stay
+unchanged. Both jobs for `dbbce95` passed in [CI 42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446),
+including enlarged-APK emulator installation and required minified Parakeet
+creation. Exact new artifact/hash metadata is not yet collected due to follow-up
+network errors. Default recognition is still GigaAM; mode selection, ARM quality/
+performance and final release validation remain separate.
+
 The product plan below remains the production target. The separate
 [Ascent v0.1 phone transcription prototype](prototypes/phone-transcriber/README.md) is present
 for review: listening stops into automatic local transcription, then the temporary

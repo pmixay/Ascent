@@ -2,9 +2,17 @@
 
 Status: model choice of the team, 7 November 2026, from host measurements in
 [model-report.md](../hackathon/model-report.md#second-recognizer-english-and-multilingual-candidates-host).
-**Engine path written, not yet integrated:** the engine can run Parakeet (JVM-tested logic,
-host-mirrored), but no APK contains the files, no UI selects the mode, and nothing here has
-run on Android or ARM.
+The embedded Parakeet payload and optimized emulator creation probe passed at
+`dbbce95` / `42404340446`; actual ARM inference and mode selection UI remain open.
+Andrey's later `50a5d90` AUTO path is now integrated with the task branch's timers
+in source and requires its own merged-revision CI.
+
+Timofey's explicit packaging follow-up merges this engine path and adds a
+schema-2 embedded `multilingual-asr/` group with unchanged four file pins,
+CC-BY-4.0 attribution, uncompressed APK entries, triple-revision leases and a
+required minified-emulator recognizer-creation test. [Implementation and evidence
+status](../roles/TIMOFEY_PARAKEET_STATUS.md). New combined AUTO/timing CI is pending; normal app mode
+selection and actual ARM acceptance remain Pasha/Petya handoffs.
 
 ## Decision
 
@@ -82,7 +90,7 @@ hash at build time.
 `MultilingualRecognizer.kt` and `TranscriptionEngine.kt`:
 
 ```kotlin
-enum class RecognitionMode { RUSSIAN_CIS, MULTILINGUAL }          // RUSSIAN_CIS is the default
+enum class RecognitionMode { RUSSIAN_CIS, MULTILINGUAL, AUTO }    // current engine default: RUSSIAN_CIS
 
 object ParakeetFiles {                                              // pinned files above
     const val DIRECTORY = "multilingual-asr"
@@ -94,6 +102,7 @@ TranscriptionEngine(
     modelDirectory: File,                                           // GigaAM pack: always used for speakers
     mode: RecognitionMode = RecognitionMode.RUSSIAN_CIS,
     multilingualDirectory: File? = null,                            // directory holding ParakeetFiles.ALL
+    timings: ProcessingTimings? = null,                            // optional exclusive stage counters
 ).transcribeWithSpeakers(source, onProgress)
 ```
 
@@ -129,10 +138,12 @@ TranscriptionEngine(
   in a fixed multilingual mode show the "not installed" error instead of switching silently.
   *Status: ViewModel side written, not built or run.* `setRecognitionMode`, the remembered choice,
   `ConversationState.recognitionMode` / `recognizedMode`, the engine arguments and the refusal are in source
-  ([app-pipeline.md](app-pipeline.md)); `RecognitionSettingsTest` covers the pure rules. **Open:** the
-  three-way control and the "Распознано: …" label are Petya's UI (`MainActivity.kt` / `GlassUi.kt`); the
-  installed directory is Timofey's packaging. Until it exists the ViewModel's `multilingualDirectory()` returns
-  `null`, so `AUTO` runs GigaAM only and `MULTILINGUAL` is refused. The change has not passed CI.
+  ([app-pipeline.md](app-pipeline.md)); the job passes `ModelLease.multilingualDirectory` (Timofey's
+  [Parakeet packaging](../roles/TIMOFEY_PARAKEET_STATUS.md), merged into this branch) to `TranscriptionEngine`.
+  `RecognitionSettingsTest` covers the pure rules. **Open:** the three-way control and the "Распознано: …"
+  label are Petya's UI (`MainActivity.kt` / `GlassUi.kt`). The compact build has no Parakeet, so there `AUTO`
+  runs GigaAM only and `MULTILINGUAL` is refused. No `AUTO` or `MULTILINGUAL` job has run on Android or ARM;
+  the packaging evidence is recognizer creation on x86_64, not inference. The merged result has not passed CI.
 - **QA and submission (Petya):** in the judge instructions, name the default mode and how to
   pick "Другие языки" for English; include an English and a mixed recording in device checks.
 - **Speech lead:** measure both modes on the device with `tools/score_competition_json.py`

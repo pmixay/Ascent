@@ -37,10 +37,14 @@ class EmbeddedModelInstallerTest {
         fun descriptor(payloads: Map<String, ByteArray>): ByteArray {
             val files = JSONObject()
             payloads.forEach { (name, bytes) ->
-                files.put(name, JSONObject().put("bytes", bytes.size).put("sha256", bytes.inputStream().use(::sha256)))
+                val parakeet = ParakeetFiles.ALL.find { name == "multilingual-asr/${it.name}" }
+                files.put(name, JSONObject().put("bytes", parakeet?.bytes ?: bytes.size)
+                    .put("sha256", parakeet?.sha256 ?: bytes.inputStream().use(::sha256)))
             }
-            return JSONObject().put("schema_version", 1).put("acoustic_model_id", ModelSpec.MODEL_ID)
+            return JSONObject().put("schema_version", 2).put("acoustic_model_id", ModelSpec.MODEL_ID)
                 .put("text_repository", TextModelFiles.REPOSITORY).put("text_revision", TextModelFiles.REVISION)
+                .put("multilingual_repository", ParakeetFiles.REPOSITORY).put("multilingual_revision", ParakeetFiles.REVISION)
+                .put("multilingual_upstream", ParakeetFiles.UPSTREAM).put("multilingual_license", ParakeetFiles.LICENSE)
                 .put("files", files).toString().toByteArray()
         }
         val complete = descriptor(data)
@@ -57,6 +61,7 @@ class EmbeddedModelInstallerTest {
         assertTrue(installer.valid(installed))
         assertEquals(listOf("а", " "), ModelSpec.load(installed.acoustic).tokens)
         assertEquals(EmbeddedBundle.textNames, installed.text.list()!!.toSet())
+        assertEquals(EmbeddedBundle.multilingualNames, installed.multilingual.list()!!.toSet())
         assertFalse(root.list()!!.any { it.startsWith(".") })
     }
 
@@ -94,6 +99,34 @@ class EmbeddedModelInstallerTest {
             EmbeddedModelInstaller(root, bundle, { error("No space") }, isLeased = { it == leased.acoustic }) { 0 }.install()
         }
         assertTrue(leased.acoustic.exists())
+    }
+
+    @Test fun deathBeforeThirdRenameRecoversWithoutSelectingTwoGroupRevision() = inRoot { root ->
+        val (bundle, data) = fixture()
+        val partial = EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(data.getValue(it)) }) { Long.MAX_VALUE }.install()
+        partial.multilingual.deleteRecursively()
+        val installer = EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(data.getValue(it)) }) {
+            if (partial.acoustic.exists() || partial.text.exists()) 0 else Long.MAX_VALUE
+        }
+        assertFalse(installer.valid(partial))
+        val recovered = installer.install()
+        assertFalse(partial.acoustic.exists())
+        assertFalse(partial.text.exists())
+        assertTrue(recovered.multilingual.isDirectory)
+        assertTrue(installer.valid(recovered))
+    }
+
+    @Test fun corruptMultilingualGroupNeverReturnsReadinessAndKeepsLeasedTriple() = inRoot { root ->
+        val (bundle, data) = fixture()
+        val installer = EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(data.getValue(it)) }) { Long.MAX_VALUE }
+        val first = installer.install()
+        File(first.multilingual, "tokens.txt").writeText("corrupt")
+        assertFalse(installer.valid(first))
+        val second = EmbeddedModelInstaller(root, bundle, { ByteArrayInputStream(data.getValue(it)) },
+            isLeased = { it == first.acoustic }) { Long.MAX_VALUE }.install(first)
+        assertNotEquals(first.acoustic, second.acoustic)
+        assertTrue(first.acoustic.isDirectory && first.text.isDirectory && first.multilingual.isDirectory)
+        assertTrue(installer.valid(second))
     }
 
     @Test fun sameSizeCorruptionNeverReturnsExistingReadiness() = inRoot { root ->

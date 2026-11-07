@@ -2,6 +2,18 @@
 
 ## Mission
 
+### New explicit packaging handoff — Parakeet
+
+Timofey is implementing the user's requested [schema-2 Parakeet bundle](TIMOFEY_PARAKEET_STATUS.md),
+not the mode chooser. After verified bootstrap, the same `ModelLease` exposes
+`multilingualDirectory` beside `directory` and `textDirectory`; it stays leased
+through both acoustic and text stages. Compact leases return null. Default GigaAM
+behavior remains unchanged; new packaging/smoke still needs its own CI.
+
+- [ ] Wire explicit recognition-mode selection using the leased multilingual directory;
+  keep GigaAM default and report missing files without automatic fallback. Coordinate
+  the now-merged constructor (`mode`, `multilingualDirectory`, optional named `timings`).
+
 Deliver the application path from a selected local audio file to a safely retained transcript and specification-compatible JSON. Own the job lifecycle and meaningful local text-LLM integration. Parent plan: [HACKATHON_PLAN.md](../HACKATHON_PLAN.md), packages H00/H02/H03/H06/H07/H12.
 
 **Today: 7 November 2026, 11:00–20:00 MSK (UTC+3). Code handoff: 17:00; acceptance sign-off: 19:30; submission reserve: 19:30–20:00.** This replaces all working-day/effort estimates below. Builds, application tests and lint use existing GitHub CI; phones install its APKs. Missing mandatory work is a blocker, not automatically complete at the deadline.
@@ -39,7 +51,7 @@ are not inspected.
 | Text stage time cap | **Open** | Context is capped (64-word blocks), nothing is generated and nothing is retried, but there is no per-job time limit; a slow ARM run is bounded only by cancellation. Left unchanged after the freeze |
 | Storage and encrypted-history errors | **Pass in CI only** | Atomic non-cancellable save and a `Storage` error category exist; low-storage and corrupt-history behavior on a device is not run |
 | Three unfamiliar files in sequence, offline, on ARM | **Not run** | Petya's rehearsal; see [TEST_RESULTS.md](../TEST_RESULTS.md) |
-| Language mode (`AUTO` / Russian / other languages) in the job path | **Source written after this record; not built, not in CI** | Added at 22:46 MSK, after the 20:00 deadline: `setRecognitionMode`, remembered choice, mode and Parakeet directory passed to `TranscriptionEngine`, `recognizedMode` in state, early refusal of a fixed multilingual choice (`RecognitionSettings`, `RecognitionSettingsTest`). **Open:** nothing installs the Parakeet files (Timofey), so `AUTO` runs GigaAM only and `MULTILINGUAL` is refused; the control and the used-mode label are Petya's UI; English has no device result. See [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md#handoff) |
+| Language mode (`AUTO` / Russian / other languages) in the job path | **Source written after this record; not built, not in CI** | Added at 22:46 MSK, after the 20:00 deadline, and merged with Timofey's Parakeet packaging branch: `setRecognitionMode`, remembered choice, mode and `ModelLease.multilingualDirectory` passed to `TranscriptionEngine`, `recognizedMode` in state, refusal of a fixed multilingual choice without installed files (`RecognitionSettings`, `RecognitionSettingsTest`). **Open:** the three-way control and the used-mode label are Petya's UI; the compact build has no Parakeet; no `AUTO` or `MULTILINGUAL` job has run on Android or ARM and English has no device result. See [multilingual-recognizer.md](../interfaces/multilingual-recognizer.md#handoff) |
 
 **Readiness.** The application lane is **incomplete**, not signed off as ready: the local-LLM requirement,
 the lifecycle matrix, a validated device JSON and the three-file ARM rehearsal are unmeasured, and the deadline

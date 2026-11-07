@@ -44,11 +44,33 @@ specific commit's completed compact and offline jobs.
 Reference-export provenance must remain explicit in development reports.
 
 Timofey's embedded assets/bootstrap and Pasha's job/text-stage work are now
-integrated on `claude/improve-app-peter`. The existing workflow retains compact
+merged to main at `f04aaa7`. The existing workflow retains compact
 checks and adds a separate embedded build with strict non-skipped instrumentation
 evidence. Both model groups remain leased across the sequential acoustic/text
-pipeline. Exact merged-revision CI remains pending; phone acceptance is deferred
-at the user's request. Historical teammate runs are in
+pipeline. Exact-main [Android CI 42393688728](https://github.com/pmixay/Ascent/actions/runs/42393688728)
+and [Model Export 42393688781](https://github.com/pmixay/Ascent/actions/runs/42393688781)
+passed; phone acceptance is deferred at the user's request. The
+[ordered Timofey review](docs/roles/TIMOFEY_PLAN_REVIEW.md) records the remaining
+access, ARM, measurement and release gaps. Its new cached-export validation receipt
+checks are pushed as `2270a40`, with [branch CI 42395674575](https://github.com/pmixay/Ascent/actions/runs/42395674575)
+successful for both jobs and actual cold export/receipt generation; warm receipt
+reuse passed at `d9776cd` / [42400311459](https://github.com/pmixay/Ascent/actions/runs/42400311459).
+[T3 storage tooling](docs/roles/TIMOFEY_T3_STATUS.md) at `62fbe3f`
+passed both jobs in [run 42396663795](https://github.com/pmixay/Ascent/actions/runs/42396663795)
+and reports separate APK/x86_64 measurements, not completed ARM/physical-peak
+evidence. The raw-APK identity follow-up passed both jobs at `d9776cd`. The next
+[T4 measurement slice](docs/roles/TIMOFEY_T4_STATUS.md) adds exclusive stage timing
+and completed-job RTF in volatile UI state; its CI and actual ARM results remain
+required. No device timing/memory or release criterion is completed by tooling.
+T4 timing hooks passed both jobs at `68487f1` / [42402862397](https://github.com/pmixay/Ascent/actions/runs/42402862397).
+The user's explicit [Parakeet handoff](docs/roles/TIMOFEY_PARAKEET_STATUS.md) now
+adds a schema-2 third embedded group, pinned/uncompressed assets and attribution,
+and a required emulator JNI-configuration creation probe. Its new CI and enlarged
+APK emulator installation passed at `dbbce95` in [42404340446](https://github.com/pmixay/Ascent/actions/runs/42404340446),
+with both Android jobs successful and both embedded methods required. Exact new
+artifact/hash metadata is uncollected after follow-up network errors; mode
+selection/ARM acceptance stay open.
+Historical teammate runs are in
 [T2 status](docs/roles/TIMOFEY_T2_STATUS.md).
 
 Model publication is repaired and independently verified; see
