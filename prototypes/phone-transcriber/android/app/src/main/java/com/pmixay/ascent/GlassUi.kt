@@ -27,6 +27,10 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -37,6 +41,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
@@ -100,6 +105,7 @@ internal fun ConversationScreen(
     onToggleConversation: (String) -> Unit,
     onRename: (String, String, String) -> Unit,
     onExport: (String, Boolean) -> Unit,
+    onRecognitionModeChange: (RecognitionMode) -> Unit,
     watch: WatchPhoneState = WatchPhoneState(),
     onWatchToggle: () -> Unit = {},
     onWatchPauseResume: () -> Unit = {},
@@ -122,6 +128,10 @@ internal fun ConversationScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             spacedItem("wordmark") { AscentWordmark(Modifier.widthIn(max = 620.dp).fillMaxWidth()) }
+            spacedItem("recognition-mode") {
+                RecognitionModeControl(state.recognitionMode, enabled = editable && !watch.enabled,
+                    multilingualPackaged = BuildConfig.EMBEDDED_MODELS, onSelect = onRecognitionModeChange)
+            }
             spacedItem("import") {
                 GlassCard {
                     Text("РАСШИФРОВКА ФАЙЛА", fontSize = 14.sp, letterSpacing = 1.1.sp,
@@ -251,6 +261,67 @@ internal fun ConversationScreen(
 }
 
 @Composable
+private fun RecognitionModeControl(
+    selected: RecognitionMode,
+    enabled: Boolean,
+    multilingualPackaged: Boolean,
+    onSelect: (RecognitionMode) -> Unit,
+) {
+    var choosing by remember { mutableStateOf(false) }
+    val selectedTitle = when (selected) {
+        RecognitionMode.AUTO -> "Авто"
+        RecognitionMode.RUSSIAN_CIS -> "Русский"
+        RecognitionMode.MULTILINGUAL -> "Другие языки"
+    }
+    GlassCard {
+        TextButton(onClick = { choosing = true }, enabled = enabled,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("recognition-mode-control")) {
+            Text("Язык: $selectedTitle", fontSize = 18.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Text(if (enabled) "Для файла и микрофона телефона. Нажмите, чтобы изменить."
+            else "Изменение языка доступно после завершения записи, обработки или приёма с часов.",
+            fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
+        if (!multilingualPackaged) Text(
+            if (selected == RecognitionMode.MULTILINGUAL) RecognitionSettings.MULTILINGUAL_MISSING
+            else "В этой сборке «Авто» использует только русский режим: модель других языков не включена.",
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+                .testTag("recognition-mode-unavailable"), fontSize = 16.sp, lineHeight = 23.sp, color = Ink)
+    }
+    if (choosing && enabled) AlertDialog(
+        onDismissRequest = { choosing = false },
+        title = { Text("Язык распознавания") },
+        text = {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).selectableGroup()) {
+                for (mode in listOf(RecognitionMode.AUTO, RecognitionMode.RUSSIAN_CIS, RecognitionMode.MULTILINGUAL)) {
+                    val title = when (mode) {
+                        RecognitionMode.AUTO -> "Авто"
+                        RecognitionMode.RUSSIAN_CIS -> "Русский"
+                        RecognitionMode.MULTILINGUAL -> "Другие языки"
+                    }
+                    val description = when (mode) {
+                        RecognitionMode.AUTO -> if (multilingualPackaged) "Язык определяется по первым секундам записи"
+                            else "В этой сборке доступен только русский режим"
+                        RecognitionMode.RUSSIAN_CIS -> "Русский и языки СНГ: казахский, киргизский, узбекский"
+                        RecognitionMode.MULTILINGUAL -> "Английский и европейские языки"
+                    }
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
+                        .selectable(selected = mode == selected, role = Role.RadioButton,
+                            onClick = { onSelect(mode); choosing = false }).testTag("recognition-mode-${mode.name}")
+                        .padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = mode == selected, onClick = null)
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text(title, fontSize = 17.sp, fontWeight = FontWeight.Medium, color = Ink)
+                            Text(description, fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { choosing = false }) { Text("Закрыть") } },
+    )
+}
+
+@Composable
 private fun WatchStatus(
     watch: WatchPhoneState,
     enabled: Boolean,
@@ -336,11 +407,32 @@ private fun ConversationStatus(state: ConversationState) {
             if (state.cancellingProcessing) Text("Текущий шаг завершится перед отменой. Дождитесь остановки.",
                 fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
         }
-        if (!state.processingAudio) state.measurements?.let { measurement ->
-            Text(measurement.describe(), fontSize = 16.sp, lineHeight = 23.sp, color = Ink,
-                modifier = Modifier.testTag("processing-measurements"))
+        if (!state.processingAudio && !state.recording) {
+            state.recognizedMode?.let { mode ->
+                val label = if (mode == RecognitionMode.MULTILINGUAL) "Другие языки" else "Русский"
+                Text("Режим последнего результата: $label", modifier = Modifier.testTag("recognized-mode"),
+                    fontSize = 16.sp, lineHeight = 23.sp, color = Ink)
+            }
+            state.measurements?.let { ProcessingMeasurements(it) }
         }
     }
+}
+
+@Composable
+private fun ProcessingMeasurements(report: ProcessingMeasurementReport) {
+    var expanded by remember(report) { mutableStateOf(false) }
+    Text(report.summary(), fontSize = 16.sp, lineHeight = 23.sp, color = Ink,
+        modifier = Modifier.testTag("processing-measurements"))
+    if (report.realTimeFactor != null) Text(
+        "RTF — время обработки / длительность аудио. Меньше 1 — быстрее длительности записи.",
+        fontSize = 15.sp, lineHeight = 22.sp, color = Ink)
+    TextButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        .semantics { stateDescription = if (expanded) "Развёрнуто" else "Свёрнуто" }
+        .testTag("processing-measurements-toggle")) {
+        Text(if (expanded) "Скрыть время по этапам" else "Показать время по этапам", fontSize = 16.sp)
+    }
+    if (expanded) Text(report.stageDetails(), modifier = Modifier.testTag("processing-measurements-details"),
+        fontSize = 16.sp, lineHeight = 23.sp, color = Ink)
 }
 
 @Composable
@@ -673,5 +765,5 @@ private fun RecordOrb(recording: Boolean, level: Float, enabled: Boolean, onClic
 @Preview(name = "Ascent — yellow glass", widthDp = 393, heightDp = 852, showBackground = true)
 @Composable
 private fun ConversationPreview() {
-    AscentTheme { ConversationScreen(ConversationState(), {}, {}, {}, {}, { _, _, _ -> }, { _, _ -> }) }
+    AscentTheme { ConversationScreen(ConversationState(), {}, {}, {}, {}, { _, _, _ -> }, { _, _ -> }, {}) }
 }

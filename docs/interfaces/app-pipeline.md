@@ -44,19 +44,19 @@ All are on `ConversationViewModel`. None needs the microphone permission.
   ModelsUnavailable, OutOfMemory, Storage, Interrupted, Internal`. `jobError.message` is the Russian
   sentence to show; it never contains transcript text.
 - `textStage`: counts and time of the text model for the last completed job (see below).
-- `recognitionMode`: the selected mode. `recognizedMode`: the recognizer the last **saved** job actually used
-  (for `AUTO`, the probe's choice), `null` while a job runs and after a failed or cancelled one. Show it beside the result.
-  A fixed `MULTILINGUAL` choice without installed Parakeet files is refused before recording starts or a file is
-  opened (status `RecognitionSettings.MULTILINGUAL_MISSING`, and `ModelsUnavailable` if it surfaces in a job); it never
-  falls back to GigaAM silently. The job reads the Parakeet directory from `ModelLease.multilingualDirectory`, so the
-  files are protected for the whole job; only the offline build installs them, so in the compact network build `AUTO`
-  runs GigaAM only and `MULTILINGUAL` is refused.
 - `measurements`: volatile last-finished phone job counters and outcome, total/media
   duration and completed-only RTF. The T4 follow-up shows exclusive stage timings
   without persistence/logging/export changes; [exact measurement boundaries and
   pending verification](../roles/TIMOFEY_T4_STATUS.md). It is cleared for a new job.
+- `recognitionMode`: the selected mode. `recognizedMode`: the recognizer the last **saved** job actually used
+  (for `AUTO`, the probe's choice), `null` while a job runs and after a failed or cancelled one. Show it beside the result.
+  A fixed `MULTILINGUAL` choice without installed Parakeet files is refused before recording starts or a file is
+  opened (status `RecognitionSettings.MULTILINGUAL_MISSING`, and `ModelsUnavailable` if it surfaces in a job); it never
+  falls back to GigaAM silently. The embedded package provides the verified directory through the
+  job's triple lease; the compact package has no Parakeet files, so `AUTO` stays on GigaAM and
+  fixed `MULTILINGUAL` is refused. The pre-start readiness hint never replaces the worker's lease check.
 
-### Picker wiring (Petya; `MainActivity.kt` and `GlassUi.kt` are not edited by this change)
+### Picker and language wiring (Petya)
 
 ```kotlin
 val importAudio = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -64,6 +64,7 @@ val importAudio = rememberLauncherForActivityResult(ActivityResultContracts.Open
 }
 // button: importAudio.launch(arrayOf("audio/*"))   // disable while state.busy
 // cancel button while state.processingAudio: conversation.cancelProcessing()
+// language picker: conversation.setRecognitionMode(mode)
 ```
 
 Source construction, inference and descriptor closure share one worker scope, so cancellation

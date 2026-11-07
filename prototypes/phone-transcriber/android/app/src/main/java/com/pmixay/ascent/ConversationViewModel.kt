@@ -69,6 +69,8 @@ data class ConversationState(
     val jobProgress: Float? = null,
     val jobError: JobError? = null,
     val textStage: TextStageReport? = null,
+    /** Last finished phone job only; volatile counters, never written into transcript/export/history. */
+    val measurements: ProcessingMeasurementReport? = null,
     /** The language mode chosen for the next job; remembered across launches. */
     val recognitionMode: RecognitionMode = RecognitionSettings.DEFAULT,
     /**
@@ -76,8 +78,6 @@ data class ConversationState(
      * or null while a job runs and after a failed or cancelled one. Show this beside the result.
      */
     val recognizedMode: RecognitionMode? = null,
-    /** Last finished phone job only; volatile counters, never written into transcript/export/history. */
-    val measurements: ProcessingMeasurementReport? = null,
 )
 
 /** The data a job processes. The job closes [source] on every path. */
@@ -190,7 +190,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         if (mutableState.value.modelDirectory == null) return
         if (!foreground || !historyReady || mutableState.value.busy || recorder != null || WatchCompanion.state.value.enabled) return
         // Refuse before listening starts, so a recording is never lost to a mode that cannot run.
-        if (RecognitionSettings.blocked(mutableState.value.recognitionMode, multilingualDirectory(mutableState.value.modelDirectory))) {
+        if (RecognitionSettings.blocked(mutableState.value.recognitionMode, multilingualDirectory())) {
             mutableState.update { it.copy(status = RecognitionSettings.MULTILINGUAL_MISSING) }
             return
         }
@@ -205,7 +205,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             val started = SystemClock.elapsedRealtime()
             mutableState.update { it.copy(recording = true, elapsedMs = 0, level = 0f,
                 waveform = List(52) { 0f }, status = "Слушаю разговор", jobError = null,
-                sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null, measurements = null) }
+                sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null, measurements = null, recognizedMode = null) }
             meterJob = viewModelScope.launch {
                 while (isActive) {
                     mutableState.update { it.copy(elapsedMs = SystemClock.elapsedRealtime() - started,
@@ -249,11 +249,13 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         if (uri == null) return
         val current = mutableState.value
         if (current.modelDirectory == null) {
-            mutableState.update { it.copy(status = "Модели ещё загружаются. Повторите импорт, когда они будут готовы.") }
+            mutableState.update { it.copy(status = if (it.modelOnlineUpdates)
+                "Модели ещё загружаются. Повторите импорт, когда они будут готовы."
+                else "Встроенные модели ещё не готовы. Дождитесь подготовки в разделе «Модели».") }
             return
         }
         if (!historyReady || current.busy || current.recording || recorder != null || WatchCompanion.state.value.enabled) return
-        if (RecognitionSettings.blocked(current.recognitionMode, multilingualDirectory(current.modelDirectory))) {
+        if (RecognitionSettings.blocked(current.recognitionMode, multilingualDirectory())) {
             mutableState.update { it.copy(status = RecognitionSettings.MULTILINGUAL_MISSING) }
             return
         }
@@ -281,13 +283,10 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         mutableState.update { it.copy(recognitionMode = mode) }
     }
 
-    /**
-     * The installed Parakeet directory for the selected acoustic revision, or null. Only the offline build
-     * installs it (the compact network build has none), and the job itself reads it from the model lease
-     * instead, which protects the files from cleanup. This lookup only lets a start-time check refuse early.
-     */
-    private fun multilingualDirectory(acoustic: File?): File? =
-        if (BuildConfig.EMBEDDED_MODELS && acoustic != null) EmbeddedModels.multilingualDirectory(acoustic) else null
+    /** Readiness hint only. Inference always uses the directory protected by its own triple lease. */
+    private fun multilingualDirectory(): File? = if (BuildConfig.EMBEDDED_MODELS) {
+        mutableState.value.modelDirectory?.let(EmbeddedModels::multilingualDirectory)
+    } else null
 
     /** Requests cancellation of the running job. A native recognition call finishes before it takes effect. */
     fun cancelProcessing() {
@@ -317,7 +316,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             status = PROCESSING_AUDIO_STATUS, jobId = id, jobSource = null, processingState = ProcessingState.ReadingInput,
             jobProgress = null, jobError = null, textStage = null, recognizedMode = null, cancellingProcessing = false,
             sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null, measurements = null) }
-        // The mode is fixed when the job starts, so a later selection cannot change work in progress.
+        // Freeze the selected mode for this job.
         val mode = mutableState.value.recognitionMode
         // Enter the try/finally immediately so clearing the ViewModel cannot skip cleanup.
         activeJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -336,11 +335,10 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 val processed = try { AudioWork.inference.withLock {
                     queued.close()
                     runInterruptible(Dispatchers.Default) {
-                        // Pin the acoustic/text pair across both stages, including cancellation.
+                        // Pin all three model groups across both stages, including cancellation.
                         timings.measure(ProcessingMetricStage.MODEL_VALIDATION) { ModelSelection.acquire(app) }.use { lease ->
-                            // Decided from the leased files, which cannot change during the job. Fails before the
-                            // source is opened; cleanup still releases a recorder and deletes its temporary file.
-                            check(!RecognitionSettings.blocked(mode, lease.multilingualDirectory)) { RecognitionSettings.MULTILINGUAL_MISSING }
+                            val multilingual = lease.multilingualDirectory
+                            check(!RecognitionSettings.blocked(mode, multilingual)) { RecognitionSettings.MULTILINGUAL_MISSING }
                             val opened = timings.measure(ProcessingMetricStage.SOURCE_OPEN) { prepare() }
                             val (recognized, mediaDurationMs) = MeasuredPcmWindowSource(opened.source, timings).use { source ->
                                 if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
@@ -349,8 +347,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                                 jobs.whileCurrent(id) { mutableState.update { it.copy(jobSource = opened.name,
                                     sourceDisplayName = opened.name, sourceDurationMs = duration,
                                     sourceFormat = source.formatDescription) } }
-                                val result = TranscriptionEngine(lease.directory, mode, lease.multilingualDirectory, timings)
-                                    .transcribeWithSpeakers(source) { message ->
+                                val result = TranscriptionEngine(lease.directory, mode, multilingual, timings = timings).transcribeWithSpeakers(source) { message ->
                                     reportProgress(id, message)
                                 }
                                 result to duration

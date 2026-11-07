@@ -22,6 +22,16 @@ Deliver the application path from a selected local audio file to a safely retain
 
 At fetched `origin/main` `4b16e3a`, the application already has local acoustic inference, encrypted conversation/voice storage, model leases/downloads and timeline UI. PR #2 adds the segmenter/tests, frozen speech/English manifests, host ASR/timestamp study and text-model shortlist/grammar contract. Do not rewrite those components or wait for another model-selection study. **Remaining:** reachable source-safe import, competition JSON, job safeguards and the actual Android text stage. Andrey is the ML owner; this role remains the application/acceptance owner after the pushed role swap.
 
+## Integration follow-up on Petya's branch
+
+`codex/petya-open-work` integrates this branch through `00bb1ab` with Timofey's
+schema-2 packaging through `42d4de9`. The temporary null directory is replaced by
+the job's triple lease; the Russian mode picker and actual-used label are wired.
+The timing counters and cancellation/source ownership paths are preserved.
+[PR #5](https://github.com/pmixay/Ascent/pull/5) and
+[TEST_RESULTS.md](../TEST_RESULTS.md) carry combined CI/artifact evidence.
+The older sign-off below remains historical; phone/ARM acceptance is still open.
+
 ## Application sign-off record at 19:58 MSK (CI green on the merged revision; nothing run on a phone or ARM)
 
 Written after fetching `origin/main` `f04aaa7` and re-reading the source. It supersedes the 16:30 table
