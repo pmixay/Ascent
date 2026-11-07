@@ -3,8 +3,8 @@
 Petya owns the new H11 evaluation set. Six English AMI meeting excerpts and six Russian DataHive conversations were selected and hash-pinned on 7 November 2026 **before application inference**. AMI has human annotations that still need review; DataHive supplies no transcripts, so its audio is a source-only holdout until independent references are made. No APK has processed these files. Main `2133dfa` now records one **host**
 GigaAM/Parakeet/Auto evaluation of the six AMI excerpts after the rule/model freeze;
 [measured results and conditions](hackathon/model-report.md#second-recognizer-english-and-multilingual-candidates-host).
-Their predictions are inspected, so they are no longer unseen for subsequent
-changes; tuning on them requires a fresh validation set. This is not phone acceptance. A Russian meeting-like set remains unselected. The old Dialogs `masha_dima_part3` / `masha_sveta_part3` recordings already informed the ASR study, and the earlier reserved recordings informed diarization fixes; neither is a fresh holdout. Do not select cases by inspecting this candidate's predictions.
+Their aggregate results have been inspected, so this is no longer an unseen
+evaluation for subsequent changes; tuning on them requires a fresh validation set. This is not phone acceptance. A Russian meeting-like set remains unselected. The old Dialogs `masha_dima_part3` / `masha_sveta_part3` recordings already informed the ASR study, and the earlier reserved recordings informed diarization fixes; neither is a fresh holdout. Do not select cases by inspecting this candidate's predictions.
 
 ## Frozen English meeting slice
 

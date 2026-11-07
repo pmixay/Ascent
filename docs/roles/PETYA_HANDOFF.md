@@ -27,7 +27,8 @@ quality measurements and the demonstration video remain open.
   attribution, source-safe import, cancellation cleanup, exact raw-word JSON,
   encrypted text history, watch ownership and seven-day expiry.
 
-New source requires its own combined CI. The existing required optimized-activity
+Combined source CI and its exact artifact identities are tracked in
+[PR #5](https://github.com/pmixay/Ascent/pull/5). The existing required optimized-activity
 case now exercises language selection and recreation through accessibility actions;
 JVM cases cover partial/unknown-duration timing presentation. No local build/test,
 new corpus job or two-hour CI evaluation is introduced. Exact candidate evidence
