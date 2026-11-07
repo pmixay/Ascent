@@ -25,6 +25,7 @@ All are on `ConversationViewModel`. None needs the microphone permission.
 | `cancelProcessing()` | Cancels the running job. A native recognition call finishes first, so cancellation can lag by one window. The busy flag stays set until cleanup ends; only then can another job start. |
 | `stopRecording()` | Unchanged for the user; it now runs through the same job path. |
 | `exportTranscript(id, uri: Uri?, json: Boolean)` | `null` changes nothing. `json = true` writes the competition format, also for a recording without speech. `json = false` writes the TXT. The document is built in memory first. |
+| `setRecognitionMode(mode: RecognitionMode)` | Chooses `AUTO` (default), `RUSSIAN_CIS` or `MULTILINGUAL` for the **next** job and remembers it (`RecognitionSettings`, preference `recognitionMode`; an unknown stored value reads as `AUTO`). A running job keeps the mode it started with. Labels and subtitles: [multilingual-recognizer.md](multilingual-recognizer.md#positioning-in-the-app) |
 
 ## State the interface can show
 
@@ -47,6 +48,13 @@ All are on `ConversationViewModel`. None needs the microphone permission.
   duration and completed-only RTF. The T4 follow-up shows exclusive stage timings
   without persistence/logging/export changes; [exact measurement boundaries and
   pending verification](../roles/TIMOFEY_T4_STATUS.md). It is cleared for a new job.
+- `recognitionMode`: the selected mode. `recognizedMode`: the recognizer the last **saved** job actually used
+  (for `AUTO`, the probe's choice), `null` while a job runs and after a failed or cancelled one. Show it beside the result.
+  A fixed `MULTILINGUAL` choice without installed Parakeet files is refused before recording starts or a file is
+  opened (status `RecognitionSettings.MULTILINGUAL_MISSING`, and `ModelsUnavailable` if it surfaces in a job); it never
+  falls back to GigaAM silently. The embedded package provides the verified directory through the
+  job's triple lease; the compact package has no Parakeet files, so `AUTO` stays on GigaAM and
+  fixed `MULTILINGUAL` is refused. The pre-start readiness hint never replaces the worker's lease check.
 
 ### Picker wiring (Petya; `MainActivity.kt` and `GlassUi.kt` are not edited by this change)
 

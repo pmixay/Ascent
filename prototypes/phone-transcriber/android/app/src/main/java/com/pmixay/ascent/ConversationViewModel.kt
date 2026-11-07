@@ -71,6 +71,13 @@ data class ConversationState(
     val textStage: TextStageReport? = null,
     /** Last finished phone job only; volatile counters, never written into transcript/export/history. */
     val measurements: ProcessingMeasurementReport? = null,
+    /** The language mode chosen for the next job; remembered across launches. */
+    val recognitionMode: RecognitionMode = RecognitionSettings.DEFAULT,
+    /**
+     * The recognizer the last saved job actually used (for [RecognitionMode.AUTO], the probe's choice),
+     * or null while a job runs and after a failed or cancelled one. Show this beside the result.
+     */
+    val recognizedMode: RecognitionMode? = null,
 )
 
 /** The data a job processes. The job closes [source] on every path. */
@@ -87,7 +94,8 @@ private class ProcessedAudio(
 class ConversationViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application
     private val mutableState = MutableStateFlow(ConversationState(busy = true, status = "Открываю разговоры…",
-        modelOnlineUpdates = app.checkSelfPermission(Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED))
+        modelOnlineUpdates = app.checkSelfPermission(Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED,
+        recognitionMode = RecognitionSettings.load(app)))
     val state = mutableState.asStateFlow()
     private val history = ConversationStore(app.filesDir)
     private val voices = VoiceProfileStore(app.filesDir)
@@ -181,6 +189,11 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     fun startRecording() {
         if (mutableState.value.modelDirectory == null) return
         if (!foreground || !historyReady || mutableState.value.busy || recorder != null || WatchCompanion.state.value.enabled) return
+        // Refuse before listening starts, so a recording is never lost to a mode that cannot run.
+        if (RecognitionSettings.blocked(mutableState.value.recognitionMode, multilingualDirectory())) {
+            mutableState.update { it.copy(status = RecognitionSettings.MULTILINGUAL_MISSING) }
+            return
+        }
         try {
             val folder = File(app.cacheDir, "pending-audio").apply { check(isDirectory || mkdirs()) }
             val output = File(folder, "${UUID.randomUUID()}.wav")
@@ -192,7 +205,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             val started = SystemClock.elapsedRealtime()
             mutableState.update { it.copy(recording = true, elapsedMs = 0, level = 0f,
                 waveform = List(52) { 0f }, status = "Слушаю разговор", jobError = null,
-                sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null, measurements = null) }
+                sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null, measurements = null, recognizedMode = null) }
             meterJob = viewModelScope.launch {
                 while (isActive) {
                     mutableState.update { it.copy(elapsedMs = SystemClock.elapsedRealtime() - started,
@@ -240,6 +253,10 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             return
         }
         if (!historyReady || current.busy || current.recording || recorder != null || WatchCompanion.state.value.enabled) return
+        if (RecognitionSettings.blocked(current.recognitionMode, multilingualDirectory())) {
+            mutableState.update { it.copy(status = RecognitionSettings.MULTILINGUAL_MISSING) }
+            return
+        }
         val conversationId = "import-${UUID.nameUUIDFromBytes(uri.toString().toByteArray(Charsets.UTF_8))}"
         val importedAtMs = System.currentTimeMillis()
         launchJob(
@@ -253,6 +270,21 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             },
         )
     }
+
+    /**
+     * Chooses the language mode for the next job and remembers it. A running job keeps the mode it
+     * started with, so changing it never affects work already in progress.
+     */
+    fun setRecognitionMode(mode: RecognitionMode) {
+        if (mutableState.value.recognitionMode == mode) return
+        RecognitionSettings.save(app, mode)
+        mutableState.update { it.copy(recognitionMode = mode) }
+    }
+
+    /** Readiness hint only. Inference always uses the directory protected by its own triple lease. */
+    private fun multilingualDirectory(): File? = if (BuildConfig.EMBEDDED_MODELS) {
+        mutableState.value.modelDirectory?.let(EmbeddedModels::multilingualDirectory)
+    } else null
 
     /** Requests cancellation of the running job. A native recognition call finishes before it takes effect. */
     fun cancelProcessing() {
@@ -280,8 +312,10 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         var measuredMediaDurationMs: Long? = null
         mutableState.update { it.copy(busy = true, processingAudio = true, recording = false, level = 0f,
             status = PROCESSING_AUDIO_STATUS, jobId = id, jobSource = null, processingState = ProcessingState.ReadingInput,
-            jobProgress = null, jobError = null, textStage = null, cancellingProcessing = false,
+            jobProgress = null, jobError = null, textStage = null, recognizedMode = null, cancellingProcessing = false,
             sourceDisplayName = null, sourceDurationMs = null, sourceFormat = null, measurements = null) }
+        // Freeze the selected mode for this job.
+        val mode = mutableState.value.recognitionMode
         // Enter the try/finally immediately so clearing the ViewModel cannot skip cleanup.
         activeJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             var saved = false
@@ -289,6 +323,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
             var finalState = ProcessingState.Failed
             var failure: JobError? = null
             var report: TextStageReport? = null
+            var usedMode: RecognitionMode? = null
             var spoke = false
             try {
                 withContext(NonCancellable + Dispatchers.IO) { pendingImports.begin(id) }
@@ -298,8 +333,10 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 val processed = try { AudioWork.inference.withLock {
                     queued.close()
                     runInterruptible(Dispatchers.Default) {
-                        // Pin the acoustic/text pair across both stages, including cancellation.
+                        // Pin all three model groups across both stages, including cancellation.
                         timings.measure(ProcessingMetricStage.MODEL_VALIDATION) { ModelSelection.acquire(app) }.use { lease ->
+                            val multilingual = lease.multilingualDirectory
+                            check(!RecognitionSettings.blocked(mode, multilingual)) { RecognitionSettings.MULTILINGUAL_MISSING }
                             val opened = timings.measure(ProcessingMetricStage.SOURCE_OPEN) { prepare() }
                             val (recognized, mediaDurationMs) = MeasuredPcmWindowSource(opened.source, timings).use { source ->
                                 if (Thread.currentThread().isInterrupted) throw InterruptedException("Обработка отменена")
@@ -308,7 +345,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                                 jobs.whileCurrent(id) { mutableState.update { it.copy(jobSource = opened.name,
                                     sourceDisplayName = opened.name, sourceDurationMs = duration,
                                     sourceFormat = source.formatDescription) } }
-                                val result = TranscriptionEngine(lease.directory, timings = timings).transcribeWithSpeakers(source) { message ->
+                                val result = TranscriptionEngine(lease.directory, mode, multilingual, timings = timings).transcribeWithSpeakers(source) { message ->
                                     reportProgress(id, message)
                                 }
                                 result to duration
@@ -329,6 +366,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                 val durationMs = processed.durationMs
                 val sourceName = processed.name
                 report = presented.report
+                usedMode = result.recognitionMode
                 spoke = presented.segments.isNotEmpty()
                 currentCoroutineContext().ensureActive()
                 stage = ProcessingState.Saving
@@ -391,6 +429,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
                         mutableState.update { it.copy(busy = false, processingAudio = false, recording = false, level = 0f,
                             waveform = List(52) { 0f }, processingState = finalState, jobProgress = null,
                             jobError = failure, textStage = report, measurements = measurement,
+                            recognizedMode = if (saved) usedMode else null,
                             cancellingProcessing = false, status = warning?.let { w -> "$message. $w" } ?: message) }
                     }
                 }
