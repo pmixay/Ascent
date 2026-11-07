@@ -1,6 +1,12 @@
 # Android verification build: installation and use
 
-The jury-ready offline verification APK is **not yet available** in this repository. The current compact `ascent.apk` is a prototype whose acoustic model pack is downloaded after installation. Its download server has been [repaired and verified](roles/PETYA_SERVER_STATUS.md). An Actions artifact expires after 14 days and is not a durable submission link.
+The jury-ready offline verification APK is **not yet accepted**. A checked embedded
+internal candidate is available from [the exact-build handoff](roles/TIMOFEY_REMAINING_STATUS.md);
+ARM and final release evidence remain open. The compact `ascent.apk` downloads
+its acoustic models from the [repaired server](roles/PETYA_SERVER_STATUS.md).
+Actions expiry must be read from actual metadata, not the requested retention:
+the inspected candidate expires on 14 November 2026 at 19:30:28 UTC. It is not a
+durable submission link. See [release/signing/publication constraints](RELEASE.md).
 
 ## Current compact prototype: phone trial
 
@@ -34,9 +40,10 @@ its APK/bundle identities in the candidate record before installing.
 
 1. Use a fresh offline-package install/data state. Disable Wi-Fi/mobile data before
    first launch; no model predownload is needed. Record available storage, including
-   space for the APK, Android's install copies and approximately 1.48 GB of expanded
+    space for the >2.16 GB APK, Android's install copies and **2,147,012,159 bytes** of expanded
    model payloads. This is a payload lower bound, not a measured peak storage need.
-2. Wait for local verification/extraction of both model groups. The offline app
+2. Wait for local verification/extraction of all three groups (acoustic, text and
+   multilingual). This package does not download missing models. The offline app
    has no Internet permission and shows disabled automatic updates.
 3. Run the three-file judge procedure, including import without microphone
    permission, microphone capture, cancellation and reopen. Record actual text-stage
@@ -55,7 +62,11 @@ These are the **future embedded-release** steps. Use them only after a final
 offline APK, successful CI, model/APK hashes and durable release link are recorded.
 
 1. Open the durable release link listed in the final [TEST_RESULTS.md](TEST_RESULTS.md). Confirm the linked commit, all required CI jobs and SHA-256 match the release record. Download `ascent.apk` from that release.
-2. On the test device, remove the earlier Ascent installation and app data. Turn off Wi-Fi and mobile data and enable airplane mode **before** first launch. For a fresh offline test, do not preinstall or predownload models.
+2. Use a dedicated test device/profile with no valuable Ascent history. Removing an
+   earlier installation/data destroys its encrypted history; obtain the owner's
+   explicit permission before doing so. On that authorized fresh state, turn off
+   Wi-Fi and mobile data and enable airplane mode **before** first launch. Do not
+   preinstall or predownload models.
 3. Install the APK using Android's package installer, or from a development host with `adb install ascent.apk`. Confirm that Android reports a successful install. Keep the tested APK and hash fixed for the entire three-file rehearsal.
 4. Open Ascent and wait for model readiness. If the first launch requires a network request, record a failed offline readiness case; do not silently turn networking back on to call the trial a pass.
 5. Select **Import audio** (Russian UI: `Импорт аудио`), choose a user-owned file in Android's document picker and wait for processing. Import must work without microphone permission. Inspect the result's participant turns and times.
@@ -72,4 +83,3 @@ The duration must come from the original file, not from the exported JSON. If th
 ## Companion watch preview
 
 The new watch module targets Wear OS 6.0 on the Galaxy Watch7 SM-L305F. The phone baseline remains Android 12+; the named first phone test target is Samsung Android 17. A CI-built watch APK and paired-device trial have not yet been recorded. When both matching APKs exist, install the phone and watch packages on their respective devices, pair them through Bluetooth, make the phone's watch receiver visible/active, and open Ascent. on the watch. Grant `RECORD_AUDIO` and `BLUETOOTH_CONNECT` on the watch; notification permission is requested separately. Choose the bonded phone, start listening, then try pause, resume and stop. The watch should show real connection state, elapsed time, dropped frames and the latest phone-produced text. A phone without a ready local model rejects the watch handshake. See [QA_JUDGE_SCRIPT.md](QA_JUDGE_SCRIPT.md) for the unrun watch matrix.
-

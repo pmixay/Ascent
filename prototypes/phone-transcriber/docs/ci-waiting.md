@@ -59,3 +59,21 @@ excludes `TwoHourSpeechEvaluationTest` when `CI=true`, even if evaluation inputs
 are accidentally supplied. Opt-in development evaluation stays available.
 No build, test, lint, model export or inference runs on the local editing host.
 Phone/ARM and corpus-quality acceptance still need separate evidence.
+
+## Exact APK/version/signature evidence
+
+The offline job also requires the bounded real Parakeet recognizer-creation case;
+it performs no corpus/quality inference. The current required counts are 25 compact
+and two embedded cases. After successful packaging, CI verifies the actual signed
+APK with the existing SDK tools and prints structured identity plus a step summary.
+Phone versions identify the workflow run number and source commit. Optional stable
+signing uses only owner-provided protected-ref credentials; absent credentials are
+explicitly an internal debug baseline, never a stable release identity.
+
+Use `scripts/collect_ci_evidence.py --repo pmixay/Ascent --sha FULL_SHA --output NEW_PATH`
+to inspect the exact successful run, required execution, artifact identity/expiry,
+raw APK/certificate/bundle hashes and emulator storage records without downloading
+models/APKs. It is read-only metadata/log inspection and can run on the editing
+host. Supply a read-capable token in the environment, never arguments. See
+[release/signing instructions](../../../docs/RELEASE.md) and
+[current role status](../../../docs/roles/TIMOFEY_REMAINING_STATUS.md).

@@ -16,6 +16,13 @@ jobs:
     name: Build and validate Android app
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    # The signing environment must restrict deployment branches independently of
+    # workflow code. Feature CI uses an empty environment with no signing secrets.
+    environment: ${{ github.ref_protected && 'android-signing' || 'android-baseline' }}
+    env:
+      # Keys are never exposed to unprotected branch pushes. Enabling this on a
+      # protected ref requires the owner-supplied key and independently pinned cert.
+      ASCENT_REQUIRE_STABLE_SIGNING: ${{ github.ref_protected && vars.ASCENT_REQUIRE_STABLE_SIGNING || 'false' }}
     defaults:
       run:
         shell: bash
@@ -42,6 +49,16 @@ jobs:
           python3 -m unittest discover -s tools -p 'test_*.py' -v
           python3 -m unittest discover -s ../../tools/qa -p 'test_*.py' -v
           python3 -m unittest discover -s ../../server -p 'test_*.py' -v
+
+      - name: Prepare protected signing or identify internal debug baseline
+        working-directory: prototypes/phone-transcriber
+        env:
+          ASCENT_SIGNING_KEYSTORE_BASE64: ${{ github.ref_protected && secrets.ASCENT_SIGNING_KEYSTORE_BASE64 || '' }}
+          ASCENT_SIGNING_STORE_PASSWORD: ${{ github.ref_protected && secrets.ASCENT_SIGNING_STORE_PASSWORD || '' }}
+          ASCENT_SIGNING_KEY_ALIAS: ${{ github.ref_protected && secrets.ASCENT_SIGNING_KEY_ALIAS || '' }}
+          ASCENT_SIGNING_KEY_PASSWORD: ${{ github.ref_protected && secrets.ASCENT_SIGNING_KEY_PASSWORD || '' }}
+          ASCENT_SIGNING_CERT_SHA256: ${{ github.ref_protected && vars.ASCENT_SIGNING_CERT_SHA256 || '' }}
+        run: python3 scripts/ci_signing.py prepare
 
       - name: Restore verified Russian speaker regression fixtures
         id: speaker-cache
@@ -129,6 +146,7 @@ jobs:
           python3 ../scripts/check_apk.py \
             --apk app/build/outputs/apk/debug/app-debug.apk \
             --mapping app/build/outputs/mapping/debug/mapping.txt
+          python3 ../scripts/record_apk_identity.py --apk app/build/outputs/apk/debug/app-debug.apk --kind compact --build-tools "$ANDROID_HOME/build-tools/37.0.0"
           mkdir -p build/distribution
           cp app/build/outputs/apk/debug/app-debug.apk build/distribution/ascent.apk
 
@@ -212,6 +230,11 @@ jobs:
           compression-level: 0
           retention-days: 14
 
+      - name: Remove temporary signing credentials
+        if: always()
+        working-directory: prototypes/phone-transcriber
+        run: python3 scripts/ci_signing.py cleanup
+
       - name: Print failed test details
         if: failure()
         run: |
@@ -240,11 +263,13 @@ jobs:
     name: Build and validate embedded offline baseline
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    environment: ${{ github.ref_protected && 'android-signing' || 'android-baseline' }}
     defaults:
       run:
         shell: bash
         working-directory: prototypes/phone-transcriber
     env:
+      ASCENT_REQUIRE_STABLE_SIGNING: ${{ github.ref_protected && vars.ASCENT_REQUIRE_STABLE_SIGNING || 'false' }}
       ASCENT_SPEAKER_SOURCE: https://huggingface.co/csukuangfj/speaker-embedding-models/resolve/8be2a75c9ed7a590538b268e46fbb65e1aa9d208/3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx
       ASCENT_SPEAKER_SHA256: bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239
     steps:
@@ -284,6 +309,14 @@ jobs:
           path: |
             prototypes/phone-transcriber/build/offline-source-cache
           key: ${{ runner.os }}-offline-text-v2-${{ hashFiles('prototypes/phone-transcriber/config/embedded-models.json') }}
+      - name: Prepare protected signing or identify internal debug baseline
+        env:
+          ASCENT_SIGNING_KEYSTORE_BASE64: ${{ github.ref_protected && secrets.ASCENT_SIGNING_KEYSTORE_BASE64 || '' }}
+          ASCENT_SIGNING_STORE_PASSWORD: ${{ github.ref_protected && secrets.ASCENT_SIGNING_STORE_PASSWORD || '' }}
+          ASCENT_SIGNING_KEY_ALIAS: ${{ github.ref_protected && secrets.ASCENT_SIGNING_KEY_ALIAS || '' }}
+          ASCENT_SIGNING_KEY_PASSWORD: ${{ github.ref_protected && secrets.ASCENT_SIGNING_KEY_PASSWORD || '' }}
+          ASCENT_SIGNING_CERT_SHA256: ${{ github.ref_protected && vars.ASCENT_SIGNING_CERT_SHA256 || '' }}
+        run: python3 scripts/ci_signing.py prepare
       - name: Install pinned export dependencies and upstream source
         if: steps.export-cache.outputs.cache-hit != 'true'
         run: |
@@ -391,6 +424,7 @@ jobs:
           sdkmanager "platforms;android-37.2" "build-tools;37.0.0" "emulator"
           gradle --stacktrace -PascentEmbedded=true :app:assembleDebug
           python3 ../scripts/check_apk.py --apk app/build/outputs/apk/debug/app-debug.apk --mapping app/build/outputs/mapping/debug/mapping.txt --embedded-assets app/build/generated/offline-assets/models
+          python3 ../scripts/record_apk_identity.py --apk app/build/outputs/apk/debug/app-debug.apk --kind offline --build-tools "$ANDROID_HOME/build-tools/37.0.0"
           mkdir -p build/offline-distribution
           cp app/build/outputs/apk/debug/app-debug.apk build/offline-distribution/ascent-offline.apk
           sha256sum build/offline-distribution/ascent-offline.apk
@@ -424,6 +458,10 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+      - name: Remove temporary signing credentials
+        if: always()
+        run: python3 scripts/ci_signing.py cleanup
 
       - name: Print failed offline test details
         if: failure()

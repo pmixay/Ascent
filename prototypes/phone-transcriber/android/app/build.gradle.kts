@@ -1,4 +1,5 @@
 import java.security.MessageDigest
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -11,6 +12,26 @@ require(ascentAbi in setOf("arm64-v8a", "x86_64")) { "Unsupported Ascent ABI: $a
 val embeddedModels = providers.gradleProperty("ascentEmbedded").orElse("false").get().toBooleanStrict()
 val sourceCommit = providers.environmentVariable("GITHUB_SHA").orElse("unknown").get()
 require(sourceCommit == "unknown" || sourceCommit.matches(Regex("[0-9a-f]{40}"))) { "Invalid CI source revision" }
+val ciRunNumber = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull
+val ciVersionCode = ciRunNumber?.let {
+    require(it.matches(Regex("[1-9][0-9]*"))) { "Invalid CI version number" }
+    it.toInt().also { code -> require(code in 1..2_100_000_000) }
+} ?: 1
+val ciVersionName = if (ciRunNumber != null) {
+    require(sourceCommit != "unknown") { "CI version requires an exact source revision" }
+    "0.1.$ciRunNumber-${sourceCommit.take(8)}"
+} else "0.1"
+// Passwords never appear in Gradle arguments/source; CI creates these private temporary files.
+val protectedSigning = providers.environmentVariable("ASCENT_SIGNING_PROPERTIES").orNull?.let { path ->
+    Properties().apply { file(path).inputStream().use { load(it) } }.also { properties ->
+        require(listOf("storeFile", "storePassword", "keyAlias", "keyPassword").all {
+            !properties.getProperty(it).isNullOrEmpty()
+        }) { "Incomplete protected signing configuration" }
+    }
+}
+if (providers.environmentVariable("ASCENT_REQUIRE_STABLE_SIGNING").orNull == "true") {
+    require(protectedSigning != null) { "Stable signing is required; refusing debug signing" }
+}
 val embeddedAssets = layout.buildDirectory.dir("generated/offline-assets").get().asFile
 val embeddedManifest = embeddedAssets.resolve("models/bundle.json")
 val embeddedDigest = if (embeddedModels) {
@@ -31,8 +52,8 @@ android {
         applicationId = "com.pmixay.ascent"
         minSdk = 31
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = ciVersionCode
+        versionName = ciVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // JUnit discovers these entry points reflectively in the optimized test APK.
         // Test-only rules do not change shrinking/optimization of the application APK.
@@ -79,14 +100,26 @@ android {
         jniLibs { useLegacyPackaging = true }
         dex { useLegacyPackaging = true }
     }
+    val ciSigning = protectedSigning?.let { properties ->
+        signingConfigs.create("protectedCi") {
+            storeFile = file(properties.getProperty("storeFile"))
+            storePassword = properties.getProperty("storePassword")
+            keyAlias = properties.getProperty("keyAlias")
+            keyPassword = properties.getProperty("keyPassword")
+        }
+    }
     buildTypes {
         debug {
             // Retain debug signing for installation, with production-style R8 optimization.
             isDebuggable = false
+            if (ciSigning != null) signingConfig = ciSigning
             proguardFiles("instrumented-api-rules.pro")
             optimization { enable = true }
         }
-        release { optimization { enable = true } }
+        release {
+            if (ciSigning != null) signingConfig = ciSigning
+            optimization { enable = true }
+        }
     }
 }
 

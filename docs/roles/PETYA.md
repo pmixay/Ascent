@@ -181,6 +181,18 @@ Use Cursor for one bounded UI change against agreed APIs. Use Kimi for test-case
 
 ### Explicit T2 handoff from Timofey — user-assigned
 
+Latest [exact-build register](TIMOFEY_REMAINING_STATUS.md) recovers merged `42d4de9`
+APK/bundle hashes and separate emulator figures; both jobs passed in `42406537594`.
+Use these identities only for this internal candidate. Signing/version follow-up
+changes require their own CI and new artifact identities.
+
+- [ ] Supply device/OS/ABI/RAM/free-storage inventory and actual exact-build ARM
+  three-file/offline/LLM, negative/lifecycle and cold/warm timing/PSS/RSS evidence.
+- [ ] Arrange an authorized durable HTTPS location for the complete >2 GiB APK.
+  GitHub Releases cannot host a file this large; existing Caddy/SSH model publication
+  is not an APK-upload route. Coordinate separately without weakening model checks.
+  See [release instructions](../RELEASE.md); do not split the required APK or drop assets.
+
 - [ ] After its own green CI, validate the new [schema-2 Parakeet APK](TIMOFEY_PARAKEET_STATUS.md)
   on ARM: install/extraction/storage costs, readable NVIDIA/CC-BY-4.0 attribution,
   old triple-lease recovery and actual selected-mode operation. The requested
