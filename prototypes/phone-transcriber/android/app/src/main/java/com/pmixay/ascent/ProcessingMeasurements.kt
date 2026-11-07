@@ -36,19 +36,30 @@ data class ProcessingMeasurementReport(
         outcome == ProcessingMeasurementOutcome.COMPLETED && it > 0
     }?.let { totalNs.toDouble() / (it.toDouble() * 1_000_000.0) }
 
-    fun describe(): String = buildString {
-        append(if (outcome == ProcessingMeasurementOutcome.COMPLETED) "Время обработки: " else "Время незавершённой обработки: ")
+    fun summary(): String = buildString {
+        append(when (outcome) {
+            ProcessingMeasurementOutcome.COMPLETED -> "Время обработки: "
+            ProcessingMeasurementOutcome.CANCELLED -> "Время до отмены: "
+            ProcessingMeasurementOutcome.FAILED -> "Время до ошибки: "
+        })
         append(seconds(totalNs)).append(" с")
         mediaDurationMs?.takeIf { it >= 0 }?.let {
-            append(". Длительность аудио: ").append(String.format(Locale.ROOT, "%.3f", it / 1000.0)).append(" с")
+            append("\nДлительность аудио: ").append(String.format(Locale.ROOT, "%.3f", it / 1000.0)).append(" с")
         }
-        realTimeFactor?.let { append(". RTF: ").append(String.format(Locale.ROOT, "%.3f", it)) }
+        realTimeFactor?.let { append("\nRTF: ").append(String.format(Locale.ROOT, "%.3f", it)) }
+    }
+
+    fun stageDetails(): String = buildString {
         for (stage in ProcessingMetricStage.entries) {
             val measured = stages[stage] ?: continue
-            append('\n').append(stage.label).append(": ").append(seconds(measured.elapsedNs)).append(" с")
+            append(stage.label).append(": ").append(seconds(measured.elapsedNs)).append(" с\n")
         }
-        append("\nЭтапы указаны без двойного счёта. Подготовка встроенных файлов моделей измеряется отдельно.")
+        append("Этапы указаны без двойного счёта. Время включает ожидание, загрузку моделей, сохранение и очистку. ")
+        append("Подготовка встроенных файлов моделей и запись микрофона в него не входят. ")
+        append("Измерения хранятся только в памяти приложения.")
     }
+
+    fun describe(): String = summary() + "\n" + stageDetails()
 
     private fun seconds(nanos: Long): String = String.format(Locale.ROOT, "%.3f", nanos / 1_000_000_000.0)
 }

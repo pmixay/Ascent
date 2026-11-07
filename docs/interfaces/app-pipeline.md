@@ -56,7 +56,7 @@ All are on `ConversationViewModel`. None needs the microphone permission.
   job's triple lease; the compact package has no Parakeet files, so `AUTO` stays on GigaAM and
   fixed `MULTILINGUAL` is refused. The pre-start readiness hint never replaces the worker's lease check.
 
-### Picker wiring (Petya; `MainActivity.kt` and `GlassUi.kt` are not edited by this change)
+### Picker and language wiring (Petya)
 
 ```kotlin
 val importAudio = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -64,6 +64,7 @@ val importAudio = rememberLauncherForActivityResult(ActivityResultContracts.Open
 }
 // button: importAudio.launch(arrayOf("audio/*"))   // disable while state.busy
 // cancel button while state.processingAudio: conversation.cancelProcessing()
+// language picker: conversation.setRecognitionMode(mode)
 ```
 
 Source construction, inference and descriptor closure share one worker scope, so cancellation

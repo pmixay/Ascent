@@ -1,6 +1,6 @@
 # Android verification build: installation and use
 
-The jury-ready offline verification APK is **not yet available** in this repository. The current compact `ascent.apk` is a prototype whose acoustic model pack is downloaded after installation. Its download server has been [repaired and verified](roles/PETYA_SERVER_STATUS.md). An Actions artifact expires after 14 days and is not a durable submission link.
+The jury-ready offline verification APK is **not yet available** in this repository. The current compact `ascent.apk` is a prototype whose acoustic model pack is downloaded after installation. Its download server has been [repaired and verified](roles/PETYA_SERVER_STATUS.md). Actions artifacts expire at the date reported by GitHub and are not durable submission links.
 
 ## Current compact prototype: phone trial
 
@@ -21,7 +21,9 @@ from [TEST_RESULTS.md](TEST_RESULTS.md), not an APK from Pasha's earlier branch.
    history and the original source must remain intact. Follow the complete
    [judge script](QA_JUDGE_SCRIPT.md) and record outcomes without filling unrun cases.
 
-The compact artifact has no installed text-model assets: its text-stage status
+The compact artifact includes no text or Parakeet assets. Auto stays on the Russian
+recognizer; selecting `Другие языки` shows an unavailable-model message and refuses
+processing until another mode is chosen. Its text-stage status
 must report unavailable and preserve recognized words. This trial verifies the
 prototype after download; it does not satisfy fresh offline/local-LLM acceptance.
 
@@ -34,15 +36,22 @@ its APK/bundle identities in the candidate record before installing.
 
 1. Use a fresh offline-package install/data state. Disable Wi-Fi/mobile data before
    first launch; no model predownload is needed. Record available storage, including
-   space for the APK, Android's install copies and approximately 1.48 GB of expanded
-   model payloads. This is a payload lower bound, not a measured peak storage need.
-2. Wait for local verification/extraction of both model groups. The offline app
+   space for the APK, Android's install copies and **2,147,011,731 bytes** of expanded
+   model payloads, plus attribution/metadata. Schema 2 includes acoustic, text and
+   Parakeet groups. This payload figure is not a measured installed or peak storage need.
+2. Wait for local verification/extraction of all three model groups. The offline app
    has no Internet permission and shows disabled automatic updates.
-3. Run the three-file judge procedure, including import without microphone
+3. Set `Язык` before import or phone capture. `Авто` is the remembered default;
+   choose `Русский` for Russian and `Другие языки` for English comparison trials.
+   Auto uses an early-window probe and is not a promise of mixed-language support.
+   The result status identifies the recognizer actually used.
+4. Run the three-file judge procedure, including import without microphone
    permission, microphone capture, cancellation and reopen. Record actual text-stage
    processed/fallback counts and time. Missing/failed text processing is an open
    acceptance failure, even when an acoustic transcript is preserved.
-4. Record cold/warm RTF, peak memory and the extraction/lifecycle negative cases.
+5. Record total/media time and completed RTF; expand `Показать время по этапам`
+   for exclusive stage durations. These values are only in memory. Record cold/warm
+   conditions, peak memory and the extraction/lifecycle negative cases separately.
    CI's bounded x86_64 extraction/text check does not perform ARM model inference.
 
 ## Target device and package
@@ -54,9 +63,9 @@ The Android module currently declares Android 12+ (`minSdk 31`) and builds ARM64
 These are the **future embedded-release** steps. Use them only after a final
 offline APK, successful CI, model/APK hashes and durable release link are recorded.
 
-1. Open the durable release link listed in the final [TEST_RESULTS.md](TEST_RESULTS.md). Confirm the linked commit, all required CI jobs and SHA-256 match the release record. Download `ascent.apk` from that release.
+1. Open the durable release link listed in the final [TEST_RESULTS.md](TEST_RESULTS.md). Confirm the linked commit, all required CI jobs and SHA-256 match the release record. Download the identified offline APK from that release (the CI baseline is named `ascent-offline.apk`).
 2. On the test device, remove the earlier Ascent installation and app data. Turn off Wi-Fi and mobile data and enable airplane mode **before** first launch. For a fresh offline test, do not preinstall or predownload models.
-3. Install the APK using Android's package installer, or from a development host with `adb install ascent.apk`. Confirm that Android reports a successful install. Keep the tested APK and hash fixed for the entire three-file rehearsal.
+3. Install the APK using Android's package installer, or from a development host with `adb install ascent-offline.apk`. Confirm that Android reports a successful install. Keep the tested APK and hash fixed for the entire three-file rehearsal.
 4. Open Ascent and wait for model readiness. If the first launch requires a network request, record a failed offline readiness case; do not silently turn networking back on to call the trial a pass.
 5. Select **Import audio** (Russian UI: `Импорт аудио`), choose a user-owned file in Android's document picker and wait for processing. Import must work without microphone permission. Inspect the result's participant turns and times.
 6. Choose the JSON export action, select a destination through Android's save picker, and copy the saved file to a host for the independent validator. Repeat for two unrelated files on the same installation. See [QA_JUDGE_SCRIPT.md](QA_JUDGE_SCRIPT.md) for negative and lifecycle cases.

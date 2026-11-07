@@ -144,4 +144,24 @@ class ProcessingMeasurementsTest {
         assertTrue(report.describe().contains("Чтение и декодирование окон: 0.000 с"))
         assertFalse(report.copy(outcome = ProcessingMeasurementOutcome.FAILED).describe().contains("RTF:"))
     }
+
+    @Test fun partialAndUnknownDurationSummariesNeverSuggestCompletedSpeed() {
+        val report = ProcessingMeasurementReport(ProcessingMeasurementOutcome.COMPLETED, 2_500_000_000,
+            5000, mapOf(ProcessingMetricStage.ASR to ProcessingStageMeasurement(1_500_000_000, 2)))
+        assertTrue(report.summary().contains("Время обработки: 2.500 с"))
+        assertTrue(report.summary().contains("Длительность аудио: 5.000 с"))
+        assertTrue(report.summary().contains("RTF: 0.500"))
+        assertFalse(report.summary().contains(ProcessingMetricStage.ASR.label))
+        assertTrue(report.stageDetails().contains("Распознавание речи: 1.500 с"))
+        for (outcome in listOf(ProcessingMeasurementOutcome.CANCELLED, ProcessingMeasurementOutcome.FAILED)) {
+            val partial = report.copy(outcome = outcome).summary()
+            assertFalse(partial.contains("RTF"))
+            assertFalse(partial.contains("Время обработки:"))
+            assertTrue(partial.contains(if (outcome == ProcessingMeasurementOutcome.CANCELLED)
+                "Время до отмены:" else "Время до ошибки:"))
+        }
+        for (duration: Long? in listOf(null, 0L, -1L)) {
+            assertFalse(report.copy(mediaDurationMs = duration).summary().contains("RTF"))
+        }
+    }
 }

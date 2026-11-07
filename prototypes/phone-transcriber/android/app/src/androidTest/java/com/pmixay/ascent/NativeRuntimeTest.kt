@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.Configuration
@@ -71,7 +72,10 @@ class NativeRuntimeTest {
         }
         val component = ComponentName(context, ModelDownloadService::class.java)
         val previous = context.packageManager.getComponentEnabledSetting(component)
-        // This smoke test exercises UI startup only. Service lifecycle tests supply
+        val preferences = context.getSharedPreferences("ascent", android.content.Context.MODE_PRIVATE)
+        val previousMode = preferences.getString("recognitionMode", null)
+        preferences.edit().putString("recognitionMode", "AUTO").commit()
+        // This smoke test exercises UI startup and language selection only. Service lifecycle tests supply
         // an isolated fake transfer; no instrumentation test downloads real weights.
         context.packageManager.setComponentEnabledSetting(component,
             PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
@@ -86,11 +90,53 @@ class NativeRuntimeTest {
                 assertFalse(started.isFinishing)
                 assertNotNull(started.window.decorView.findViewById<android.view.View>(android.R.id.content))
             }
+            // Exercise the real optimized UI and ViewModel, without loading models or audio.
+            // Accessibility actions also verify that whole labelled rows expose their click action.
+            waitForUiIdle()
+            for ((label, stored) in listOf("Русский" to "RUSSIAN_CIS", "Другие языки" to "MULTILINGUAL")) {
+                clickText(if (stored == "RUSSIAN_CIS") "Язык: Авто" else "Язык: Русский")
+                clickText(label)
+                assertEquals(stored, preferences.getString("recognitionMode", null))
+                assertTrue(uiHasText("Язык: $label"))
+            }
+            assertTrue(uiHasText("Модели для других языков не установлены. Выберите «Авто» или «Русский»."))
+            instrumentation.runOnMainSync { activity?.finish() }
+            instrumentation.waitForIdleSync()
+            activity = instrumentation.startActivitySync(
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            waitForUiIdle()
+            assertTrue("The selected language survives ViewModel/activity recreation", uiHasText("Язык: Другие языки"))
+            clickText("Язык: Другие языки")
+            clickText("Авто")
+            assertEquals("AUTO", preferences.getString("recognitionMode", null))
         } finally {
             instrumentation.runOnMainSync { activity?.finish() }
             instrumentation.waitForIdleSync()
             context.packageManager.setComponentEnabledSetting(component, previous, PackageManager.DONT_KILL_APP)
+            preferences.edit().apply {
+                if (previousMode == null) remove("recognitionMode") else putString("recognitionMode", previousMode)
+            }.commit()
         }
+    }
+
+    private fun waitForUiIdle() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.waitForIdleSync()
+        instrumentation.uiAutomation.waitForIdle(250, 10_000)
+    }
+
+    private fun uiHasText(text: String): Boolean = InstrumentationRegistry.getInstrumentation()
+        .uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText(text)?.isNotEmpty() == true
+
+    private fun clickText(text: String) {
+        val root = checkNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.rootInActiveWindow)
+        var node = root.findAccessibilityNodeInfosByText(text).firstOrNull()
+        while (node != null && !node.isClickable) node = node.parent
+        assertNotNull("Missing accessible control: $text", node)
+        assertTrue("Disabled control: $text", node!!.isEnabled)
+        assertTrue("Failed accessibility action: $text", node.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+        waitForUiIdle()
     }
 
     @Test fun automaticModelWorkIsUniqueAndWaitsForNetwork() {

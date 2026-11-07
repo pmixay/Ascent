@@ -5,15 +5,21 @@ This is Petya's repeatable H11 procedure. Record every result in [TEST_RESULTS.m
 ## Prepare
 
 1. Select a CI-built ARM64 verification APK whose full workflow result has been inspected. Record its SHA-256 and model manifest/hash. Use two devices if available: one modest-memory Android 12+ ARM64 phone and a second ARM64 Android version. Record free storage and RAM.
-2. Freeze three authorized, unfamiliar recordings and their source hashes: A = Russian call-like speech, B = Russian meeting-like speech with different speakers, C = English or mixed-language speech. Prefer original continuous media and keep this set out of development/tuning. Prepare word, speaker and time references independently. Include a separate genuine-silence input.
+2. Freeze three authorized, unfamiliar recordings and their source hashes: A = Russian call-like speech, B = Russian meeting-like speech with different speakers, C = English speech. Keep mixed-language speech as a separate diagnostic case. Prefer original continuous media and keep this set out of development/tuning. Prepare word, speaker and time references independently. Include a separate genuine-silence input.
 3. Remove prior installation and app data. Disable Wi-Fi and mobile data, then enable airplane mode **before the first launch**. Confirm there is no preinstalled model directory. Install the exact APK. Observe model readiness without enabling networking.
 
 ## Three-file sequence
 
 Perform the following on A, B and C in order, using the same fresh installation. Do not grant microphone permission.
 
-1. Tap the primary import action, select the source in the Android picker, and record the displayed filename, duration/format if available, and exact processing stages. Preserve the original source hash before and after import.
-2. Wait for real local processing to finish. Record wall time, media duration, model load time where available, errors and displayed status. Verify no wrong-file result or speaker-name leak from an earlier input.
+1. Set `Язык` to `Русский` for A/B and `Другие языки` for C. `Авто` is the
+   default and remembers the last selection; also test it separately on Russian
+   and English. In compact builds Auto uses Russian only and fixed multilingual
+   is refused. Then tap the primary import action, select the source in the Android picker, and record the displayed filename, duration/format if available, and exact processing stages. Preserve the original source hash before and after import.
+2. Wait for real local processing to finish. Record the selected and actual last-result mode, total/media time, completed RTF,
+   text-stage status/fallback counts, errors and displayed status. Expand
+   `Показать время по этапам` and record exclusive stage times without adding
+   inclusive text-stage time again. Cancelled/failed jobs must have no completed RTF. Verify no wrong-file result or speaker-name leak from an earlier input.
 3. Inspect every participant turn and its source-relative time. Check a known leading silence, a pause and the last turn. Note unknown/inferred attribution honestly.
 4. Export JSON to a user-selected destination. Copy the exported file to the development machine and run `python3 tools/qa/validate_transcript.py PATH --duration-ms DURATION`. Compare words, speakers and times to the frozen reference. Export a second time and check stable IDs/turn order.
 5. Process the next file without clearing the app. After C, return to A's saved text and confirm it is still the correct conversation.
@@ -40,6 +46,9 @@ Run each applicable case independently; record `pass`, `fail`, `blocked` or `not
 | N12 | Ten repeated jobs | No wrong-file output, unbounded memory growth or resource leak. | not run |
 | N13 | Insufficient storage, corrupted model/history, failed export provider | Clear failure/recovery; original source and valid prior result retained. | not run |
 | N14 | Large font, TalkBack, long text, touch targets | Readable controls/turns and accessible labels/focus. | not run |
+| N15 | Language choice, restart, busy state and absent multilingual assets | Choice survives restart; actual used mode is separate; control disabled during capture/jobs/watch reception; compact fixed multilingual refuses without opening input. | not run |
+| N16 | Auto on Russian, English and mixed-language speech | Record actual mode, errors and quality; mixed speech/late language changes have no support claim. | not run |
+| N17 | Completed, cancelled, failed and silence timing summaries | Expand/collapse stages; only completed positive-duration jobs have RTF; no timing fields in JSON/history. Silence does not prove text/diarization ran. | not run |
 
 For a reproducible failure, record the case ID, build/model hashes, device, source hash, exact steps, expected versus observed behavior, content-free error text, owner, fix commit and retest build. If a held-out result is used to tune the model, retire that set from final validation and reserve a fresh set.
 
@@ -66,3 +75,22 @@ Use a CI-built watch APK on Galaxy Watch7 SM-L305F (Wear OS 6.0) and its matchin
 | W08 | 30-minute session, restart and another pair | No stale key/nonce reuse or old transcript, bounded memory, measured latency/battery/thermal behavior. | not run |
 | W09 | Long continuous speech, rapid pause/resume and dropped frames | Adjacent captured frames have sample-continuous offsets; resumed capture preserves its wall-time gap and neither device invents recovered audio. | not run |
 
+## Storage and timing evidence
+
+For a schema-2 APK, check readable NVIDIA Parakeet TDT 0.6B v3 / CC-BY-4.0
+attribution in the model panel. During interrupted extraction/corruption trials
+require all three groups before readiness, and protect any older active lease.
+
+If ADB is already available, collect only the content-free preparation record with
+`adb logcat -d -s AscentModelStorage:I '*:S'` (use `-s DEVICE` for multiple devices).
+Match its source/bundle/ABI to the installed APK. Separate Android package stats,
+logical model-directory bytes and sampled lower-bound peaks from the estimated
+extraction reserve; none is exact physical peak allocation or RAM. See
+[T3 boundaries](roles/TIMOFEY_T3_STATUS.md) and [T4 timing boundaries](roles/TIMOFEY_T4_STATUS.md).
+No ADB connection is required to follow the on-screen import/export rehearsal.
+
+Processing total includes queueing, model initialization, text, saving and cleanup;
+it excludes prior microphone capture and embedded extraction. Record cold/warm
+trial order, device/OS/ABI/RAM/free space, threads and thermal conditions separately.
+A completed job with failed/unavailable text processing does not establish local-LLM
+acceptance. The user will execute phone trials later; every device row above remains unrun.

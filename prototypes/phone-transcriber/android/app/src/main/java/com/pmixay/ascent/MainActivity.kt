@@ -73,6 +73,7 @@ class MainActivity : ComponentActivity() {
                     onWatchStop = { WatchCompanion.command(CompanionWire.STOP) },
                     onImport = { importAudio.launch(arrayOf("*/*")) },
                     onCancelProcessing = conversation::cancelProcessing,
+                    onRecognitionModeChange = conversation::setRecognitionMode,
                     onRecord = {
                         if (state.recording) conversation.stopRecording()
                         else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) conversation.startRecording()

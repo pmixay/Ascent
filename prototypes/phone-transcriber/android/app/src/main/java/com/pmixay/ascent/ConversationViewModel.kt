@@ -249,7 +249,9 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         if (uri == null) return
         val current = mutableState.value
         if (current.modelDirectory == null) {
-            mutableState.update { it.copy(status = "Модели ещё загружаются. Повторите импорт, когда они будут готовы.") }
+            mutableState.update { it.copy(status = if (it.modelOnlineUpdates)
+                "Модели ещё загружаются. Повторите импорт, когда они будут готовы."
+                else "Встроенные модели ещё не готовы. Дождитесь подготовки в разделе «Модели».") }
             return
         }
         if (!historyReady || current.busy || current.recording || recorder != null || WatchCompanion.state.value.enabled) return
