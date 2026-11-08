@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "status": "incomplete",
+  "status": "jury_report_materials_complete_organizer_submission_pending",
   "release_accepted": false,
-  "inspected_at_utc": "2026-11-07T23:05:00Z",
+  "inspected_at_utc": "2026-11-08T00:25:00Z",
   "repository": "https://github.com/pmixay/Ascent",
   "source_commit": "25ae8eeeef2f96e9784c886a8c96ed4bce11c32e",
   "source_url": "https://github.com/pmixay/Ascent/tree/25ae8eeeef2f96e9784c886a8c96ed4bce11c32e",
@@ -21,8 +21,22 @@
     "url": "https://github.com/pmixay/Ascent/actions/runs/42420616552",
     "conclusion": "success",
     "jobs": [
-      {"id": 128554620091, "name": "Build and validate Android app", "conclusion": "success", "executed_required_cases": 25, "runtime_abi": "x86_64", "android_api": 36},
-      {"id": 128554620245, "name": "Build and validate embedded offline baseline", "conclusion": "success", "executed_required_cases": 4, "runtime_abi": "x86_64", "android_api": 36}
+      {
+        "id": 128554620091,
+        "name": "Build and validate Android app",
+        "conclusion": "success",
+        "executed_required_cases": 25,
+        "runtime_abi": "x86_64",
+        "android_api": 36
+      },
+      {
+        "id": 128554620245,
+        "name": "Build and validate embedded offline baseline",
+        "conclusion": "success",
+        "executed_required_cases": 4,
+        "runtime_abi": "x86_64",
+        "android_api": 36
+      }
     ],
     "complete_evidence_collection": "success_actual_read_only_collector_attempt_2"
   },
@@ -39,7 +53,14 @@
     "certificate_sha256": "d6cd89c07d2e4babaa6b082b8107214da4e1e1ea0a62ea0a94f2a127b0765575",
     "identity_source": "ASCENT_APK_IDENTITY from attempt 2 job 128554620245; CI SDK signature/package verification",
     "durable_url": "https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing",
-    "publication_handoff": "User supplied Google Drive link; unauthenticated preview exposes ascent-offline-25ae8eee.apk; full remote download and hash verification pending"
+    "publication_handoff": "User published the verified local CI APK on Google Drive; the full file was independently re-downloaded on 2026-11-08 and its SHA-256/byte count match the local CI APK exactly",
+    "remote_verification": {
+      "checked_at_utc": "2026-11-08T00:10:00Z",
+      "method": "full unauthenticated HTTPS re-download from drive.usercontent.google.com, streamed SHA-256",
+      "bytes": 2167298546,
+      "sha256": "5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d",
+      "matches_local_apk": true
+    }
   },
   "offline_artifact_zip": {
     "id": 13594571558,
@@ -57,7 +78,12 @@
     "source_pin_sha256": "13bc4a70941a0349a9fcd5c12b7d7b3b071682cb18de44f98f1b47e6d09cd9f1",
     "acoustic_manifest_sha256": "f04b401ac91a240ce8e8dbee16ffaba6eea2f0fef0287feba79d8ecb69fe28d2",
     "expanded_payload_bytes": 2147012171,
-    "export_validation_producer": {"commit": "ad2ef222d4cc4a39a90bb4da6a6026d290225bad", "run_id": 42419555513, "run_attempt": 1, "inputs_sha256": "2b0323170f6f318a497efcfbea398d0a91cc40822c3bffce57331075186b9e99"},
+    "export_validation_producer": {
+      "commit": "ad2ef222d4cc4a39a90bb4da6a6026d290225bad",
+      "run_id": 42419555513,
+      "run_attempt": 1,
+      "inputs_sha256": "2b0323170f6f318a497efcfbea398d0a91cc40822c3bffce57331075186b9e99"
+    },
     "export_provenance_note": "Successful bounded export validation receipt from a subsequently cancelled run; not a claim that the producer's entire workflow succeeded",
     "asr_sha256": "9e423f2690bfaf3e0fbb81185a080bfff27c4ec5aacef5e615676fffbe2545ff",
     "speaker_sha256": "bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239",
@@ -90,13 +116,22 @@
     "scope": "Phone microphone prototype, one-speaker result and JSON button; compact-only language notice visible; does not demonstrate imported-file processing, successful local LLM or actual JSON export",
     "offline_candidate_demo_url": "https://github.com/pmixay/Ascent/blob/main/artifacts/demo/ascent-offline-arm64-25ae8eee.mp4",
     "offline_candidate_evidence": "artifacts/demo/arm64-evidence.json",
-    "offline_candidate_apk_sha256": "5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d"
+    "offline_candidate_apk_sha256": "5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d",
+    "offline_recorded_by": "assistant on authorized ARM64 Android 16 emulator; no local app build",
+    "offline_input_formats_verified": [
+      "wav_16k_mono",
+      "mp3_audio_mpeg",
+      "m4a_audio_mp4a_latm"
+    ]
   },
-  "organizer_submission": {"status": "not_sent", "receipt": null},
+  "organizer_submission": {
+    "status": "not_sent",
+    "receipt": null
+  },
   "remaining_gates": [
     "Broader ARM model/runtime approval beyond the observed Russian constructed-input demo; English/Parakeet and three-file behavior unverified",
+    "English/Parakeet ARM inference, natural-call/meeting quality and codecs beyond WAV/MP3/M4A unverified on device",
     "Owner-supplied stable signing and protected release configuration",
-    "Independent full download/hash verification of the user-published Google Drive APK",
     "Final acceptance decision, accessible submission links and organizer receipt"
   ]
 }

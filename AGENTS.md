@@ -18,6 +18,12 @@ The recording and limited evidence are in `artifacts/demo/arm64-evidence.json`.
 This supersedes earlier no-ARM/no-offline-demo statements only for that scenario,
 not physical phones, English/Parakeet, three-file QA, natural quality or signing.
 
+Follow-up observations on the same emulator/airplane-mode session: WAV, MP3 and
+M4A imports each completed offline with Qwen 6/6, zero fallback and a validated
+JSON export; the Google Drive APK was fully re-downloaded and its SHA-256 matches
+the local CI APK. Codec paths beyond these three, English input and physical
+phones remain untested.
+
 The user now requests execution of the remaining competition submission work,
 with the latest deadline **09:00 MSK**, prioritizing the literal jury requirements
 over optional development and expanded QA. The 7 November 20:00 schedule below

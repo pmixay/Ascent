@@ -64,14 +64,10 @@ The user supplied and authorized repository publication of this recording.
   multiple speakers, English, actual JSON save/content and three-file completion
   are not demonstrated. No broad device acceptance is inferred.
 
-**A real video of the identified offline pipeline remains pending.** The rest of
-this page supplies its short script and candidate identity; it is not evidence
-that those additional steps already passed.
-
-Latest user assignment: **Petya records the real video** and supplies its file/URL,
-actual APK hash and device information. The user uploads the verified local APK
-to Google Drive; its public link is pending. Do not substitute a candidate hash
-for the actual filmed build if Petya uses a different APK.
+**Superseded:** the real offline-pipeline video now exists at the top of this
+page, and the Google Drive APK link was published and fully re-downloaded with a
+matching SHA-256. The script and candidate identity below were used for that
+recording; the "pending" rows in the table are historical.
 
 Use the final approved identified APK. The current candidate still has open ARM,
 signing and release gates; filming a candidate does not close them automatically.
@@ -81,13 +77,13 @@ shortened wait or edited cut onscreen; do not imply uninterrupted real-time spee
 | Item | Verified release value |
 | --- | --- |
 | Available prototype video | [Repository MP4](ascent-prototype-2026-11-08.mp4); not the offline candidate; exact filmed APK unknown |
-| Offline candidate demonstration URL | pending |
-| APK URL | [Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing); remote full-file hash verification pending |
-| Planned candidate source / raw APK SHA-256 (not yet filmed) | `25ae8eee`, CI attempt **2** / `5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d` |
+| Offline candidate demonstration URL | **[ascent-offline-arm64-25ae8eee.mp4](ascent-offline-arm64-25ae8eee.mp4)** — recorded; see section at top of this page |
+| APK URL | [Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing); full re-download on 8 Nov 2026 matched SHA-256 `5fe9f857…0e4d` |
+| Filmed candidate source / raw APK SHA-256 | `25ae8eee`, CI attempt **2** / `5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d` |
 | Candidate embedded bundle SHA-256 | `8b2ff5619d632f78d5c3473615026d2b032de156c381f3b99f3d77d164d0c792` |
-| Device, Android version and ABI | pending |
+| Device, Android version and ABI | Ascent_ARM64_Demo emulator, Android 16 / API 36, arm64-v8a on M1 Pro |
 | Candidate CI | [42420616552](https://github.com/pmixay/Ascent/actions/runs/42420616552), both jobs passed; 25 compact/four embedded required cases confirmed from actual logs |
-| Recording date and source case IDs | pending |
+| Recording date and source case IDs | 8 November 2026; constructed input `8ece98cf…717f9` (four public clips, two readers) |
 
 ## Minimal actual recording (suggested 2–4 minutes excluding disclosed waits)
 

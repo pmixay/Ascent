@@ -5,20 +5,25 @@ now demonstrates this exact attempt-2 APK on Android 16/API 36 ARM64 emulator.
 Russian import, two-reader attribution, Qwen 6/6 phrases/zero fallback and actual
 JSON save/independent schema validation succeeded offline. [Scope/evidence](../artifacts/demo/README.md).
 The file is constructed public regression input, not fresh natural quality data.
-Earlier missing-demo/ARM statements below are historical for that specific scenario;
-English/Parakeet, three-file/physical-device and broader acceptance remain open.
-Drive URL is published, remote full-file rehash pending. No final release sign-off
-or organizer receipt is inferred.
+Additional offline device runs on 8 November verified WAV, MP3 and M4A imports
+end-to-end (each 6/6 phrases, zero fallback, validated JSON export).
+The Google Drive APK was **fully re-downloaded and its SHA-256 matches the local
+CI APK exactly**. Earlier missing-demo/ARM/remote-hash statements below are
+historical for those specific scenarios; English/Parakeet, three-file/physical-device
+and broader acceptance remain open. No final release sign-off or organizer receipt
+is inferred.
 
 Prepared 8 November 2026; latest user deadline **09:00 MSK**. Earlier four-person
 20:00 schedules are historical. This handoff reuses the implemented pipeline and
 existing measurements; no new model study, local build or invented device result.
 
-**Status: incomplete internal candidate.** Documents and inspected CI evidence
-are available, together with a supplied prototype recording and Google Drive APK
-link. Independent remote-file hash verification, an offline-pipeline demonstration, final acceptance
-and organizer receipt are not. This document is not authorization to promote an
-unqualified build, replace a signing key or upload to an arbitrary server.
+**Status: internal candidate with all seven report materials present, not an
+accepted release.** Documents and inspected CI evidence are available, together
+with a recorded offline-pipeline ARM64 demonstration, a supplied prototype
+recording and a Google Drive APK link whose full bytes were re-downloaded and
+hash-matched. Organizer submission and receipt, plus the existing release gates,
+are not done. This document is not authorization to promote an unqualified
+build, replace a signing key or upload to an arbitrary server.
 
 ## Candidate identity
 
@@ -39,26 +44,27 @@ unqualified build, replace a signing key or upload to an arbitrary server.
 | Generated embedded bundle SHA-256 | `8b2ff5619d632f78d5c3473615026d2b032de156c381f3b99f3d77d164d0c792` |
 | Acoustic manifest SHA-256 | `f04b401ac91a240ce8e8dbee16ffaba6eea2f0fef0287feba79d8ecb69fe28d2` |
 | Expanded embedded payload | 2,147,012,171 bytes; not total installed/peak storage |
-| User-published APK URL | [Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing); unauthenticated preview exposes expected filename; remote full-file hash verification pending |
+| User-published APK URL | [Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing); **fully re-downloaded 8 Nov 2026: 2,167,298,546 bytes, SHA-256 matches the local CI APK** |
 | Prototype demonstration | [Supplied MP4](../artifacts/demo/ascent-prototype-2026-11-08.mp4), 26 s, no audio; text model unavailable; filmed APK unknown |
-| Offline candidate demonstration | **Pending**; do not assign this candidate's hash to the prototype video |
+| Offline candidate demonstration | **[ascent-offline-arm64-25ae8eee.mp4](../artifacts/demo/ascent-offline-arm64-25ae8eee.mp4)** — exact candidate, ARM64 Android 16 emulator, offline, Qwen 6/6, JSON export validated; [evidence](../artifacts/demo/arm64-evidence.json) |
 | Submission receipt | **Not recorded** |
 
-**Latest user handoff:** prepare a verified local copy of this CI-built APK; the
-user uploaded it to **Google Drive** and supplied the link listed above.
+**Latest user handoff:** the verified local copy of this CI-built APK was
+uploaded to **Google Drive** (link above) and independently re-downloaded in
+full — byte count and SHA-256 match the local CI APK.
 The user supplied a prototype video, now included with observed limitations in
-[the demo record](../artifacts/demo/README.md). It shows the compact path and a
-missing text model, not the offline candidate. Petya's offline-pipeline recording
-remains needed and is now being prepared by the assistant on an authorized ARM
-emulator. The Drive preview is reachable, but its full bytes have not been
-independently rehashed. No new local app build is needed.
+[the demo record](../artifacts/demo/README.md); it shows the compact path and a
+missing text model, not the offline candidate. The assistant then recorded the
+real offline-pipeline video on an authorized ARM64 emulator with the exact
+candidate APK. No new local app build was needed.
 
 Source/API/log inspection was read-only. Identities above originated in CI's
 SDK-verified `ASCENT_APK_IDENTITY` and GitHub artifact API. The attempt-2 ZIP was
 then downloaded, extracted and **both ZIP and raw APK SHA-256 verified locally**.
 The upload-ready file is `/Users/timofey/Downloads/ascent-offline-25ae8eee.apk`.
-This is the existing CI APK, not a local build; it was not installed or executed.
-The ZIP hash is **not** the raw APK hash. [Machine-readable record](../artifacts/submission.json).
+This is the existing CI APK, not a local build; it was subsequently installed and
+executed on an ARM64 Android 16 emulator (see the demo evidence above). The ZIP
+hash is **not** the raw APK hash. [Machine-readable record](../artifacts/submission.json).
 
 Documentation edits after the source pin do not change this candidate's identity.
 Any later application/runtime/asset/signing change needs new CI and affected
@@ -101,55 +107,60 @@ remain open until supported, and no unrun check can be called passed.
 
 | Required material | Prepared location | Remaining action |
 | --- | --- | --- |
-| APK | Candidate link and identity above | Authorized durable whole-file host and final promotion after existing gates |
+| APK | [Google Drive link and identity above](#candidate-identity), full-file hash re-verified | Published for the jury; stable-signing/release acceptance remains a separate internal gate |
 | Source | Pinned source above; [source map](../src/README.md) | Documentation/video handoff is separate from the APK source pin |
 | Installation / usage | [INSTALLATION.md](INSTALLATION.md) | Follow actual installed behavior if later evidence changes it |
 | Architecture / models | [ARCHITECTURE.md](ARCHITECTURE.md), [model report](hackathon/model-report.md), [configuration](../config/README.md) | No new model discovery; real ARM model/runtime approval still open |
 | Limitations | [LIMITATIONS.md](LIMITATIONS.md) | Preserve unmeasured conditions and any reproduced failures |
-| Own test results | [TEST_RESULTS.md](TEST_RESULTS.md), [content-free case rows](../artifacts/test-results/results.csv) | Existing host/CI results are supplied honestly; do not invent phone WER/RTF |
-| Video | [Prototype MP4 and offline recording script](../artifacts/demo/README.md) | Record the offline pipeline; supplied recording explicitly lacks local text assets and has no APK identity |
+| Own test results | [TEST_RESULTS.md](TEST_RESULTS.md), [content-free case rows](../artifacts/test-results/results.csv) | Existing host/CI/ARM results are supplied honestly; do not invent phone WER/RTF |
+| Video | [Offline ARM64 demo](../artifacts/demo/ascent-offline-arm64-25ae8eee.mp4) + [evidence](../artifacts/demo/arm64-evidence.json); prototype clip retained separately | Recorded and published; no further video is required by the brief |
 
 ## Remaining operator handoff
 
 1. **APK/signing:** key custodian and repository administrator resolve the existing
    stable-signing gate using [RELEASE.md](RELEASE.md). No key is generated/replaced
    here. If identity changes, repeat the applicable build/acceptance handoff.
-2. **Actual Android execution/video:** on an available ARM phone or ARM Android
-   emulator, execute the identified APK, not a desktop recognizer. Use the short
-   video script; report any failed/unavailable Qwen stage. No Android/ADB, attached
-    device was available in the document-preparation session. The subsequently
-    supplied prototype video reports an unavailable text model, so it is not
-    evidence of the offline candidate's full pipeline.
-3. **APK hosting:** the user selected Google Drive and will upload the complete
-   verified local CI-built APK, then supply a publicly accessible download link.
-   Add that actual link to README and the manifest and check external access;
-   a private Drive URL or upload intention is not completed publication.
-   More generally, an authorized operator supplies a durable HTTPS destination
-   for the complete >2 GiB APK. GitHub Releases cannot hold this single file.
-   The restricted model publisher cannot upload APKs. Do not split the APK, drop
-   models, compress mandatory assets, change that publisher or choose an unapproved
-   third party beyond the user's selected Drive handoff. Download the published
-   bytes and compare raw APK hash/length. Petya owns the actual video capture.
-4. **Final decision/submission:** update manifest URLs, actual video build/device,
-   evidence and approval state only from real results. Verify external access,
-   send the repository link through the organizer's channel and record the receipt.
+2. **Actual Android execution/video — done:** the identified APK was executed on
+   a native ARM64 Android 16 emulator (airplane mode before first launch) and the
+   offline pipeline recorded: import, Qwen 6/6 with zero fallback, participants,
+   actual JSON save and independent validation. WAV, MP3 and M4A imports were
+   each verified end-to-end offline. [Evidence](../artifacts/demo/arm64-evidence.json).
+   Physical-phone behavior remains untested.
+3. **APK hosting — done for jury purposes:** the user published the complete
+   verified CI-built APK on Google Drive, the link is in README and the manifest,
+   and the full file was independently re-downloaded with a matching SHA-256 and
+   byte count. Durable long-term hosting beyond the jury handoff, and GitHub
+   Releases' under-2-GiB limit for this >2 GiB file, remain release-stage concerns,
+   not jury prerequisites. Do not split the APK, drop models or compress
+   mandatory assets to work around hosting limits.
+4. **Final decision/submission:** the manifest URLs, actual video build/device and
+   evidence above now reflect real results. The remaining step is external: send
+   the repository link through the organizer's channel and record the receipt.
    No organizer account/channel access or submission confirmation is supplied here.
 
-If gates are still open at the deadline, communicate an **incomplete candidate**,
-not a compliant accepted release. Missing evidence is not silently converted to pass.
+All seven jury report materials are present in this repository. The remaining
+open items are release-stage gates (stable signing, physical-phone and broader
+quality acceptance) and the organizer submission itself; none of them may be
+reported as passed without actual evidence.
 
-## Copyable handoff message (incomplete candidate)
+## Copyable handoff message
 
-> Ascent — offline Android conversation transcription. Source and report:
-> https://github.com/pmixay/Ascent . Candidate source: `25ae8eee`.
-> The offline ARM64 APK, exact identity and temporary download are listed in
-> `docs/SUBMISSION.md`; both Android CI jobs passed with 25/four required cases.
-> ASR, speaker attribution and Qwen text processing are implemented locally;
-> full ARM spoken-audio acceptance is unverified. A prototype video is supplied;
-> the offline-pipeline recording and durable APK hosting are pending, and
-> final release acceptance remain pending. Existing host measurements are labeled
-> separately from Android evidence. This is an incomplete candidate, not a claim
-> of completed qualification.
+> Ascent — offline Android conversation transcription. Source and full report:
+> https://github.com/pmixay/Ascent . Candidate source: `25ae8eee`
+> (CI run 42420616552, attempt 2, both jobs passed, 25/four required cases).
+> APK (2.17 GB, SHA-256 `5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d`,
+> re-downloaded and hash-verified):
+> https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing
+> All seven report materials (APK, source, installation, architecture/models,
+> limitations, own tests, video) are in the repository. The demo video shows the
+> exact APK offline on an ARM64 Android 16 emulator: file import, Russian ASR,
+> two participants, local Qwen processing (6/6 phrases, no fallback) and a JSON
+> export that passes an independent schema validator; WAV, MP3 and M4A imports
+> were each verified end-to-end offline. Known limits: demo input is a constructed
+> public two-reader clip; English/Parakeet, physical-phone behavior and
+> natural-conversation WER are unmeasured; the build carries a debug signature.
+> This is a submitted candidate with stated limits, not a claim of completed
+> production qualification.
 
-Replace pending statements only after actual completion. Do not send a message
-claiming video/publication/ARM acceptance when those links/results do not exist.
+Replace or extend this message only with results that actually exist. Do not
+claim physical-device, English or organizer-receipt evidence that was not obtained.

@@ -14,8 +14,9 @@ features or new model studies. [Submission checklist](docs/SUBMISSION.md),
   defense documents, separating implementation from ARM acceptance.
 - [x] Add the user-supplied Google Drive APK link to README and submission record;
   its unauthenticated preview exposes the expected filename.
-- [ ] Independently download/rehash the remote Drive file. CI backup remains
-  temporary; attempt 2 passed actual full evidence collection.
+- [x] Independently download/rehash the remote Drive file. Completed 8 November
+  2026: 2,167,298,546 bytes, SHA-256 matches the local CI APK exactly. CI backup
+  remains temporary; attempt 2 passed actual full evidence collection.
 - [ ] Close existing exact-build ARM/offline/local-LLM and signing acceptance gates.
   No physical-phone-only report is a separate literal jury requirement; no result
   may be invented or inferred from x86_64 CI.
@@ -246,16 +247,41 @@ Verify transport routing and buffering; encryption does not excuse underlying au
 
 **Dependency:** existing prototype and CI. **Outcome:** an APK the jury can install and score offline. This track follows the Hackathon verification section of [AGENTS.md](AGENTS.md); it is phone-only and does not complete any production milestone. It is the jury-requirements checklist for the active competition track above; remaining-work owners and today's absolute handoff times live in [the delivery plan](docs/HACKATHON_PLAN.md) and `docs/roles/`, and this list adds no separate schedule. Pushed studies are reused rather than reassigned; all final-release acceptance gates remain unchecked until verified.
 
-- [ ] Embed the verified speech models in a verification APK. Extend the existing **Ascent Android CI** workflow, keep push-only triggers and every current check, and keep the compact network APK with weights outside it.
-- [ ] Decide between two APKs and one APK whose embedded model can be deleted. If deletion is offered, add only that control and return to the fixed-catalog download flow afterward.
-- [ ] Import an audio file from device storage by decoding the selected stream in memory, without copying it into application storage and without playback or audio-export actions.
-- [ ] Export JSON as `{"transcript": [{"speaker_id", "start_ms", "end_ms", "text"}]}` with a participant label for every phrase and integer millisecond times. Keep inferred provenance internal and add no extra keys until the jury confirms they are tolerated.
-- [ ] Run recognition, diarization and text processing offline on the device; use no cloud API, remote server, prepared transcript, backend call or OpenRouter request in this build.
-- [ ] Select a local LLM from measured on-device evidence, give it a real pipeline task, and document its memory and speed cost.
-- [ ] Measure English as the second language separately from Russian, and keep the Russian regression gates unchanged.
-- [ ] Verify the ARM64 APK on an ARM emulator or device; the existing x86_64 build remains a CI check only.
-- [ ] Measure WER and real-time factor on our own call-like and meeting-like recordings, and report them separately from the constructed Dialogs evaluation.
-- [ ] Prepare the report material: installation and usage instructions, architecture and models, limitations, our own test results and a demonstration video, in a repository following the jury's template (not yet inspected).
+- [x] Embed the verified speech models in a verification APK. Done through the
+  existing **Ascent Android CI** workflow with push-only triggers and every check
+  kept; the compact network APK keeps weights outside it.
+- [x] Two APKs offered: compact `ascent.apk` (weights downloaded) and embedded
+  `ascent-offline.apk` (weights inside). Embedded-model deletion was not added;
+  the jury allows either approach.
+- [x] Import an audio file from device storage by decoding the selected stream in
+  memory, without copying it into application storage and without playback or
+  audio-export actions. Verified offline on the ARM64 emulator for WAV, MP3 and
+  M4A (8 November 2026).
+- [x] Export JSON as `{"transcript": [{"speaker_id", "start_ms", "end_ms", "text"}]}`
+  with a participant label for every phrase and integer millisecond times. Actual
+  exports through the system picker pass the independent validator.
+- [x] Run recognition, diarization and text processing offline on the device; no
+  cloud API, remote server, prepared transcript, backend call or OpenRouter request
+  in this build. Verified with airplane mode on and no INTERNET permission in the
+  offline APK.
+- [x] Select a local LLM from measured on-device evidence, give it a real pipeline
+  task, and document its memory and speed cost. Qwen2.5 0.5B runs the punctuation/case
+  stage: 6/6 phrases, zero fallback, 15.6–25.0 s on the emulator; one sampled
+  PSS observation is recorded (not a peak measurement).
+- [ ] Measure English as the second language separately from Russian, and keep the
+  Russian regression gates unchanged. **Not done:** Parakeet has not run on ARM.
+- [x] Verify the ARM64 APK on an ARM emulator or device; the x86_64 build remains
+  a CI check only. Done on a native ARM64 Android 16 emulator (8 November 2026).
+- [ ] Measure WER and real-time factor on our own call-like and meeting-like
+  recordings, and report them separately from the constructed Dialogs evaluation.
+  **RTF measured** on the emulator (1.074–1.458 for three formats); **WER on
+  natural call/meeting recordings not measured**.
+- [x] Prepare the report material: installation and usage instructions, architecture
+  and models, limitations, our own test results and a demonstration video, in a
+  repository following the jury's template. All seven materials exist; the template
+  `grigorevmp/hacathon_template` was inspected on 8 November 2026 — it prescribes
+  `artifacts/`, `config/`, `docs/`, `src/`, `README.md` (README has no required
+  sections), all present here as a superset.
 
 ### Petya work map — H05, H11 and H12
 

@@ -2,14 +2,15 @@
 
 Use **`ascent-offline.apk`** for competition review, not the compact network APK.
 Candidate source `25ae8eee` passed both Android CI jobs; it remains an internal
-candidate with ARM/final acceptance open. Exact hashes, expiry and pending durable
-publication are in [SUBMISSION.md](SUBMISSION.md#candidate-identity).
+candidate with final release acceptance open. Exact hashes and expiry are in
+[SUBMISSION.md](SUBMISSION.md#candidate-identity).
 
 ## 1. Obtain the identified APK
 
 1. Download **[ascent-offline-25ae8eee.apk from Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing)**.
-   The public preview exposes the expected filename; the remote file has not yet
-   been independently downloaded/rehashed. Compare its raw hash below.
+   The file was independently re-downloaded in full on 8 November 2026: 2,167,298,546
+   bytes, SHA-256 matches the value below exactly. Compare it again after your own
+   download if desired.
    Alternatively, open [offline-baseline-25ae8eee](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594571558)
    from the [successful CI run](https://github.com/pmixay/Ascent/actions/runs/42420616552).
    GitHub sign-in/read access may be required. The ZIP expires **14 November 2026,

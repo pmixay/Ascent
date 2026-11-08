@@ -45,6 +45,56 @@
     "duration_seconds": 235.135575,
     "editing": "Two sequential screen recordings concatenated with disclosed recording gap at about 02:58; no speed changes; added factual title bars; no audio track"
   },
-  "not_established": ["physical phone acceptance", "English or Parakeet speech inference", "three independent files", "natural-conversation quality", "WER/DER or boundary accuracy", "full lifecycle matrix", "owner-key signing", "full remote Drive download/hash", "organizer receipt"],
-  "release_accepted": false
+  "not_established": [
+    "physical phone acceptance",
+    "English or Parakeet speech inference",
+    "three independent files",
+    "natural-conversation quality",
+    "WER/DER or boundary accuracy",
+    "full lifecycle matrix",
+    "owner-key signing",
+    "organizer receipt",
+    "codecs beyond WAV/MP3/M4A"
+  ],
+  "release_accepted": false,
+  "format_runs": [
+    {
+      "input": "wav_16k_mono",
+      "duration_ms": 35670,
+      "qwen_phrases": 6,
+      "qwen_fallbacks": 0,
+      "text_seconds": 20.8,
+      "total_ms": 46965,
+      "rtf": 1.317,
+      "export_validator": "PASS"
+    },
+    {
+      "input": "mp3_audio_mpeg_16k_mono",
+      "duration_ms": 35748,
+      "qwen_phrases": 6,
+      "qwen_fallbacks": 0,
+      "text_seconds": 25.0,
+      "total_ms": 52128,
+      "rtf": 1.458,
+      "export_validator": "PASS"
+    },
+    {
+      "input": "m4a_audio_mp4a_latm_16k_mono",
+      "duration_ms": 35670,
+      "qwen_phrases": 6,
+      "qwen_fallbacks": 0,
+      "text_seconds": 15.6,
+      "total_ms": 38294,
+      "rtf": 1.074,
+      "export_validator": "PASS"
+    }
+  ],
+  "offline_reconfirmed_after_runs": "airplane_mode_on=1 observed after all three runs",
+  "drive_apk_verification": {
+    "checked_at_utc": "2026-11-08T00:10:00Z",
+    "method": "full unauthenticated HTTPS re-download, streamed SHA-256",
+    "bytes": 2167298546,
+    "sha256": "5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d",
+    "matches_local_apk": true
+  }
 }

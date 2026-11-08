@@ -20,12 +20,34 @@ DER, English/Parakeet inference, three-file, physical phone or broad lifecycle
 acceptance follows. Earlier "no ARM execution/video" rows below are historical
 and superseded only for this observed Russian offline scenario.
 
+### Additional offline format runs and APK publication check — 8 November 2026
+
+Same emulator, same APK, airplane mode still enabled (`airplane_mode_on=1`
+observed after the runs):
+
+| Input | Observed | Export |
+| --- | --- | --- |
+| 16 kHz mono WAV, 35.670 s | Qwen 6/6 phrases, 0 fallback, text 20.8 s; total 46.965 s; RTF 1.317 | 6 turns, independent validator PASS |
+| MP3 `audio/mpeg`, 16 kHz mono, 35.748 s (decoded in memory, no app copy) | Qwen 6/6 phrases, 0 fallback, text 25.0 s; total 52.128 s; RTF 1.458 | 6 turns, independent validator PASS |
+| M4A `audio/mp4a-latm`, 16 kHz mono, 35.670 s (decoded in memory) | Qwen 6/6 phrases, 0 fallback, text 15.6 s; total 38.294 s; RTF 1.074 | 6 turns, independent validator PASS |
+
+Codec paths not exercised on device (OGG/FLAC/other sample rates, >36 min
+inputs) remain code-review-only. RTF above 1 is the observed emulator speed,
+not a pass threshold — the brief sets none.
+
+**APK publication verified:** the Google Drive file was fully re-downloaded
+(2,167,298,546 bytes) and its streamed SHA-256 equals
+`5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d`,
+identical to the local CI APK. The jury-facing download is intact.
+
 ## Current submission summary — source 25ae8eee
 
 Inspected 8 November 2026 (MSK): actual GitHub API metadata and authenticated job
 logs, without local builds, application tests or corpus inference. Subsequently,
 the attempt-2 artifact was downloaded and both ZIP/raw APK hashes verified locally;
-the file is ready in `~/Downloads/ascent-offline-25ae8eee.apk`, not installed/run.
+the file in `~/Downloads/ascent-offline-25ae8eee.apk` was subsequently installed
+and executed on an ARM64 emulator (evidence above), and its Google Drive copy was
+fully re-downloaded with a matching hash.
 The current application source is
 [`25ae8eeeef2f96e9784c886a8c96ed4bce11c32e`](https://github.com/pmixay/Ascent/tree/25ae8eeeef2f96e9784c886a8c96ed4bce11c32e),
 not the older branch identities in the historical ledger below.

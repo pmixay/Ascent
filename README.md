@@ -17,7 +17,9 @@ Documentation changes after this source pin do not identify a different tested A
 
 | Material | Location / status |
 | --- | --- |
-| Offline ARM64 APK with all models | **[Download APK — Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing)** (`ascent-offline-25ae8eee.apk`, 2.17 GB). User-published file; public preview exposes the expected filename. Remote full-file hash verification remains pending. [Temporary CI ZIP backup](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594571558). |
+| Offline ARM64 APK with all models | **[Download APK — Google Drive](https://drive.google.com/file/d/1lC7Li-dU0CfahqT3Pn8S-8aXor2poaVA/view?usp=sharing)** (`ascent-offline-25ae8eee.apk`, 2.17 GB). **Independently re-downloaded in full
+on 8 November 2026: 2,167,298,546 bytes, SHA-256 `5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d`,
+an exact match to the local CI APK.** [Temporary CI ZIP backup](https://github.com/pmixay/Ascent/actions/runs/42420616552/artifacts/13594571558). |
 | Exact APK identity | [Submission record](docs/SUBMISSION.md#candidate-identity) and [machine-readable manifest](artifacts/submission.json) |
 | Installation and use | [Offline quick start](docs/INSTALLATION.md) |
 | Source | [Pinned Android source](https://github.com/pmixay/Ascent/tree/25ae8eeeef2f96e9784c886a8c96ed4bce11c32e/prototypes/phone-transcriber/android), [source map](src/README.md) |
@@ -51,6 +53,11 @@ JSON preserves raw recognized words; the UI/TXT may show Qwen punctuation and
 capitals. Silent results export `{"transcript":[]}`. Read [format and duration
 limits](docs/LIMITATIONS.md) before choosing input.
 
+**Import formats verified end-to-end offline on the ARM64 emulator (8 November
+2026):** 16 kHz mono WAV, MP3 (`audio/mpeg`) and M4A (`audio/mp4a-latm`), each
+6/6 phrases with zero Qwen fallback and a JSON export passing the independent
+validator. Other codecs remain covered only by code review, not device runs.
+
 ### What runs locally
 
 - **GigaAM Multilingual CTC 220M** for Russian/CIS speech (MIT).
@@ -67,12 +74,14 @@ guarantee. Text history is encrypted locally. The Wear OS preview and future
 OpenRouter/Rewind/product features below are **not competition prerequisites**.
 
 The latest user deadline is **09:00 MSK**; the earlier 7 November 20:00 schedule is
-historical. Remaining delivery is APK access, offline-pipeline video, final evidence/limitations
-and submission. Existing CI/privacy/signing/ARM acceptance gates are not waived.
+historical. APK publication (Drive, hash re-verified), the offline ARM video and
+the report materials are now in place; the remaining external action is sending
+the repository link to the organizers and recording the receipt. Existing
+CI/privacy/signing acceptance gates are not waived.
 See [the submission checklist](docs/SUBMISSION.md) for evidence and external blockers.
 The user supplied the Google Drive APK link above. Its public preview opens without
-credentials and exposes the expected filename; full-file download/hash verification
-of that remote copy remains pending. The local source APK was SHA-256 verified.
+credentials, and a full independent re-download matched the local CI APK's SHA-256
+byte for byte. The remote copy is verified.
 
 <details>
 <summary>Historical competition implementation and CI notes (superseded by the handoff above)</summary>
