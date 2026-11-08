@@ -21,7 +21,10 @@ features or new model studies. [Submission checklist](docs/SUBMISSION.md),
   may be invented or inferred from x86_64 CI.
 - [x] Include the user-supplied prototype recording with honest scope: missing
   text-model assets, unknown filmed APK, not the offline candidate's acceptance.
-- [ ] Record and publish the identified offline-pipeline demonstration.
+- [x] Record the identified offline APK on native ARM64 Android 16 emulator:
+  Russian constructed two-reader input, Qwen 6/6 zero fallback, actual JSON save
+  and independent schema validation. See `artifacts/demo/arm64-evidence.json`;
+  broader device/English/three-file/quality acceptance is not inferred.
 - [ ] Verify all submission links, send the repository link and record the receipt.
 
 Wear OS, Rewind, remote AI, new benchmarks and model/quality research remain outside

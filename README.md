@@ -9,7 +9,10 @@ speaker labels, phrase timestamps and JSON export. The interface is in Russian.
 [`25ae8eee`](https://github.com/pmixay/Ascent/tree/25ae8eeeef2f96e9784c886a8c96ed4bce11c32e)
 passed both jobs in [Android CI #156](https://github.com/pmixay/Ascent/actions/runs/42420616552).
 Actual logs confirm **25 compact and four embedded required cases without skips**.
-Runtime checks use x86_64 Android; full spoken-audio ARM execution remains unverified.
+CI runtime checks use x86_64 Android. A subsequent **real ARM64 Android 16 emulator
+demo** completed offline Russian import, two-reader attribution, Qwen (6/6 phrases,
+zero fallbacks) and actual JSON export. This is one constructed demonstration,
+not full device/quality acceptance. [Observed evidence](artifacts/demo/arm64-evidence.json).
 Documentation changes after this source pin do not identify a different tested APK.
 
 | Material | Location / status |
@@ -21,7 +24,7 @@ Documentation changes after this source pin do not identify a different tested A
 | Architecture and models | [Architecture](docs/ARCHITECTURE.md), [models, licences and measured results](docs/hackathon/model-report.md) |
 | Limitations | [Known limits](docs/LIMITATIONS.md) |
 | Our tests | [Current CI and existing measured results](docs/TEST_RESULTS.md) |
-| Demonstration video | [Prototype screen recording](artifacts/demo/ascent-prototype-2026-11-08.mp4) (26 s, silent). It shows microphone transcription but reports **text model unavailable**; it does not demonstrate the offline competition APK. [Scope and remaining video](artifacts/demo/README.md). |
+| Demonstration video | **[Offline ARM64 demo — import, Qwen, speakers and JSON save](artifacts/demo/ascent-offline-arm64-25ae8eee.mp4)** (3:55, silent; two recordings with a disclosed gap, no speed changes). [Evidence and scope](artifacts/demo/README.md). Earlier compact prototype clip is retained separately. |
 | Final submission | **Not sent / no receipt recorded.** [Remaining handoff](docs/SUBMISSION.md) |
 
 ### Use the offline candidate

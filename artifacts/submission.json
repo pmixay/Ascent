@@ -11,7 +11,8 @@
     "path": "/Users/timofey/Downloads/ascent-offline-25ae8eee.apk",
     "status": "downloaded_extracted_and_sha256_verified",
     "built_locally": false,
-    "installed_or_executed": false
+    "installed_or_executed": true,
+    "execution_evidence": "artifacts/demo/arm64-evidence.json"
   },
   "ci": {
     "run_id": 42420616552,
@@ -75,7 +76,7 @@
     "identity_source": "ASCENT_APK_IDENTITY from attempt 2 job 128554620091; actual collector verified artifact availability"
   },
   "demo": {
-    "status": "prototype_video_supplied_offline_pipeline_demo_pending",
+    "status": "offline_Russian_ARM64_demo_recorded_prototype_retained",
     "owner": "Petya",
     "url": "https://github.com/pmixay/Ascent/blob/main/artifacts/demo/ascent-prototype-2026-11-08.mp4",
     "file": "artifacts/demo/ascent-prototype-2026-11-08.mp4",
@@ -87,14 +88,15 @@
     "device": null,
     "observed_text_stage": "unavailable_text_model_not_installed",
     "scope": "Phone microphone prototype, one-speaker result and JSON button; compact-only language notice visible; does not demonstrate imported-file processing, successful local LLM or actual JSON export",
-    "offline_candidate_demo_url": null
+    "offline_candidate_demo_url": "https://github.com/pmixay/Ascent/blob/main/artifacts/demo/ascent-offline-arm64-25ae8eee.mp4",
+    "offline_candidate_evidence": "artifacts/demo/arm64-evidence.json",
+    "offline_candidate_apk_sha256": "5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d"
   },
   "organizer_submission": {"status": "not_sent", "receipt": null},
   "remaining_gates": [
-    "Exact-build offline ARM spoken-audio/local-LLM acceptance and actual model/runtime approval",
+    "Broader ARM model/runtime approval beyond the observed Russian constructed-input demo; English/Parakeet and three-file behavior unverified",
     "Owner-supplied stable signing and protected release configuration",
     "Independent full download/hash verification of the user-published Google Drive APK",
-    "Real demonstration video of the identified APK",
     "Final acceptance decision, accessible submission links and organizer receipt"
   ]
 }

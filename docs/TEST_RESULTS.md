@@ -1,5 +1,25 @@
 # Competition test protocol and results
 
+## New real ARM64 demo evidence — 8 November 2026
+
+After the source/CI handoff below, the user explicitly authorized local emulator
+setup and a real UI demonstration, not app compilation or automated test tasks.
+The existing attempt-2 APK ran on native ARM64 Android 16/API 36 on M1 Pro,
+six GiB guest RAM/four cores, airplane mode before first launch. Exact source,
+APK/bundle identities match `25ae8eee` above. **Observed:** fresh extraction 10.320 s;
+35.670 s constructed public two-reader input; two participants displayed;
+Qwen 6/6 phrases with zero fallback, displayed text time 20.8 s; total 46.965 s,
+RTF 1.317. Actual six-turn JSON saved through the system picker passed independent
+schema/order/time-bound validation; source hash unchanged. One PSS/RSS sample
+during formatting was 1,433,580/1,571,080 KiB, not peak memory.
+
+[Real video and recording boundaries](../artifacts/demo/README.md),
+[content-free evidence](../artifacts/demo/arm64-evidence.json). This is a known
+constructed regression-source demo, not fresh natural quality validation. No WER,
+DER, English/Parakeet inference, three-file, physical phone or broad lifecycle
+acceptance follows. Earlier "no ARM execution/video" rows below are historical
+and superseded only for this observed Russian offline scenario.
+
 ## Current submission summary — source 25ae8eee
 
 Inspected 8 November 2026 (MSK): actual GitHub API metadata and authenticated job

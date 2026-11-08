@@ -1,5 +1,47 @@
 # Demonstration video plan and release record
 
+## Real offline ARM64 demonstration — 8 November 2026
+
+**[Watch/download the offline demo](ascent-offline-arm64-25ae8eee.mp4)**
+([raw MP4](https://raw.githubusercontent.com/pmixay/Ascent/main/artifacts/demo/ascent-offline-arm64-25ae8eee.mp4)).
+
+The exact CI-built attempt-2 APK was installed on the newly created
+`Ascent_ARM64_Demo` emulator, Android 16/API 36, native ARM64 on M1 Pro with
+Hypervisor.Framework, 6 GiB guest RAM and four cores. APK SHA-256:
+`5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d`.
+Version/package/ABI were checked through Android; the preparation log identifies
+the exact source/bundle and ARM64 runtime. No local app build or automated Android
+test task was run. Runtime/management tools were installed by explicit user request.
+
+Observed with airplane mode enabled and Wi-Fi/data disabled before first launch:
+- Fresh local model extraction: **10,320 ms**, all 2,147,012,171 payload bytes.
+- Real system-picker WAV import without requesting microphone permission.
+- Russian ASR and two displayed participants, followed by successful Qwen:
+  **6/6 phrases, zero fallback, 20.8 s displayed text time**.
+- Full displayed processing **46.965 s** for **35.670 s** audio, **RTF 1.317**.
+- Actual JSON save through the system picker; pulled export has six turns and
+  independently passes schema, order and time bounds for 35,670 ms. The video
+  shows saving, not a JSON content viewer. Export remains private evaluation output,
+  not a published transcript artifact. Source hash was unchanged afterward.
+
+Input is four known public regression clips from two LibriVox readers, with
+inserted 500 ms pauses: **a constructed demonstration, not a natural dialogue or
+untouched quality benchmark**. Credits: Russian LibriSpeech/OpenSLR96, LibriVox,
+Foreign Girl, albus865 and the istupakov mirror. Audio is identified as public
+domain in the USA; mirror metadata CC-BY-4.0. Exact construction/source identifiers
+and content-free evidence: [arm64-evidence.json](arm64-evidence.json).
+
+The 235.135575-second silent video joins two sequential screen recordings with a
+gap at about 02:58, explicitly labeled onscreen. No speed changes; factual title
+bars added. SHA-256 `90222b101432248abdd76710de872a06d98272d83123215e980773108388e794`,
+2,875,853 bytes. This closes the missing exact-APK Russian/local-LLM demo, **not**
+English/Parakeet inference, three-file QA, physical phone quality, natural WER/DER,
+all lifecycle cases, stable signing or final release approval.
+
+The older prototype and proposed extended recording script below are historical
+where they say no offline video or ARM execution exists. Their unperformed extra
+cases remain open. The supplied prototype is not relabeled as this offline run.
+
 ## Supplied prototype recording
 
 [Watch/download the supplied MP4](ascent-prototype-2026-11-08.mp4)

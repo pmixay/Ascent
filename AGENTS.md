@@ -11,6 +11,13 @@ through its real UI and distinguish an ARM-emulator demo from a physical phone,
 constructed public demonstration input from natural/held-out dialogue, and
 observed completion from untested release gates. Never fabricate model execution.
 
+Observed subsequent result: exact attempt-2 `25ae8eee` APK completed one Russian
+constructed public two-reader input offline on native ARM64 Android 16 emulator:
+Qwen 6/6 phrases, no fallback, actual JSON save/independent schema validation.
+The recording and limited evidence are in `artifacts/demo/arm64-evidence.json`.
+This supersedes earlier no-ARM/no-offline-demo statements only for that scenario,
+not physical phones, English/Parakeet, three-file QA, natural quality or signing.
+
 The user now requests execution of the remaining competition submission work,
 with the latest deadline **09:00 MSK**, prioritizing the literal jury requirements
 over optional development and expanded QA. The 7 November 20:00 schedule below

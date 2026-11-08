@@ -1,5 +1,12 @@
 # Known limits and release verification gaps
 
+Latest evidence: the exact candidate completed one Russian constructed public
+two-reader import offline on ARM64 Android 16 emulator, including Qwen 6/6 with
+zero fallback and actual validated JSON save. [Video and scoped evidence](../artifacts/demo/README.md).
+Earlier unmeasured-ARM/offline-demo statements below are superseded for this one
+scenario only. It does not establish physical-phone, English/Parakeet, three-file,
+natural quality, long-run, lifecycle or final signing/release acceptance.
+
 These are source-inspected prototype limits and unmeasured competition risks. Device behavior may differ. Update this page from exact build and device evidence before submission.
 
 Current documented source: `25ae8eee`. [Submission identity](SUBMISSION.md) records

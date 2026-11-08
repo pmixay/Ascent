@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "source_commit": "25ae8eeeef2f96e9784c886a8c96ed4bce11c32e",
+  "ci_run": 42420616552,
+  "ci_attempt": 2,
+  "apk_sha256": "5fe9f857db4bbce6bb20ee36d2edb525a764e5cc38a0b34499bc5005846a0e4d",
+  "bundle_sha256": "8b2ff5619d632f78d5c3473615026d2b032de156c381f3b99f3d77d164d0c792",
+  "device": "Ascent_ARM64_Demo; Google APIs ARM64 Android 16 API 36 emulator on M1 Pro; not a physical phone",
+  "emulator_ram_mib": 6144,
+  "emulator_cpu_cores": 4,
+  "abi": "arm64-v8a",
+  "offline": "Airplane mode enabled and Wi-Fi/mobile data disabled before first app launch; airplane_mode_on=1 observed after processing",
+  "input": {
+    "sha256": "8ece98cf8665eaf7fafcb86910dcf856e809a75cf63bcbfd4a47343f8e7117f9",
+    "duration_ms": 35670,
+    "format": "mono PCM16 WAV 16000 Hz",
+    "construction": "Four known public regression clips in order ruls-2671-2, ruls-3056-500, ruls-2671-3, ruls-3056-503 with 500 ms inserted gaps; two readers; NOT natural dialogue or fresh quality validation",
+    "source_manifest": "prototypes/phone-transcriber/tools/fixtures/speakers/manifest.json",
+    "credits": "Russian LibriSpeech/OpenSLR96, LibriVox readers Foreign Girl and albus865; istupakov mirror; audio public domain in USA, mirror metadata CC-BY-4.0",
+    "source_hash_unchanged_after_processing": true
+  },
+  "observations": {
+    "fresh_embedded_extraction_ms": 10320,
+    "expanded_payload_bytes": 2147012171,
+    "installed_apk_bytes": 2167298546,
+    "actual_mode": "RUSSIAN_CIS",
+    "text_stage": "COMPLETED",
+    "text_phrases": 6,
+    "text_fallbacks": 0,
+    "text_elapsed_seconds_displayed": 20.8,
+    "total_processing_ms_displayed": 46965,
+    "rtf_displayed": 1.317,
+    "participants_displayed": 2,
+    "export_turns": 6,
+    "export_schema_order_time_bounds": "PASS independent validate_transcript.py with duration_ms=35670",
+    "export_saved_through_system_picker": true,
+    "memory_sample_pss_kib": 1433580,
+    "memory_sample_rss_kib": 1571080,
+    "memory_scope": "One sampled dumpsys observation during formatting, not measured peak"
+  },
+  "video": {
+    "path": "artifacts/demo/ascent-offline-arm64-25ae8eee.mp4",
+    "bytes": 2875853,
+    "sha256": "90222b101432248abdd76710de872a06d98272d83123215e980773108388e794",
+    "duration_seconds": 235.135575,
+    "editing": "Two sequential screen recordings concatenated with disclosed recording gap at about 02:58; no speed changes; added factual title bars; no audio track"
+  },
+  "not_established": ["physical phone acceptance", "English or Parakeet speech inference", "three independent files", "natural-conversation quality", "WER/DER or boundary accuracy", "full lifecycle matrix", "owner-key signing", "full remote Drive download/hash", "organizer receipt"],
+  "release_accepted": false
+}

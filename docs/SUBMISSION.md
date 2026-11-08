@@ -1,5 +1,15 @@
 # Competition submission handoff
 
+**Latest demo update:** [real offline ARM64 video](../artifacts/demo/ascent-offline-arm64-25ae8eee.mp4)
+now demonstrates this exact attempt-2 APK on Android 16/API 36 ARM64 emulator.
+Russian import, two-reader attribution, Qwen 6/6 phrases/zero fallback and actual
+JSON save/independent schema validation succeeded offline. [Scope/evidence](../artifacts/demo/README.md).
+The file is constructed public regression input, not fresh natural quality data.
+Earlier missing-demo/ARM statements below are historical for that specific scenario;
+English/Parakeet, three-file/physical-device and broader acceptance remain open.
+Drive URL is published, remote full-file rehash pending. No final release sign-off
+or organizer receipt is inferred.
+
 Prepared 8 November 2026; latest user deadline **09:00 MSK**. Earlier four-person
 20:00 schedules are historical. This handoff reuses the implemented pipeline and
 existing measurements; no new model study, local build or invented device result.
